@@ -95,33 +95,37 @@ export default function InfluencersPage() {
           ? (onTimeCampaigns.length / campaignsWithDeadline.length) * 100
           : 100;
 
-        // スコア計算（改良版・詳細ページと同じロジック）
+        // 検討コメント数を計算
+        const totalConsiderationComments = campaigns.reduce((sum, c) => sum + (c.consideration_comment || 0), 0);
+        const avgConsiderationComments = totalCampaigns > 0 ? totalConsiderationComments / totalCampaigns : 0;
+
+        // スコア計算（ギフティング向け・詳細ページと同じロジック）
         let score = 0;
 
         if (totalCampaigns > 0) {
-          // 1. エンゲージメントスコア（重み: 35%）- 平均いいね数基準
+          // 1. 検討コメントスコア（重み: 40%）- 最重要指標
+          const considerationScore = Math.min(100, (avgConsiderationComments / 50) * 100);
+
+          // 2. エンゲージメントスコア（重み: 25%）- 平均いいね数基準
           const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
 
-          // 2. コスト効率スコア（重み: 30%）- いいね単価基準
+          // 3. コスト効率スコア（重み: 20%）- いいね単価基準
           const efficiencyScore = costPerLike > 0
             ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
             : 50;
 
-          // 3. 信頼性スコア（重み: 20%）- 合意率 + 納期遵守率
-          const reliabilityScore = (agreementRate * 0.6 + onTimeRate * 0.4);
-
-          // 4. 実績スコア（重み: 15%）- 案件数基準
-          const experienceScore = Math.min(100, (totalCampaigns / 10) * 100);
+          // 4. 信頼性スコア（重み: 15%）- 納期遵守率のみ
+          const reliabilityScore = onTimeRate;
 
           score = Math.round(
-            engagementScore * 0.35 +
-            efficiencyScore * 0.30 +
-            reliabilityScore * 0.20 +
-            experienceScore * 0.15
+            considerationScore * 0.40 +
+            engagementScore * 0.25 +
+            efficiencyScore * 0.20 +
+            reliabilityScore * 0.15
           );
         }
 
-        // ランク判定（詳細ページと同じ基準）
+        // ランク判定
         let rank = 'C';
         if (score >= 75) rank = 'S';
         else if (score >= 55) rank = 'A';

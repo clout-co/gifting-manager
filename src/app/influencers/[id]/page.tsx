@@ -114,31 +114,34 @@ export default function InfluencerDetailPage() {
         ? (onTimeCampaigns.length / campaignsWithDeadline.length) * 100
         : 100;
 
-      // スコア計算（改良版）
-      // 1. エンゲージメントスコア（重み: 35%）
+      // 検討コメント数を計算
+      const totalConsiderationComments = campaigns.reduce((sum, c) => sum + (c.consideration_comment || 0), 0);
+      const avgConsiderationComments = totalCampaigns > 0 ? totalConsiderationComments / totalCampaigns : 0;
+
+      // スコア計算（ギフティング向け改良版）
+      // 1. 検討コメントスコア（重み: 40%）- 最重要指標
+      //    - 平均検討コメント数を基準に評価（50コメントで満点）
+      const considerationScore = Math.min(100, (avgConsiderationComments / 50) * 100);
+
+      // 2. エンゲージメントスコア（重み: 25%）
       //    - 平均いいね数を基準に評価（1000いいねで満点）
       const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
 
-      // 2. コスト効率スコア（重み: 30%）
+      // 3. コスト効率スコア（重み: 20%）
       //    - いいね単価が低いほど高評価（50円以下で満点、200円以上で0点）
       const efficiencyScore = costPerLike > 0
         ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
         : 50;
 
-      // 3. 信頼性スコア（重み: 20%）
-      //    - 合意率（60%）+ 納期遵守率（40%）
-      const reliabilityScore = (agreementRate * 0.6 + onTimeRate * 0.4);
-
-      // 4. 実績スコア（重み: 15%）
-      //    - 案件数が多いほど高評価（10件で満点）
-      const experienceScore = Math.min(100, (totalCampaigns / 10) * 100);
+      // 4. 信頼性スコア（重み: 15%）- 納期遵守率のみ
+      const reliabilityScore = onTimeRate;
 
       // 総合スコア
       const score = Math.round(
-        engagementScore * 0.35 +
-        efficiencyScore * 0.30 +
-        reliabilityScore * 0.20 +
-        experienceScore * 0.15
+        considerationScore * 0.40 +
+        engagementScore * 0.25 +
+        efficiencyScore * 0.20 +
+        reliabilityScore * 0.15
       );
 
       // ランク判定

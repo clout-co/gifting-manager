@@ -188,7 +188,7 @@ export default function DashboardPage() {
         total_comments: number;
         total_campaigns: number;
         total_amount: number;
-        agreed_campaigns: number;
+        total_consideration_comments: number;
       }>();
       campaigns.forEach((c) => {
         if (c.influencer) {
@@ -199,7 +199,7 @@ export default function DashboardPage() {
             total_comments: 0,
             total_campaigns: 0,
             total_amount: 0,
-            agreed_campaigns: 0,
+            total_consideration_comments: 0,
           };
           influencerMap.set(key, {
             insta_name: c.influencer.insta_name,
@@ -207,7 +207,7 @@ export default function DashboardPage() {
             total_comments: existing.total_comments + (c.comments || 0),
             total_campaigns: existing.total_campaigns + 1,
             total_amount: existing.total_amount + (c.agreed_amount || 0),
-            agreed_campaigns: existing.agreed_campaigns + (c.status === 'agree' ? 1 : 0),
+            total_consideration_comments: existing.total_consideration_comments + (c.consideration_comment || 0),
           });
         }
       });
@@ -249,23 +249,30 @@ export default function DashboardPage() {
           .map((inf) => {
             const costPerLike = inf.total_likes > 0 ? inf.total_amount / inf.total_likes : 0;
             const avgLikes = inf.total_campaigns > 0 ? inf.total_likes / inf.total_campaigns : 0;
-            const agreementRate = inf.total_campaigns > 0 ? (inf.agreed_campaigns / inf.total_campaigns) * 100 : 0;
+            const avgConsiderationComments = inf.total_campaigns > 0 ? inf.total_consideration_comments / inf.total_campaigns : 0;
 
-            // スコア計算（詳細ページと同じロジック）
+            // スコア計算（ギフティング向け・詳細ページと同じロジック）
             let score = 0;
             if (inf.total_campaigns > 0) {
+              // 1. 検討コメントスコア（重み: 40%）- 最重要指標
+              const considerationScore = Math.min(100, (avgConsiderationComments / 50) * 100);
+
+              // 2. エンゲージメントスコア（重み: 25%）
               const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
+
+              // 3. コスト効率スコア（重み: 20%）
               const efficiencyScore = costPerLike > 0
                 ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
                 : 50;
-              const reliabilityScore = agreementRate;
-              const experienceScore = Math.min(100, (inf.total_campaigns / 10) * 100);
+
+              // 4. 信頼性スコア（重み: 15%）- ダッシュボードでは簡易計算
+              const reliabilityScore = 80; // デフォルト値
 
               score = Math.round(
-                engagementScore * 0.35 +
-                efficiencyScore * 0.30 +
-                reliabilityScore * 0.20 +
-                experienceScore * 0.15
+                considerationScore * 0.40 +
+                engagementScore * 0.25 +
+                efficiencyScore * 0.20 +
+                reliabilityScore * 0.15
               );
             }
 
