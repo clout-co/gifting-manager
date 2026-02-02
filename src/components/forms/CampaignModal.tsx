@@ -224,7 +224,7 @@ export default function CampaignModal({
                   <option value="">選択してください</option>
                   {influencers.map((inf) => (
                     <option key={inf.id} value={inf.id}>
-                      @{inf.insta_name}
+                      @{inf.insta_name || inf.tiktok_name}
                     </option>
                   ))}
                 </select>

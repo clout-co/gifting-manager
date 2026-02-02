@@ -388,15 +388,20 @@ export default function ImportPage() {
     }
   };
 
+  // インポート進捗
+  const [importProgress, setImportProgress] = useState(0);
+
   const handleImport = async () => {
     if (allData.length === 0) return;
 
     setImporting(true);
+    setImportProgress(0);
     const errors: string[] = [];
     let success = 0;
     let failed = 0;
 
-    for (const row of allData) {
+    for (let i = 0; i < allData.length; i++) {
+      const row = allData[i];
       try {
         // インフルエンサーを検索または作成
         // Instagram名またはTikTok名で検索
@@ -469,8 +474,12 @@ export default function ImportPage() {
         success++;
       } catch (err: any) {
         failed++;
-        errors.push(`${row.insta_name}: ${err.message}`);
+        const displayName = row.insta_name || row.tiktok_name || '不明';
+        errors.push(`${displayName}: ${err.message}`);
       }
+
+      // プログレス更新
+      setImportProgress(Math.round(((i + 1) / allData.length) * 100));
     }
 
     setResult({ success, failed, errors });
@@ -771,8 +780,27 @@ export default function ImportPage() {
               </table>
             </div>
 
+            {/* インポートプログレス */}
+            {importing && (
+              <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl border border-primary-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-primary-700">インポート中...</span>
+                  <span className="text-sm font-bold text-primary-600">{importProgress}%</span>
+                </div>
+                <div className="w-full bg-primary-100 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-primary-500 to-purple-500 h-3 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${importProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-primary-600 mt-2">
+                  {Math.round((importProgress / 100) * allData.length)} / {allData.length} 件処理完了
+                </p>
+              </div>
+            )}
+
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={handleClear} className="btn-secondary">
+              <button onClick={handleClear} className="btn-secondary" disabled={importing}>
                 キャンセル
               </button>
               <button
@@ -781,11 +809,16 @@ export default function ImportPage() {
                 className="btn-primary flex items-center gap-2"
               >
                 {importing ? (
-                  <Loader2 className="animate-spin" size={20} />
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    処理中...
+                  </>
                 ) : (
-                  <Upload size={20} />
+                  <>
+                    <Upload size={20} />
+                    {allData.length}件をインポート
+                  </>
                 )}
-                {allData.length}件をインポート
               </button>
             </div>
           </div>

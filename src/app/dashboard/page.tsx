@@ -54,7 +54,7 @@ interface Stats {
   brandStats: { brand: string; count: number; amount: number; likes: number }[];
   monthlyStats: { month: string; campaigns: number; amount: number; likes: number }[];
   influencerRanking: {
-    insta_name: string;
+    display_name: string;
     total_likes: number;
     total_comments: number;
     total_campaigns: number;
@@ -183,7 +183,7 @@ export default function DashboardPage() {
       });
 
       const influencerMap = new Map<string, {
-        insta_name: string;
+        display_name: string;
         total_likes: number;
         total_comments: number;
         total_campaigns: number;
@@ -193,8 +193,9 @@ export default function DashboardPage() {
       campaigns.forEach((c) => {
         if (c.influencer) {
           const key = c.influencer.id;
+          const displayName = c.influencer.insta_name || c.influencer.tiktok_name || '不明';
           const existing = influencerMap.get(key) || {
-            insta_name: c.influencer.insta_name,
+            display_name: displayName,
             total_likes: 0,
             total_comments: 0,
             total_campaigns: 0,
@@ -202,7 +203,7 @@ export default function DashboardPage() {
             total_consideration_comments: 0,
           };
           influencerMap.set(key, {
-            insta_name: c.influencer.insta_name,
+            display_name: displayName,
             total_likes: existing.total_likes + (c.likes || 0),
             total_comments: existing.total_comments + (c.comments || 0),
             total_campaigns: existing.total_campaigns + 1,
@@ -514,7 +515,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {stats.influencerRanking.map((inf, index) => (
                 <div
-                  key={inf.insta_name}
+                  key={inf.display_name}
                   className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
                     index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200/50 shadow-sm' :
                     index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200/50' :
@@ -527,7 +528,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900 truncate">@{inf.insta_name}</p>
+                      <p className="font-medium text-gray-900 truncate">@{inf.display_name}</p>
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
                         inf.rank === 'S' ? 'bg-amber-100 text-amber-700' :
                         inf.rank === 'A' ? 'bg-purple-100 text-purple-700' :
