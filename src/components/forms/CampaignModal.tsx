@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer, CampaignFormData } from '@/types';
-import { X, Loader2, User, Calendar, MessageSquare, Plus } from 'lucide-react';
+import { X, Loader2, User, Calendar, MessageSquare, Plus, Tag } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import TagInput, { SUGGESTED_TAGS } from '@/components/ui/TagInput';
+import QuickTemplates, { QuickAmountButtons, QuickDateButtons } from '@/components/ui/QuickTemplates';
 
 interface CampaignModalProps {
   campaign: Campaign | null;
@@ -47,6 +49,23 @@ export default function CampaignModal({
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<{ text: string; user: string; date: string }[]>([]);
 
+  // タグの状態（notesからタグを抽出）
+  const extractTags = (notes: string | null): string[] => {
+    if (!notes) return [];
+    const tagMatch = notes.match(/\[TAGS:(.*?)\]/);
+    if (tagMatch) {
+      return tagMatch[1].split(',').map(t => t.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  const [tags, setTags] = useState<string[]>(extractTags(campaign?.notes || null));
+
+  // テンプレート適用
+  const handleTemplateSelect = (templateData: Partial<CampaignFormData>) => {
+    setFormData(prev => ({ ...prev, ...templateData }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -55,6 +74,15 @@ export default function CampaignModal({
     try {
       // 既存のnotesにコメントを追加
       let updatedNotes = formData.notes || '';
+
+      // 既存のTAGSを削除
+      updatedNotes = updatedNotes.replace(/\[TAGS:.*?\]\n?/g, '');
+
+      // タグを追加
+      if (tags.length > 0) {
+        updatedNotes = `[TAGS:${tags.join(',')}]\n${updatedNotes}`;
+      }
+
       if (newComment.trim()) {
         const commentEntry = `\n[${new Date().toLocaleString('ja-JP')}] ${user?.email?.split('@')[0] || 'ユーザー'}: ${newComment}`;
         updatedNotes = updatedNotes + commentEntry;
@@ -132,13 +160,18 @@ export default function CampaignModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b z-10">
-          <h2 className="text-xl font-bold">
-            {campaign ? '案件編集' : '新規案件'}
-          </h2>
+        <div className="sticky top-0 bg-white dark:bg-gray-900 flex items-center justify-between p-6 border-b dark:border-gray-800 z-10">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {campaign ? '案件編集' : '新規案件'}
+            </h2>
+            {!campaign && (
+              <QuickTemplates onSelect={handleTemplateSelect} />
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           >
             <X size={20} />
           </button>
@@ -312,7 +345,7 @@ export default function CampaignModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   合意額 (円)
                 </label>
                 <input
@@ -323,6 +356,10 @@ export default function CampaignModal({
                   }
                   className="input-field"
                   min={0}
+                />
+                <QuickAmountButtons
+                  value={formData.agreed_amount}
+                  onChange={(amount) => setFormData({ ...formData, agreed_amount: amount, offered_amount: amount })}
                 />
               </div>
 
@@ -522,7 +559,7 @@ export default function CampaignModal({
 
             {/* メモ欄 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 メモ
               </label>
               <textarea
@@ -535,6 +572,20 @@ export default function CampaignModal({
                 placeholder="備考など..."
               />
             </div>
+          </div>
+
+          {/* タグ */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-gray-900 dark:text-white border-b dark:border-gray-700 pb-2 flex items-center gap-2">
+              <Tag size={18} />
+              タグ
+            </h3>
+            <TagInput
+              tags={tags}
+              onChange={setTags}
+              suggestions={SUGGESTED_TAGS}
+              placeholder="タグを追加（高優先度、VIP、フォローアップなど）"
+            />
           </div>
 
           {error && (
