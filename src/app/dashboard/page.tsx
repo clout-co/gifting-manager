@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast, translateError } from '@/lib/toast';
+import LoadingSpinner, { StatCardSkeleton } from '@/components/ui/LoadingSpinner';
+import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import {
   Users,
   Gift,
@@ -71,8 +74,10 @@ const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
@@ -80,24 +85,26 @@ export default function DashboardPage() {
   const [items, setItems] = useState<string[]>([]);
 
   useEffect(() => {
-    if (user) {
-      fetchStats();
-    }
-  }, [user, selectedBrand, selectedItem, dateRange]);
-
-  useEffect(() => {
     const fetchFilters = async () => {
-      const { data } = await supabase.from('campaigns').select('brand, item_code');
-      if (data) {
-        setBrands(Array.from(new Set(data.map(c => c.brand).filter(Boolean))) as string[]);
-        setItems(Array.from(new Set(data.map(c => c.item_code).filter(Boolean))) as string[]);
+      try {
+        const { data, error } = await supabase.from('campaigns').select('brand, item_code');
+        if (error) throw error;
+        if (data) {
+          setBrands(Array.from(new Set(data.map(c => c.brand).filter(Boolean))) as string[]);
+          setItems(Array.from(new Set(data.map(c => c.item_code).filter(Boolean))) as string[]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch filters:', err);
       }
     };
     fetchFilters();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
+    setError(null);
+
+    try {
 
     let query = supabase
       .from('campaigns')
@@ -131,10 +138,16 @@ export default function DashboardPage() {
       query = query.gte('created_at', startDate.toISOString());
     }
 
-    const { data: campaigns } = await query;
-    const { data: influencers } = await supabase.from('influencers').select('*');
+    const campaignsRes = await query;
+    const influencersRes = await supabase.from('influencers').select('*');
 
-    if (campaigns && influencers) {
+    if (campaignsRes.error) throw campaignsRes.error;
+    if (influencersRes.error) throw influencersRes.error;
+
+    const campaigns = campaignsRes.data;
+    const influencers = influencersRes.data;
+
+    if (campaigns) {
       const statusCount = { pending: 0, agree: 0, disagree: 0, cancelled: 0 };
       campaigns.forEach((c) => {
         if (c.status in statusCount) {
@@ -240,9 +253,20 @@ export default function DashboardPage() {
           .slice(0, 10),
       });
     }
+    } catch (err) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBrand, selectedItem, dateRange, showToast]);
 
-    setLoading(false);
-  };
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user, fetchStats]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('ja-JP', {
@@ -269,16 +293,43 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
+    return <LoadingSpinner fullScreen message="認証中..." />;
+  }
+
+  if (error && !loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="relative">
-              <Loader2 className="animate-spin mx-auto text-primary-500" size={48} />
-              <Sparkles className="absolute -top-2 -right-2 text-yellow-400 animate-pulse" size={20} />
+        <ErrorDisplay
+          message={error}
+          onRetry={fetchStats}
+          showHomeLink
+        />
+      </MainLayout>
+    );
+  }
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse" />
+            <div>
+              <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 w-32 bg-gray-100 rounded mt-1 animate-pulse" />
             </div>
-            <p className="mt-4 text-gray-500">データを分析中...</p>
+          </div>
+          <StatCardSkeleton count={5} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="card animate-pulse h-96" />
+            <div className="lg:col-span-2 space-y-6">
+              <div className="card animate-pulse h-64" />
+              <div className="grid grid-cols-2 gap-6">
+                <div className="card animate-pulse h-48" />
+                <div className="card animate-pulse h-48" />
+              </div>
+            </div>
           </div>
         </div>
       </MainLayout>

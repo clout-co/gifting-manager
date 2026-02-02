@@ -1,33 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Influencer } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast, translateError } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import LoadingSpinner, { CardSkeleton } from '@/components/ui/LoadingSpinner';
+import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import {
   Plus,
   Search,
   Edit2,
   Trash2,
   Instagram,
-  ExternalLink,
-  Loader2,
-  Star,
-  TrendingUp,
-  TrendingDown,
   Heart,
   DollarSign,
   Award,
   BarChart3,
-  Filter,
   SortAsc,
   SortDesc,
   Crown,
   Medal,
-  Zap,
   Users,
-  Sparkles,
 } from 'lucide-react';
 import InfluencerModal from '@/components/forms/InfluencerModal';
 
@@ -45,8 +41,11 @@ interface InfluencerWithScore extends Influencer {
 
 export default function InfluencersPage() {
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [influencers, setInfluencers] = useState<InfluencerWithScore[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null);
@@ -54,22 +53,24 @@ export default function InfluencersPage() {
   const [sortBy, setSortBy] = useState<'score' | 'likes' | 'cost' | 'campaigns'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    if (user) {
-      fetchInfluencersWithScores();
-    }
-  }, [user]);
-
-  const fetchInfluencersWithScores = async () => {
+  const fetchInfluencersWithScores = useCallback(async () => {
     setLoading(true);
+    setError(null);
 
-    // インフルエンサーと案件を取得
-    const [{ data: influencersData }, { data: campaignsData }] = await Promise.all([
-      supabase.from('influencers').select('*').order('created_at', { ascending: false }),
-      supabase.from('campaigns').select('*'),
-    ]);
+    try {
+      // インフルエンサーと案件を取得
+      const [influencersRes, campaignsRes] = await Promise.all([
+        supabase.from('influencers').select('*').order('created_at', { ascending: false }),
+        supabase.from('campaigns').select('*'),
+      ]);
 
-    if (influencersData && campaignsData) {
+      if (influencersRes.error) throw influencersRes.error;
+      if (campaignsRes.error) throw campaignsRes.error;
+
+      const influencersData = influencersRes.data;
+      const campaignsData = campaignsRes.data;
+
+    if (influencersData) {
       // インフルエンサーごとにスコア計算
       const scoredInfluencers: InfluencerWithScore[] = influencersData.map(inf => {
         const campaigns = campaignsData.filter(c => c.influencer_id === inf.id);
@@ -130,17 +131,40 @@ export default function InfluencersPage() {
 
       setInfluencers(scoredInfluencers);
     }
-    setLoading(false);
-  };
+    } catch (err) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchInfluencersWithScores();
+    }
+  }, [user, fetchInfluencersWithScores]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このインフルエンサーを削除しますか？関連する案件も全て削除されます。')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'インフルエンサーの削除',
+      message: 'このインフルエンサーを削除しますか？関連する案件も全て削除されます。',
+      type: 'danger',
+      confirmText: '削除',
+      cancelText: 'キャンセル',
+    });
 
-    const { error } = await supabase.from('influencers').delete().eq('id', id);
-    if (!error) {
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('influencers').delete().eq('id', id);
+      if (error) throw error;
+
       setInfluencers(influencers.filter((i) => i.id !== id));
+      showToast('success', 'インフルエンサーを削除しました');
+    } catch (err) {
+      showToast('error', translateError(err));
     }
   };
 
@@ -157,6 +181,7 @@ export default function InfluencersPage() {
   const handleSave = () => {
     fetchInfluencersWithScores();
     handleModalClose();
+    showToast('success', editingInfluencer ? 'インフルエンサーを更新しました' : 'インフルエンサーを追加しました');
   };
 
   const filteredAndSortedInfluencers = influencers
@@ -215,10 +240,18 @@ export default function InfluencersPage() {
   };
 
   if (authLoading) {
+    return <LoadingSpinner fullScreen message="認証中..." />;
+  }
+
+  if (error && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin" size={40} />
-      </div>
+      <MainLayout>
+        <ErrorDisplay
+          message={error}
+          onRetry={fetchInfluencersWithScores}
+          showHomeLink
+        />
+      </MainLayout>
     );
   }
 
@@ -347,9 +380,7 @@ export default function InfluencersPage() {
 
         {/* コンテンツ */}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="animate-spin" size={40} />
-          </div>
+          <CardSkeleton count={6} />
         ) : filteredAndSortedInfluencers.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             {searchTerm

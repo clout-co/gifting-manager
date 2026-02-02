@@ -1,38 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast, translateError } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import LoadingSpinner, { TableSkeleton } from '@/components/ui/LoadingSpinner';
+import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import {
   Plus,
   Search,
   Edit2,
   Trash2,
   ExternalLink,
-  Loader2,
   Filter,
   Heart,
   MessageCircle,
   User,
-  Calendar,
   CheckSquare,
   Square,
-  ChevronDown,
   X,
-  Tag,
   Gift,
-  Sparkles,
   Settings2,
+  Loader2,
 } from 'lucide-react';
 import CampaignModal from '@/components/forms/CampaignModal';
 
 export default function CampaignsPage() {
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [brandFilter, setBrandFilter] = useState<string>('all');
@@ -48,50 +51,68 @@ export default function CampaignsPage() {
   });
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [influencersRes, campaignsRes] = await Promise.all([
+        supabase.from('influencers').select('*'),
+        supabase
+          .from('campaigns')
+          .select(`
+            *,
+            influencer:influencers(*),
+            creator:user_profiles!campaigns_created_by_fkey(id, display_name, email),
+            updater:user_profiles!campaigns_updated_by_fkey(id, display_name, email)
+          `)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (influencersRes.error) throw influencersRes.error;
+      if (campaignsRes.error) throw campaignsRes.error;
+
+      setInfluencers(influencersRes.data || []);
+      setCampaigns(campaignsRes.data || []);
+    } catch (err) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (user) {
       fetchData();
     }
-  }, [user]);
-
-  const fetchData = async () => {
-    setLoading(true);
-
-    const [influencersRes, campaignsRes] = await Promise.all([
-      supabase.from('influencers').select('*'),
-      supabase
-        .from('campaigns')
-        .select(`
-          *,
-          influencer:influencers(*),
-          creator:user_profiles!campaigns_created_by_fkey(id, display_name, email),
-          updater:user_profiles!campaigns_updated_by_fkey(id, display_name, email)
-        `)
-        .order('created_at', { ascending: false }),
-    ]);
-
-    if (influencersRes.data) {
-      setInfluencers(influencersRes.data);
-    }
-    if (campaignsRes.data) {
-      setCampaigns(campaignsRes.data);
-    }
-    setLoading(false);
-  };
+  }, [user, fetchData]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('この案件を削除しますか？')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: '案件の削除',
+      message: 'この案件を削除しますか？この操作は取り消せません。',
+      type: 'danger',
+      confirmText: '削除',
+      cancelText: 'キャンセル',
+    });
 
-    const { error } = await supabase.from('campaigns').delete().eq('id', id);
-    if (!error) {
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from('campaigns').delete().eq('id', id);
+      if (error) throw error;
+
       setCampaigns(campaigns.filter((c) => c.id !== id));
       setSelectedIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(id);
         return newSet;
       });
+      showToast('success', '案件を削除しました');
+    } catch (err) {
+      showToast('error', translateError(err));
     }
   };
 
@@ -108,6 +129,7 @@ export default function CampaignsPage() {
   const handleSave = () => {
     fetchData();
     handleModalClose();
+    showToast('success', editingCampaign ? '案件を更新しました' : '案件を作成しました');
   };
 
   // 選択系の処理
@@ -137,45 +159,64 @@ export default function CampaignsPage() {
 
     setBulkUpdating(true);
 
-    const updates: any = {
-      updated_by: user?.id,
-    };
+    try {
+      const updates: Record<string, unknown> = {
+        updated_by: user?.id,
+      };
 
-    if (bulkEditData.status) {
-      updates.status = bulkEditData.status;
-    }
-    if (bulkEditData.agreed_amount) {
-      updates.agreed_amount = parseFloat(bulkEditData.agreed_amount);
-    }
+      if (bulkEditData.status) {
+        updates.status = bulkEditData.status;
+      }
+      if (bulkEditData.agreed_amount) {
+        updates.agreed_amount = parseFloat(bulkEditData.agreed_amount);
+      }
 
-    const { error } = await supabase
-      .from('campaigns')
-      .update(updates)
-      .in('id', Array.from(selectedIds));
+      const { error } = await supabase
+        .from('campaigns')
+        .update(updates)
+        .in('id', Array.from(selectedIds));
 
-    if (!error) {
+      if (error) throw error;
+
       await fetchData();
       setSelectedIds(new Set());
       setIsBulkEditOpen(false);
       setBulkEditData({ status: '', agreed_amount: '' });
+      showToast('success', `${selectedIds.size}件の案件を更新しました`);
+    } catch (err) {
+      showToast('error', translateError(err));
+    } finally {
+      setBulkUpdating(false);
     }
-
-    setBulkUpdating(false);
   };
 
   // 一括削除
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`選択した${selectedIds.size}件の案件を削除しますか？`)) return;
 
-    const { error } = await supabase
-      .from('campaigns')
-      .delete()
-      .in('id', Array.from(selectedIds));
+    const confirmed = await confirm({
+      title: '一括削除',
+      message: `選択した${selectedIds.size}件の案件を削除しますか？この操作は取り消せません。`,
+      type: 'danger',
+      confirmText: `${selectedIds.size}件を削除`,
+      cancelText: 'キャンセル',
+    });
 
-    if (!error) {
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .in('id', Array.from(selectedIds));
+
+      if (error) throw error;
+
       setCampaigns(campaigns.filter(c => !selectedIds.has(c.id)));
       setSelectedIds(new Set());
+      showToast('success', `${selectedIds.size}件の案件を削除しました`);
+    } catch (err) {
+      showToast('error', translateError(err));
     }
   };
 
@@ -243,10 +284,18 @@ export default function CampaignsPage() {
   };
 
   if (authLoading) {
+    return <LoadingSpinner fullScreen message="認証中..." />;
+  }
+
+  if (error && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin" size={40} />
-      </div>
+      <MainLayout>
+        <ErrorDisplay
+          message={error}
+          onRetry={fetchData}
+          showHomeLink
+        />
+      </MainLayout>
     );
   }
 
@@ -447,9 +496,7 @@ export default function CampaignsPage() {
         {/* テーブル */}
         <div className="card overflow-hidden">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="animate-spin" size={40} />
-            </div>
+            <TableSkeleton rows={8} cols={10} />
           ) : filteredCampaigns.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               {searchTerm || statusFilter !== 'all' || brandFilter !== 'all'

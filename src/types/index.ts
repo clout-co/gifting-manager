@@ -149,4 +149,5 @@ export interface ImportRow {
   consideration_comment?: number;
   item_quantity?: number;
   number_of_times?: number;
+  notes?: string;
 }

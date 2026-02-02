@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { ImportRow } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast, translateError } from '@/lib/toast';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
   Upload,
   FileSpreadsheet,
@@ -47,6 +49,7 @@ const HEADER_PATTERNS: Record<string, string[]> = {
 
 export default function ImportPage() {
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<ImportRow[]>([]);
   const [allData, setAllData] = useState<ImportRow[]>([]);
@@ -376,6 +379,14 @@ export default function ImportPage() {
 
     setResult({ success, failed, errors });
     setImporting(false);
+
+    if (success > 0 && failed === 0) {
+      showToast('success', `${success}件のデータをインポートしました`);
+    } else if (success > 0) {
+      showToast('warning', `${success}件成功、${failed}件失敗`);
+    } else {
+      showToast('error', 'インポートに失敗しました');
+    }
   };
 
   const handleClear = () => {
@@ -449,11 +460,7 @@ export default function ImportPage() {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin" size={40} />
-      </div>
-    );
+    return <LoadingSpinner fullScreen message="認証中..." />;
   }
 
   return (
