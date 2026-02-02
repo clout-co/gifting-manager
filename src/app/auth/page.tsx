@@ -41,15 +41,42 @@ export default function AuthPage() {
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          // エラーメッセージを日本語化
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('メールアドレスまたはパスワードが正しくありません');
+          }
+          if (error.message.includes('Email not confirmed')) {
+            throw new Error('メールアドレスが確認されていません。確認メールをご確認ください。');
+          }
+          throw error;
+        }
         router.push('/dashboard');
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
         });
-        if (error) throw error;
-        setMessage('確認メールを送信しました。メールを確認してください。');
+        if (error) {
+          // エラーメッセージを日本語化
+          if (error.message.includes('User already registered')) {
+            throw new Error('このメールアドレスは既に登録されています。ログインしてください。');
+          }
+          if (error.message.includes('Password should be at least')) {
+            throw new Error('パスワードは6文字以上で入力してください');
+          }
+          throw error;
+        }
+
+        // セッションがあれば自動ログイン（メール確認なしの場合）
+        if (data.session) {
+          router.push('/dashboard');
+        } else {
+          setMessage('登録が完了しました。確認メールが届いた場合はリンクをクリックしてください。その後ログインできます。');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'エラーが発生しました');
