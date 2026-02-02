@@ -24,27 +24,28 @@ import {
 import * as XLSX from 'xlsx';
 
 // ヘッダーマッピングの候補（複数パターンに対応）
+// 注意: 完全一致を優先するため、より具体的なパターンを先に配置
 const HEADER_PATTERNS: Record<string, string[]> = {
-  brand: ['brand', 'ブランド', 'brand name', 'brandname', 'BRAND'],
-  insta_name: ['insta name', 'insta name(@ )', 'instagram', 'インスタ名', 'インスタ', 'ig', 'ig name', 'instagram name', 'instaname', 'アカウント名', 'account', 'インスタグラム', 'アカウント'],
-  insta_url: ['insta', 'insta url', 'instagram url', 'インスタurl', 'ig url', 'instagram link', 'インスタリンク', 'インスタURL'],
-  tiktok_url: ['tiktok', 'tiktok url', 'tiktok link', 'ティックトック', 'tiktokurl', 'TikTok URL', 'TikTok'],
-  item_code: ['item', 'item(品番)', '品番', 'item code', 'itemcode', 'product', 'product code', '商品コード', 'sku', '商品', 'ITEM', '商品番号'],
-  item_quantity: ['item(枚数)', '枚数', 'quantity', '数量', 'qty', '個数', '数', '点数'],
-  sale_date: ['date(sale)', 'sale date', 'saledate', 'セール日', '発売日', 'release date', 'release', '販売日'],
-  desired_post_date: ['投稿希望日', 'desired post date', 'post希望日', '希望日', 'desired date', 'target date', '希望投稿日', '予定日'],
-  agreed_date: ['date(agreed)', 'agreed date', 'agreeddate', '合意日', 'agreement date', '契約日', '確定日'],
-  offered_amount: ['offered amount', 'offeredamount', '提示額', '提示金額', 'offer', 'offered', '提案額', '提案金額', '希望額'],
-  agreed_amount: ['agreed amount', 'agreedamount', '合意額', '合意金額', 'agreed', '契約額', '金額', 'amount', 'price', '報酬', '報酬額', '確定額', '支払額', '費用'],
-  status: ['status', 'ステータス', '状態', 'state', '進捗', '交渉ステータス', '案件ステータス'],
-  post_status: ['status of post', 'post status', 'poststatus', '投稿ステータス', '投稿状態', '投稿status', 'post_status', '投稿進捗'],
-  post_date: ['date(post)', 'post date', 'postdate', '投稿日', 'posted date', 'posted', '掲載日', '公開日'],
-  post_url: ['post', 'post url', 'posturl', '投稿url', '投稿リンク', 'url', 'link', '投稿URL', 'POST URL', '投稿link', 'post_url', '掲載URL', '掲載url'],
-  likes: ['like', 'likes', 'いいね', 'いいね数', 'like count', 'likecount', 'LIKE', 'Likes', 'いいね！'],
-  comments: ['comment', 'comments', 'コメント', 'コメント数', 'comment count', 'コメントcount', 'COMMENT'],
-  consideration_comment: ['consideration comment', 'considerationcomment', '考慮コメント', '検討コメント', '備考コメント', '注意事項', 'consideration'],
-  number_of_times: ['number of times', 'numberoftimes', '回数', 'times', 'count', '実施回数', '案件回数'],
-  notes: ['notes', 'note', 'memo', 'メモ', '備考', 'remarks', '注記', '補足', 'その他'],
+  brand: ['brand', 'ブランド', 'brand name', 'brandname', 'BRAND', 'Brand'],
+  insta_name: ['insta name', 'insta name(@ )', 'Insta Name', 'Insta Name(@ )', 'instagram', 'インスタ名', 'インスタ', 'ig', 'ig name', 'instagram name', 'instaname', 'アカウント名', 'account', 'インスタグラム', 'アカウント', 'Instagram'],
+  insta_url: ['insta url', 'instagram url', 'インスタurl', 'インスタURL', 'ig url', 'instagram link', 'インスタリンク', 'Insta URL'],
+  tiktok_url: ['tiktok', 'tiktok url', 'tiktok link', 'ティックトック', 'tiktokurl', 'TikTok URL', 'TikTok', 'Tiktok'],
+  item_code: ['item', 'item(品番)', 'Item(品番)', '品番', 'item code', 'itemcode', 'product', 'product code', '商品コード', 'sku', '商品', 'ITEM', 'Item', '商品番号'],
+  item_quantity: ['item(枚数)', 'Item(枚数)', '枚数', 'quantity', '数量', 'qty', '個数', '数', '点数'],
+  sale_date: ['date(sale)', 'Date(sale)', 'sale date', 'saledate', 'セール日', '発売日', 'release date', 'release', '販売日'],
+  desired_post_date: ['投稿希望日', 'desired post date', 'post希望日', '希望日', 'desired date', 'target date', '希望投稿日', '予定日', 'Desired Post Date'],
+  agreed_date: ['date(agreed)', 'Date(Agreed)', 'agreed date', 'agreeddate', '合意日', 'agreement date', '契約日', '確定日'],
+  offered_amount: ['offered amount', 'Offered Amount', 'offeredamount', '提示額', '提示金額', 'offer', 'offered', '提案額', '提案金額', '希望額'],
+  agreed_amount: ['agreed amount', 'Agreed Amount', 'agreedamount', '合意額', '合意金額', 'agreed', '契約額', '金額', 'amount', 'price', '報酬', '報酬額', '確定額', '支払額', '費用', 'Amount'],
+  status: ['status', 'Status', 'ステータス', '状態', 'state', '進捗', '交渉ステータス', '案件ステータス'],
+  post_status: ['status of post', 'Status of post', 'Status Of Post', 'post status', 'poststatus', '投稿ステータス', '投稿状態', '投稿status', 'post_status', '投稿進捗', 'Post Status'],
+  post_date: ['date(post)', 'Date(Post)', 'post date', 'postdate', '投稿日', 'posted date', 'posted', '掲載日', '公開日', 'Post Date'],
+  post_url: ['post url', 'Post URL', 'posturl', '投稿url', '投稿URL', '投稿リンク', 'post link', '投稿link', 'post_url', '掲載URL', '掲載url', 'Post'],
+  likes: ['like', 'likes', 'Like', 'Likes', 'いいね', 'いいね数', 'like count', 'likecount', 'LIKE', 'いいね！'],
+  comments: ['comment', 'comments', 'Comment', 'Comments', 'コメント', 'コメント数', 'comment count', 'コメントcount', 'COMMENT'],
+  consideration_comment: ['consideration comment', 'Consideration Comment', 'considerationcomment', '考慮コメント', '検討コメント', '備考コメント', '注意事項', 'consideration', 'Consideration'],
+  number_of_times: ['number of times', 'Number of times', 'numberoftimes', '回数', 'times', '実施回数', '案件回数'],
+  notes: ['notes', 'Notes', 'note', 'Note', 'memo', 'Memo', 'メモ', '備考', 'remarks', 'Remarks', '注記', '補足', 'その他', '考慮コメント'],
 };
 
 export default function ImportPage() {
@@ -79,19 +80,27 @@ export default function ImportPage() {
       const { headers, data } = await readExcelFileRaw(selectedFile);
       setDetectedHeaders(headers);
 
+      console.log('検出されたヘッダー:', headers);
+      console.log('データ行数:', data.length);
+      console.log('最初のデータ行:', data[0]);
+
       // 自動マッピングを試行
       const autoMapping = autoDetectMapping(headers);
       setColumnMapping(autoMapping);
+
+      console.log('自動マッピング結果:', autoMapping);
 
       // マッピングされなかったカラムを検出
       const mapped = new Set(Object.values(autoMapping));
       const unmapped = headers.filter(h => !mapped.has(h));
       setUnmappedColumns(unmapped);
 
-      // データを変換
-      const mappedData = mapDataWithColumns(data, autoMapping);
+      // データを変換（headersを直接渡す）
+      const mappedData = mapDataWithColumns(data, autoMapping, headers);
       setAllData(mappedData);
       setPreviewData(mappedData.slice(0, 10));
+
+      console.log('変換後のデータ数:', mappedData.length);
 
       // マッピングが不完全な場合は設定画面を表示
       if (unmapped.length > 0 || !autoMapping['insta_name']) {
@@ -99,6 +108,7 @@ export default function ImportPage() {
       }
     } catch (error) {
       console.error('ファイル読み込みエラー:', error);
+      showToast('error', 'ファイルの読み込みに失敗しました');
       setPreviewData([]);
       setAllData([]);
     }
@@ -111,16 +121,48 @@ export default function ImportPage() {
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellText: false });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-          const headers = (jsonData[0] || []).map((h: any) => h?.toString().trim() || '');
-          const rows = jsonData.slice(1).filter(row => row.some(cell => cell != null && cell !== ''));
+          // 全データを配列として取得（defval: nullで空セルもnullとして取得）
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: null,
+            blankrows: false,
+            raw: false, // 文字列として取得
+          }) as any[][];
+
+          console.log('Excelから読み取ったデータ:', jsonData);
+          console.log('行数:', jsonData.length);
+
+          if (jsonData.length === 0) {
+            resolve({ headers: [], data: [] });
+            return;
+          }
+
+          // ヘッダー行（1行目）
+          const headers = (jsonData[0] || []).map((h: any) => {
+            if (h === null || h === undefined) return '';
+            return String(h).trim();
+          });
+
+          // データ行（2行目以降）- 空行を除外
+          const rows = jsonData.slice(1).filter(row => {
+            if (!row || !Array.isArray(row)) return false;
+            // 少なくとも1つの非空セルがあればデータ行として扱う
+            return row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
+          });
+
+          console.log('検出されたヘッダー:', headers);
+          console.log('データ行数:', rows.length);
+          if (rows.length > 0) {
+            console.log('最初のデータ行:', rows[0]);
+          }
 
           resolve({ headers, data: rows });
         } catch (error) {
+          console.error('Excel読み込みエラー:', error);
           reject(error);
         }
       };
@@ -132,22 +174,55 @@ export default function ImportPage() {
   // ヘッダーの自動マッピング
   const autoDetectMapping = (headers: string[]): Record<string, string> => {
     const mapping: Record<string, string> = {};
+    const usedHeaders = new Set<string>();
 
+    // 1. まず完全一致を試行
     headers.forEach((header) => {
-      const normalized = header.toLowerCase().trim().replace(/[\s_-]+/g, ' ');
+      if (usedHeaders.has(header)) return;
+
+      const trimmedHeader = header.trim();
+      const normalizedHeader = trimmedHeader.toLowerCase().replace(/[\s_-]+/g, ' ');
 
       for (const [field, patterns] of Object.entries(HEADER_PATTERNS)) {
-        if (mapping[field]) continue; // 既にマッピング済み
+        if (mapping[field]) continue;
 
         for (const pattern of patterns) {
           const normalizedPattern = pattern.toLowerCase().replace(/[\s_-]+/g, ' ');
-          if (normalized === normalizedPattern ||
-              normalized.includes(normalizedPattern) ||
-              normalizedPattern.includes(normalized)) {
+
+          // 完全一致（大文字小文字無視）
+          if (normalizedHeader === normalizedPattern || trimmedHeader === pattern) {
             mapping[field] = header;
+            usedHeaders.add(header);
+            console.log(`完全一致: "${header}" → ${field}`);
             break;
           }
         }
+        if (mapping[field]) break;
+      }
+    });
+
+    // 2. 次に部分一致を試行（まだマッピングされていないもの）
+    headers.forEach((header) => {
+      if (usedHeaders.has(header)) return;
+
+      const normalizedHeader = header.toLowerCase().trim().replace(/[\s_-]+/g, ' ');
+
+      for (const [field, patterns] of Object.entries(HEADER_PATTERNS)) {
+        if (mapping[field]) continue;
+
+        for (const pattern of patterns) {
+          const normalizedPattern = pattern.toLowerCase().replace(/[\s_-]+/g, ' ');
+
+          // 部分一致
+          if (normalizedHeader.includes(normalizedPattern) ||
+              normalizedPattern.includes(normalizedHeader)) {
+            mapping[field] = header;
+            usedHeaders.add(header);
+            console.log(`部分一致: "${header}" → ${field}`);
+            break;
+          }
+        }
+        if (mapping[field]) break;
       }
     });
 
@@ -155,13 +230,15 @@ export default function ImportPage() {
   };
 
   // マッピングに基づいてデータを変換
-  const mapDataWithColumns = (rawData: any[][], mapping: Record<string, string>): ImportRow[] => {
+  const mapDataWithColumns = (rawData: any[][], mapping: Record<string, string>, headers: string[]): ImportRow[] => {
     const headerIndexMap: Record<string, number> = {};
 
-    // ヘッダーインデックスを取得
-    detectedHeaders.forEach((header, index) => {
+    // ヘッダーインデックスを取得（引数のheadersを使用）
+    headers.forEach((header, index) => {
       headerIndexMap[header] = index;
     });
+
+    console.log('ヘッダーインデックスマップ:', headerIndexMap);
 
     // データをマッピング
     return rawData.map(row => {
@@ -295,8 +372,8 @@ export default function ImportPage() {
 
     // データを再マッピング
     if (file) {
-      readExcelFileRaw(file).then(({ data }) => {
-        const mappedData = mapDataWithColumns(data, newMapping);
+      readExcelFileRaw(file).then(({ headers, data }) => {
+        const mappedData = mapDataWithColumns(data, newMapping, headers);
         setAllData(mappedData);
         setPreviewData(mappedData.slice(0, 10));
       });

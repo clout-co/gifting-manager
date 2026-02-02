@@ -18,7 +18,6 @@ import {
   Filter,
   Heart,
   MessageCircle,
-  User,
   CheckSquare,
   Square,
   X,
@@ -62,9 +61,7 @@ export default function CampaignsPage() {
           .from('campaigns')
           .select(`
             *,
-            influencer:influencers(*),
-            creator:user_profiles!campaigns_created_by_fkey(id, display_name, email),
-            updater:user_profiles!campaigns_updated_by_fkey(id, display_name, email)
+            influencer:influencers(*)
           `)
           .order('created_at', { ascending: false }),
       ]);
@@ -529,7 +526,7 @@ export default function CampaignsPage() {
                     <th className="table-header px-4 py-3">投稿日</th>
                     <th className="table-header px-4 py-3">エンゲージメント</th>
                     <th className="table-header px-4 py-3">投稿</th>
-                    <th className="table-header px-4 py-3">更新者</th>
+                    <th className="table-header px-4 py-3">更新日</th>
                     <th className="table-header px-4 py-3">操作</th>
                   </tr>
                 </thead>
@@ -598,18 +595,8 @@ export default function CampaignsPage() {
                         )}
                       </td>
                       <td className="table-cell">
-                        <div className="text-xs">
-                          {campaign.updater ? (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <User size={12} />
-                              <span>{campaign.updater.display_name || campaign.updater.email?.split('@')[0]}</span>
-                            </div>
-                          ) : campaign.creator ? (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <User size={12} />
-                              <span>{campaign.creator.display_name || campaign.creator.email?.split('@')[0]}</span>
-                            </div>
-                          ) : null}
+                        <div className="text-xs text-gray-500">
+                          {formatDate(campaign.updated_at || campaign.created_at)}
                         </div>
                       </td>
                       <td className="table-cell">

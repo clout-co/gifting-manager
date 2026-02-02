@@ -116,6 +116,7 @@ export default function AnalyticsPage() {
     if (user) {
       fetchROIData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dateRange, selectedBrand, comparisonPeriod]);
 
   useEffect(() => {

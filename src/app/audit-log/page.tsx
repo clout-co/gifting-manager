@@ -48,6 +48,7 @@ export default function AuditLogPage() {
     if (user) {
       fetchActivityLogs();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchActivityLogs = async () => {

@@ -310,6 +310,7 @@ export default function AIInsightsPage() {
     }, 500);
 
     return () => clearTimeout(debounce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   // AIチャット送信
