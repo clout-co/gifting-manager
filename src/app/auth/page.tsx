@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Loader2, Shield } from 'lucide-react';
+
+const ALLOWED_DOMAIN = 'clout.co.jp';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,11 +16,24 @@ export default function AuthPage() {
   const [message, setMessage] = useState('');
   const router = useRouter();
 
+  // メールドメインチェック
+  const validateEmailDomain = (email: string): boolean => {
+    const domain = email.split('@')[1]?.toLowerCase();
+    return domain === ALLOWED_DOMAIN;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setMessage('');
+
+    // ドメインチェック
+    if (!validateEmailDomain(email)) {
+      setError(`@${ALLOWED_DOMAIN} のメールアドレスのみ登録可能です`);
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -51,6 +66,12 @@ export default function AuthPage() {
           <p className="text-gray-500 mt-2">
             インフルエンサーギフティング管理システム
           </p>
+        </div>
+
+        {/* ドメイン制限の説明 */}
+        <div className="flex items-center gap-2 mb-6 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+          <Shield size={16} />
+          <span>@{ALLOWED_DOMAIN} のメールアドレスのみ利用可能です</span>
         </div>
 
         <div className="flex gap-4 mb-6">

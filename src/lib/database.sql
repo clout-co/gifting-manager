@@ -1,4 +1,7 @@
 -- Supabaseで実行するSQLスキーマ
+-- ============================================
+-- 注意: @clout.co.jp ドメインのみ認証を許可
+-- ============================================
 
 -- インフルエンサーテーブル
 CREATE TABLE influencers (
@@ -49,10 +52,20 @@ CREATE TABLE user_profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 新規ユーザー登録時に自動でプロフィール作成
+-- 新規ユーザー登録時に自動でプロフィール作成（ドメイン制限付き）
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  email_domain TEXT;
 BEGIN
+  -- メールドメインを抽出
+  email_domain := LOWER(SPLIT_PART(NEW.email, '@', 2));
+
+  -- @clout.co.jp ドメインのみ許可
+  IF email_domain != 'clout.co.jp' THEN
+    RAISE EXCEPTION 'Only @clout.co.jp email addresses are allowed';
+  END IF;
+
   INSERT INTO public.user_profiles (id, email, display_name)
   VALUES (NEW.id, NEW.email, SPLIT_PART(NEW.email, '@', 1));
   RETURN NEW;
