@@ -220,7 +220,7 @@ export default function ImportPage() {
             .from('campaigns')
             .insert([
               {
-                influencer_id: influencer.id,
+                influencer_id: influencer!.id,
                 brand: row.brand || null,
                 item_code: row.item_code || null,
                 item_quantity: row.item_quantity || 1,
