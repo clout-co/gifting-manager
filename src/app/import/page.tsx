@@ -514,35 +514,13 @@ export default function ImportPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = [
-      'Brand',
-      'Insta name',
-      'Insta URL',
-      'TikTok URL',
-      'Item(品番)',
-      'Item(枚数)',
-      'Date(sale)',
-      '投稿希望日',
-      'Date(Agreed)',
-      'Offered amount',
-      'Agreed amount',
-      'Status',
-      'Status of post',
-      'Date(Post)',
-      'Post URL',
-      'like',
-      'Comment',
-      'Notes',
-    ];
-
-    const sampleData = [
-      ['TL', 'sample_influencer', 'https://instagram.com/sample', 'https://tiktok.com/@sample', 'TF-2408', '1', '2024/4/1', '2024/4/15', '2024/3/20', '50000', '45000', 'agree', 'Before sale', '2024/4/14', 'https://tiktok.com/...', '1500', '50', 'サンプルメモ'],
-    ];
-
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
-    XLSX.writeFile(workbook, 'gifting_import_template.xlsx');
+    // 公開テンプレートファイルをダウンロード
+    const link = document.createElement('a');
+    link.href = '/templates/gifting_import_template.xlsx';
+    link.download = 'gifting_import_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // フィールド名の日本語表示
