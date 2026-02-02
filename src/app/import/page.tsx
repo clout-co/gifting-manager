@@ -27,9 +27,10 @@ import * as XLSX from 'xlsx';
 // 注意: 完全一致を優先するため、より具体的なパターンを先に配置
 const HEADER_PATTERNS: Record<string, string[]> = {
   brand: ['ブランド', 'brand', 'brand name', 'brandname', 'BRAND', 'Brand'],
-  insta_name: ['Instagram名', 'instagram名', 'insta name', 'insta name(@ )', 'Insta Name', 'Insta Name(@ )', 'instagram', 'インスタ名', 'インスタ', 'ig', 'ig name', 'instagram name', 'instaname', 'アカウント名', 'account', 'インスタグラム', 'アカウント', 'Instagram'],
-  insta_url: ['Instagram URL', 'instagram url', 'insta url', 'インスタurl', 'インスタURL', 'ig url', 'instagram link', 'インスタリンク', 'Insta URL'],
-  tiktok_url: ['TikTok URL', 'tiktok', 'tiktok url', 'tiktok link', 'ティックトック', 'tiktokurl', 'TikTok', 'Tiktok'],
+  insta_name: ['Instagram名', 'instagram名', 'insta name', 'insta name(@ )', 'Insta Name', 'Insta Name(@ )', 'instagram', 'インスタ名', 'インスタ', 'ig', 'ig name', 'instagram name', 'instaname', 'インスタグラム', 'Instagram'],
+  insta_url: ['Instagram URL', 'instagram url', 'insta url', 'インスタurl', 'インスタURL', 'ig url', 'instagram link', 'インスタリンク', 'Insta URL', 'Instagramリンク', 'インスタグラムリンク'],
+  tiktok_name: ['TikTok名', 'tiktok名', 'tiktok name', 'Tiktok Name', 'TikTok Name', 'ティックトック名', 'tiktokname', 'TikTokアカウント', 'アカウント名', 'account'],
+  tiktok_url: ['TikTok URL', 'tiktok url', 'tiktok link', 'ティックトック', 'tiktokurl', 'TikTok', 'Tiktok', 'TikTokリンク', 'ティックトックリンク'],
   item_code: ['品番', 'item', 'item(品番)', 'Item(品番)', 'item code', 'itemcode', 'product', 'product code', '商品コード', 'sku', '商品', 'ITEM', 'Item', '商品番号'],
   item_quantity: ['枚数', 'item(枚数)', 'Item(枚数)', 'quantity', '数量', 'qty', '個数', '数', '点数'],
   sale_date: ['セール日', 'date(sale)', 'Date(sale)', 'sale date', 'saledate', '発売日', 'release date', 'release', '販売日'],
@@ -104,7 +105,8 @@ export default function ImportPage() {
       console.log('変換後のデータ数:', mappedData.length);
 
       // マッピングが不完全な場合は設定画面を表示
-      if (unmapped.length > 0 || !autoMapping['insta_name']) {
+      // Instagram名またはTikTok名のどちらかがあればOK
+      if (unmapped.length > 0 || (!autoMapping['insta_name'] && !autoMapping['tiktok_name'])) {
         setShowMapping(true);
       }
     } catch (error) {
@@ -252,12 +254,16 @@ export default function ImportPage() {
       };
 
       const instaName = getValue('insta_name')?.toString().trim();
-      if (!instaName) return null;
+      const tiktokName = getValue('tiktok_name')?.toString().trim();
+
+      // Instagram名またはTikTok名のどちらかが必要
+      if (!instaName && !tiktokName) return null;
 
       return {
         brand: getValue('brand')?.toString().trim() || '',
-        insta_name: instaName.replace(/^@/, '').replace(/[\n\r"]/g, '').trim(),
+        insta_name: instaName ? instaName.replace(/^@/, '').replace(/[\n\r"]/g, '').trim() : '',
         insta_url: getValue('insta_url')?.toString().trim() || '',
+        tiktok_name: tiktokName ? tiktokName.replace(/^@/, '').replace(/[\n\r"]/g, '').trim() : '',
         tiktok_url: getValue('tiktok_url')?.toString().trim() || '',
         item_code: getValue('item_code')?.toString().trim() || '',
         sale_date: parseDate(getValue('sale_date')),
@@ -393,19 +399,29 @@ export default function ImportPage() {
     for (const row of allData) {
       try {
         // インフルエンサーを検索または作成
-        let { data: influencer } = await supabase
-          .from('influencers')
-          .select('id')
-          .eq('insta_name', row.insta_name!)
-          .single();
+        // Instagram名またはTikTok名で検索
+        let { data: influencer } = row.insta_name
+          ? await supabase
+              .from('influencers')
+              .select('id')
+              .eq('insta_name', row.insta_name)
+              .single()
+          : row.tiktok_name
+          ? await supabase
+              .from('influencers')
+              .select('id')
+              .eq('tiktok_name', row.tiktok_name)
+              .single()
+          : { data: null };
 
         if (!influencer) {
           const { data: newInfluencer, error: createError } = await supabase
             .from('influencers')
             .insert([
               {
-                insta_name: row.insta_name,
+                insta_name: row.insta_name || null,
                 insta_url: row.insta_url || null,
+                tiktok_name: row.tiktok_name || null,
                 tiktok_url: row.tiktok_url || null,
               },
             ])
@@ -518,8 +534,9 @@ export default function ImportPage() {
   // フィールド名の日本語表示
   const fieldLabels: Record<string, string> = {
     brand: 'ブランド',
-    insta_name: 'Instagram名 *',
+    insta_name: 'Instagram名',
     insta_url: 'Instagram URL',
+    tiktok_name: 'TikTok名',
     tiktok_url: 'TikTok URL',
     item_code: '品番',
     item_quantity: '枚数',
@@ -760,7 +777,7 @@ export default function ImportPage() {
               </button>
               <button
                 onClick={handleImport}
-                disabled={importing || !columnMapping['insta_name']}
+                disabled={importing || (!columnMapping['insta_name'] && !columnMapping['tiktok_name'])}
                 className="btn-primary flex items-center gap-2"
               >
                 {importing ? (

@@ -207,9 +207,10 @@ export default function InfluencersPage() {
   };
 
   const filteredAndSortedInfluencers = influencers
-    .filter((i) =>
-      i.insta_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter((i) => {
+      const name = i.insta_name || i.tiktok_name || '';
+      return name.toLowerCase().includes(searchTerm.toLowerCase());
+    })
     .sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
@@ -426,7 +427,7 @@ export default function InfluencersPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <Instagram size={16} className="text-pink-500" />
-                        <span className="font-bold text-gray-900">@{influencer.insta_name}</span>
+                        <span className="font-bold text-gray-900">@{influencer.insta_name || influencer.tiktok_name}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
                         スコア: {influencer.score}/100
@@ -535,7 +536,7 @@ export default function InfluencersPage() {
                       <td className="table-cell font-medium">
                         <div className="flex items-center gap-2">
                           <Instagram size={16} className="text-pink-500" />
-                          @{influencer.insta_name}
+                          @{influencer.insta_name || influencer.tiktok_name}
                         </div>
                       </td>
                       <td className="table-cell">

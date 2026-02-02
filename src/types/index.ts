@@ -1,8 +1,9 @@
 // インフルエンサー
 export interface Influencer {
   id: string;
-  insta_name: string;
+  insta_name: string | null;
   insta_url: string | null;
+  tiktok_name: string | null;
   tiktok_url: string | null;
   created_at: string;
   updated_at: string;
@@ -127,6 +128,7 @@ export interface CampaignFormData {
 export interface InfluencerFormData {
   insta_name: string;
   insta_url: string;
+  tiktok_name: string;
   tiktok_url: string;
 }
 
@@ -135,6 +137,7 @@ export interface ImportRow {
   brand?: string;
   insta_name?: string;
   insta_url?: string;
+  tiktok_name?: string;
   tiktok_url?: string;
   item_code?: string;
   sale_date?: string;

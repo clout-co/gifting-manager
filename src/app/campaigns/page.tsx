@@ -220,8 +220,9 @@ export default function CampaignsPage() {
   const brands = Array.from(new Set(campaigns.map((c) => c.brand).filter(Boolean)));
 
   const filteredCampaigns = campaigns.filter((c) => {
+    const influencerName = c.influencer?.insta_name || c.influencer?.tiktok_name || '';
     const matchesSearch =
-      c.influencer?.insta_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      influencerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.item_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.brand?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
@@ -550,7 +551,7 @@ export default function CampaignsPage() {
                       </td>
                       <td className="table-cell">{campaign.brand || '-'}</td>
                       <td className="table-cell font-medium">
-                        @{campaign.influencer?.insta_name || '不明'}
+                        @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
                       </td>
                       <td className="table-cell">{campaign.item_code || '-'}</td>
                       <td className="table-cell">

@@ -19,6 +19,7 @@ export default function InfluencerModal({
   const [formData, setFormData] = useState<InfluencerFormData>({
     insta_name: influencer?.insta_name || '',
     insta_url: influencer?.insta_url || '',
+    tiktok_name: influencer?.tiktok_name || '',
     tiktok_url: influencer?.tiktok_url || '',
   });
   const [loading, setLoading] = useState(false);
@@ -29,14 +30,22 @@ export default function InfluencerModal({
     setLoading(true);
     setError('');
 
+    // Instagram名またはTikTok名のどちらかが必須
+    if (!formData.insta_name && !formData.tiktok_name) {
+      setError('Instagram名またはTikTok名のどちらかを入力してください');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (influencer) {
         // 更新
         const { error } = await supabase
           .from('influencers')
           .update({
-            insta_name: formData.insta_name,
+            insta_name: formData.insta_name || null,
             insta_url: formData.insta_url || null,
+            tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
           })
           .eq('id', influencer.id);
@@ -46,8 +55,9 @@ export default function InfluencerModal({
         // 新規作成
         const { error } = await supabase.from('influencers').insert([
           {
-            insta_name: formData.insta_name,
+            insta_name: formData.insta_name || null,
             insta_url: formData.insta_url || null,
+            tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
           },
         ]);
@@ -79,50 +89,78 @@ export default function InfluencerModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Instagram名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.insta_name}
-              onChange={(e) =>
-                setFormData({ ...formData, insta_name: e.target.value })
-              }
-              className="input-field"
-              placeholder="username"
-              required
-            />
+          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+            Instagram名またはTikTok名のどちらかを入力してください
+          </p>
+
+          <div className="border-b pb-4">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Instagram</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Instagram名
+                </label>
+                <input
+                  type="text"
+                  value={formData.insta_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, insta_name: e.target.value })
+                  }
+                  className="input-field"
+                  placeholder="username"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Instagram URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.insta_url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, insta_url: e.target.value })
+                  }
+                  className="input-field"
+                  placeholder="https://www.instagram.com/username/"
+                />
+              </div>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Instagram URL
-            </label>
-            <input
-              type="url"
-              value={formData.insta_url}
-              onChange={(e) =>
-                setFormData({ ...formData, insta_url: e.target.value })
-              }
-              className="input-field"
-              placeholder="https://www.instagram.com/username/"
-            />
-          </div>
+            <h3 className="text-sm font-medium text-gray-900 mb-3">TikTok</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  TikTok名
+                </label>
+                <input
+                  type="text"
+                  value={formData.tiktok_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tiktok_name: e.target.value })
+                  }
+                  className="input-field"
+                  placeholder="username"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              TikTok URL
-            </label>
-            <input
-              type="url"
-              value={formData.tiktok_url}
-              onChange={(e) =>
-                setFormData({ ...formData, tiktok_url: e.target.value })
-              }
-              className="input-field"
-              placeholder="https://www.tiktok.com/@username"
-            />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  TikTok URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.tiktok_url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tiktok_url: e.target.value })
+                  }
+                  className="input-field"
+                  placeholder="https://www.tiktok.com/@username"
+                />
+              </div>
+            </div>
           </div>
 
           {error && (
