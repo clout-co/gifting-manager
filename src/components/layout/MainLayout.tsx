@@ -2,6 +2,7 @@
 
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
+import AIChatWidget from '@/components/ui/AIChatWidget';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* モバイル用ボトムナビゲーション */}
       <BottomNav />
+
+      {/* AIチャットウィジェット */}
+      <AIChatWidget />
     </div>
   );
 }

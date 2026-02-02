@@ -17,10 +17,7 @@ import {
   BarChart3,
   FileText,
   Bell,
-  MessageSquare,
   History,
-  Brain,
-  Calendar,
 } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -29,8 +26,6 @@ import { ThemeToggleSimple } from '@/components/ThemeProvider';
 
 const navigation = [
   { name: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard, color: 'text-blue-500' },
-  { name: 'AIインサイト', href: '/ai-insights', icon: Brain, color: 'text-violet-500' },
-  { name: 'カレンダー', href: '/calendar', icon: Calendar, color: 'text-orange-500' },
   { name: 'ROI分析', href: '/analytics', icon: BarChart3, color: 'text-green-500' },
   { name: 'インフルエンサー', href: '/influencers', icon: Users, color: 'text-purple-500' },
   { name: 'ギフティング案件', href: '/campaigns', icon: Gift, color: 'text-pink-500' },

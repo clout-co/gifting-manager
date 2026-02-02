@@ -4,14 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home,
-  FileText,
   Users,
-  Calendar,
   BarChart3,
-  Settings,
-  Plus,
   Gift,
-  Brain,
+  Upload,
 } from 'lucide-react';
 
 interface NavItem {
@@ -33,20 +29,20 @@ const navItems: NavItem[] = [
     label: '案件',
   },
   {
-    href: '/calendar',
-    icon: <Calendar size={20} />,
-    label: 'カレンダー',
-  },
-  {
     href: '/influencers',
     icon: <Users size={20} />,
     label: 'インフルエンサー',
     activeMatch: ['/influencers'],
   },
   {
-    href: '/ai-insights',
-    icon: <Brain size={20} />,
-    label: 'AI',
+    href: '/analytics',
+    icon: <BarChart3 size={20} />,
+    label: '分析',
+  },
+  {
+    href: '/import',
+    icon: <Upload size={20} />,
+    label: 'インポート',
   },
 ];
 
@@ -61,7 +57,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 lg:hidden safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-40 lg:hidden safe-area-pb">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const active = isActive(item);
