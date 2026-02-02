@@ -141,6 +141,12 @@ html {
            border border-gray-200/50 shadow-sm;
   }
 
+  .status-ignored {
+    @apply bg-gradient-to-r from-slate-100 to-zinc-100 text-slate-500
+           px-3 py-1.5 rounded-full text-xs font-semibold
+           border border-slate-200/50 shadow-sm opacity-70;
+  }
+
   /* アニメーション */
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;

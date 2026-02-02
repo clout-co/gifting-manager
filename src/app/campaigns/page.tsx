@@ -240,6 +240,8 @@ export default function CampaignsPage() {
         return 'status-pending';
       case 'cancelled':
         return 'status-cancelled';
+      case 'ignored':
+        return 'status-ignored';
       default:
         return 'status-pending';
     }
@@ -255,6 +257,8 @@ export default function CampaignsPage() {
         return '保留';
       case 'cancelled':
         return 'キャンセル';
+      case 'ignored':
+        return '無視';
       default:
         return status;
     }

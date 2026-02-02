@@ -29,6 +29,8 @@ export default function CampaignModal({
     item_quantity: campaign?.item_quantity || 1,
     sale_date: campaign?.sale_date || '',
     desired_post_date: campaign?.desired_post_date || '',
+    desired_post_start: campaign?.desired_post_start || '',
+    desired_post_end: campaign?.desired_post_end || '',
     agreed_date: campaign?.agreed_date || '',
     offered_amount: campaign?.offered_amount || 0,
     agreed_amount: campaign?.agreed_amount || 0,
@@ -46,6 +48,40 @@ export default function CampaignModal({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 投稿希望日の入力モード（single: 単一日, range: 期間）
+  const [postDateMode, setPostDateMode] = useState<'single' | 'range'>(
+    campaign?.desired_post_start && campaign?.desired_post_end ? 'range' : 'single'
+  );
+
+  // 投稿ステータスを自動計算
+  const calculatePostStatus = (saleDate: string, postDate: string, desiredDate: string, desiredStart: string, desiredEnd: string): string => {
+    if (!saleDate) return '';
+    if (postDate) return '投稿済み';
+
+    const now = new Date();
+    const sale = new Date(saleDate);
+    const targetDate = desiredDate ? new Date(desiredDate) :
+                       desiredStart ? new Date(desiredStart) : null;
+
+    if (!targetDate) return '';
+
+    // 投稿日がセール日より前
+    if (targetDate < sale) {
+      return 'Before sale';
+    }
+
+    // セール日からの経過日数
+    const daysDiff = Math.floor((targetDate.getTime() - sale.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff <= 14) {
+      return '2 week after sale';
+    } else if (daysDiff <= 30) {
+      return '1 month after sale';
+    } else {
+      return '1 month+ after sale';
+    }
+  };
 
   // コメント機能用の状態
   const [newComment, setNewComment] = useState('');
@@ -90,18 +126,29 @@ export default function CampaignModal({
         updatedNotes = updatedNotes + commentEntry;
       }
 
+      // 投稿ステータスを自動計算
+      const autoPostStatus = calculatePostStatus(
+        formData.sale_date,
+        formData.post_date,
+        formData.desired_post_date,
+        formData.desired_post_start,
+        formData.desired_post_end
+      );
+
       const payload = {
         influencer_id: formData.influencer_id,
         brand: formData.brand || null,
         item_code: formData.item_code || null,
         item_quantity: formData.item_quantity || 1,
         sale_date: formData.sale_date || null,
-        desired_post_date: formData.desired_post_date || null,
+        desired_post_date: postDateMode === 'single' ? (formData.desired_post_date || null) : null,
+        desired_post_start: postDateMode === 'range' ? (formData.desired_post_start || null) : null,
+        desired_post_end: postDateMode === 'range' ? (formData.desired_post_end || null) : null,
         agreed_date: formData.agreed_date || null,
         offered_amount: formData.offered_amount || 0,
         agreed_amount: formData.agreed_amount || 0,
         status: formData.status,
-        post_status: formData.post_status || null,
+        post_status: autoPostStatus || null,
         post_date: formData.post_date || null,
         post_url: formData.post_url || null,
         likes: formData.likes || 0,
@@ -283,7 +330,7 @@ export default function CampaignModal({
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 border-b pb-2">日程</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   セール日
@@ -293,20 +340,6 @@ export default function CampaignModal({
                   value={formData.sale_date}
                   onChange={(e) =>
                     setFormData({ ...formData, sale_date: e.target.value })
-                  }
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  投稿希望日
-                </label>
-                <input
-                  type="date"
-                  value={formData.desired_post_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, desired_post_date: e.target.value })
                   }
                   className="input-field"
                 />
@@ -325,6 +358,98 @@ export default function CampaignModal({
                   className="input-field"
                 />
               </div>
+            </div>
+
+            {/* 投稿希望日/期間 */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium text-gray-700">投稿希望</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPostDateMode('single')}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                      postDateMode === 'single'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    特定日
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPostDateMode('range')}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                      postDateMode === 'range'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    期間指定
+                  </button>
+                </div>
+              </div>
+
+              {postDateMode === 'single' ? (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    投稿希望日
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.desired_post_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, desired_post_date: e.target.value })
+                    }
+                    className="input-field"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">
+                      開始日
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.desired_post_start}
+                      onChange={(e) =>
+                        setFormData({ ...formData, desired_post_start: e.target.value })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">
+                      終了日
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.desired_post_end}
+                      onChange={(e) =>
+                        setFormData({ ...formData, desired_post_end: e.target.value })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 自動計算された投稿ステータスを表示 */}
+              {formData.sale_date && (formData.desired_post_date || formData.desired_post_start) && (
+                <div className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2 border border-gray-200">
+                  <span className="font-medium">投稿ステータス（自動）: </span>
+                  <span className="text-primary-600 font-medium">
+                    {calculatePostStatus(
+                      formData.sale_date,
+                      formData.post_date,
+                      formData.desired_post_date,
+                      formData.desired_post_start,
+                      formData.desired_post_end
+                    ) || '未設定'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -398,6 +523,7 @@ export default function CampaignModal({
                   <option value="agree">合意</option>
                   <option value="disagree">不合意</option>
                   <option value="cancelled">キャンセル</option>
+                  <option value="ignored">無視</option>
                 </select>
               </div>
             </div>
@@ -405,30 +531,12 @@ export default function CampaignModal({
 
           {/* 投稿情報 */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 border-b pb-2">投稿情報</h3>
+            <h3 className="font-medium text-gray-900 border-b pb-2">投稿情報（実績）</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  投稿ステータス
-                </label>
-                <select
-                  value={formData.post_status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, post_status: e.target.value })
-                  }
-                  className="input-field"
-                >
-                  <option value="">選択してください</option>
-                  <option value="Before sale">Before sale</option>
-                  <option value="2 week after sale">2 week after sale</option>
-                  <option value="1 month after sale">1 month after sale</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  投稿日
+                  実際の投稿日
                 </label>
                 <input
                   type="date"
@@ -440,7 +548,7 @@ export default function CampaignModal({
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   投稿URL
                 </label>

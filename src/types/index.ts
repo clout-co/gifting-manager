@@ -26,11 +26,13 @@ export interface Campaign {
   item_code: string; // 品番
   item_quantity: number; // 枚数
   sale_date: string | null; // Date(sale)
-  desired_post_date: string | null; // 投稿希望日
+  desired_post_date: string | null; // 投稿希望日（単一日）
+  desired_post_start: string | null; // 投稿希望期間（開始）
+  desired_post_end: string | null; // 投稿希望期間（終了）
   agreed_date: string | null; // Date(Agreed)
   offered_amount: number; // 提示額
   agreed_amount: number; // 合意額
-  status: 'pending' | 'agree' | 'disagree' | 'cancelled'; // ステータス
+  status: 'pending' | 'agree' | 'disagree' | 'cancelled' | 'ignored'; // ステータス
   post_status: string | null; // Status of post (2 week after sale, Before sale等)
   post_date: string | null; // Date(Post)
   post_url: string | null; // Post URL
@@ -111,10 +113,12 @@ export interface CampaignFormData {
   item_quantity: number;
   sale_date: string;
   desired_post_date: string;
+  desired_post_start: string;
+  desired_post_end: string;
   agreed_date: string;
   offered_amount: number;
   agreed_amount: number;
-  status: 'pending' | 'agree' | 'disagree' | 'cancelled';
+  status: 'pending' | 'agree' | 'disagree' | 'cancelled' | 'ignored';
   post_status: string;
   post_date: string;
   post_url: string;
@@ -144,6 +148,8 @@ export interface ImportRow {
   item_code?: string;
   sale_date?: string;
   desired_post_date?: string;
+  desired_post_start?: string;
+  desired_post_end?: string;
   agreed_date?: string;
   offered_amount?: number;
   agreed_amount?: number;
