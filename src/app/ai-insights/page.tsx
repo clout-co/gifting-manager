@@ -1,0 +1,773 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Campaign } from '@/types';
+import MainLayout from '@/components/layout/MainLayout';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast, translateError } from '@/lib/toast';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorDisplay from '@/components/ui/ErrorDisplay';
+import {
+  Sparkles,
+  Brain,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  Search,
+  Lightbulb,
+  Target,
+  Users,
+  DollarSign,
+  Heart,
+  Calendar,
+  BarChart3,
+  Zap,
+  Clock,
+  Award,
+  Star,
+  ArrowUpRight,
+  ArrowDownRight,
+  Loader2,
+} from 'lucide-react';
+
+interface Insight {
+  type: 'success' | 'warning' | 'info' | 'tip';
+  title: string;
+  description: string;
+  value?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  priority: number;
+}
+
+interface Recommendation {
+  category: 'influencer' | 'timing' | 'budget' | 'performance';
+  title: string;
+  description: string;
+  action?: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+interface Anomaly {
+  type: 'high_cost' | 'low_engagement' | 'delayed_post' | 'unusual_performance';
+  campaignId: string;
+  influencer: string;
+  description: string;
+  severity: 'critical' | 'warning' | 'info';
+}
+
+interface SearchResult {
+  type: 'campaign' | 'influencer';
+  id: string;
+  title: string;
+  subtitle: string;
+  relevance: number;
+}
+
+export default function AIInsightsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+
+  // 自然言語検索
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*, influencer:influencers(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setCampaigns(data || []);
+
+      // AI分析を実行
+      if (data) {
+        const generatedInsights = generateInsights(data);
+        const generatedRecommendations = generateRecommendations(data);
+        const detectedAnomalies = detectAnomalies(data);
+
+        setInsights(generatedInsights);
+        setRecommendations(generatedRecommendations);
+        setAnomalies(detectedAnomalies);
+      }
+    } catch (err) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user, fetchData]);
+
+  // インサイト生成
+  const generateInsights = (data: Campaign[]): Insight[] => {
+    const insights: Insight[] = [];
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    // 過去30日のデータ
+    const recentCampaigns = data.filter(c => new Date(c.created_at) >= thirtyDaysAgo);
+    const previousCampaigns = data.filter(c => {
+      const date = new Date(c.created_at);
+      return date >= sixtyDaysAgo && date < thirtyDaysAgo;
+    });
+
+    // 1. 全体のパフォーマンス
+    const totalLikes = data.reduce((sum, c) => sum + (c.likes || 0), 0);
+    const totalSpent = data.reduce((sum, c) => sum + (c.agreed_amount || 0), 0);
+    const avgCostPerLike = totalLikes > 0 ? totalSpent / totalLikes : 0;
+
+    if (avgCostPerLike > 0) {
+      insights.push({
+        type: avgCostPerLike < 100 ? 'success' : avgCostPerLike < 200 ? 'info' : 'warning',
+        title: 'いいね単価',
+        description: avgCostPerLike < 100
+          ? '非常に効率的なコストパフォーマンスを達成しています'
+          : avgCostPerLike < 200
+          ? 'いいね単価は平均的な水準です'
+          : 'コスト効率の改善が必要かもしれません',
+        value: `¥${Math.round(avgCostPerLike)}`,
+        trend: avgCostPerLike < 100 ? 'up' : avgCostPerLike > 200 ? 'down' : 'neutral',
+        priority: 1,
+      });
+    }
+
+    // 2. 合意率
+    const agreedCount = data.filter(c => c.status === 'agree').length;
+    const totalCount = data.length;
+    const agreementRate = totalCount > 0 ? (agreedCount / totalCount) * 100 : 0;
+
+    if (totalCount > 0) {
+      insights.push({
+        type: agreementRate >= 70 ? 'success' : agreementRate >= 50 ? 'info' : 'warning',
+        title: '合意率',
+        description: agreementRate >= 70
+          ? '高い合意率を維持しています'
+          : agreementRate >= 50
+          ? '合意率は改善の余地があります'
+          : 'インフルエンサーとの交渉方法を見直してください',
+        value: `${agreementRate.toFixed(1)}%`,
+        trend: agreementRate >= 70 ? 'up' : agreementRate < 50 ? 'down' : 'neutral',
+        priority: 2,
+      });
+    }
+
+    // 3. 直近のトレンド
+    if (recentCampaigns.length > 0 && previousCampaigns.length > 0) {
+      const recentAvgLikes = recentCampaigns.reduce((sum, c) => sum + (c.likes || 0), 0) / recentCampaigns.length;
+      const previousAvgLikes = previousCampaigns.reduce((sum, c) => sum + (c.likes || 0), 0) / previousCampaigns.length;
+      const growth = previousAvgLikes > 0 ? ((recentAvgLikes - previousAvgLikes) / previousAvgLikes) * 100 : 0;
+
+      insights.push({
+        type: growth > 10 ? 'success' : growth < -10 ? 'warning' : 'info',
+        title: 'エンゲージメントトレンド',
+        description: growth > 10
+          ? '過去30日間でエンゲージメントが大幅に向上しています'
+          : growth < -10
+          ? 'エンゲージメントが低下傾向にあります'
+          : 'エンゲージメントは安定しています',
+        value: `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`,
+        trend: growth > 10 ? 'up' : growth < -10 ? 'down' : 'neutral',
+        priority: 3,
+      });
+    }
+
+    // 4. トップパフォーマー
+    const topInfluencers = new Map<string, { likes: number; cost: number; name: string }>();
+    data.forEach(c => {
+      if (c.influencer) {
+        const key = c.influencer_id;
+        const current = topInfluencers.get(key) || { likes: 0, cost: 0, name: c.influencer.insta_name };
+        topInfluencers.set(key, {
+          likes: current.likes + (c.likes || 0),
+          cost: current.cost + (c.agreed_amount || 0),
+          name: c.influencer.insta_name,
+        });
+      }
+    });
+
+    const performers = Array.from(topInfluencers.values())
+      .filter(p => p.likes > 0)
+      .map(p => ({ ...p, efficiency: p.cost / p.likes }))
+      .sort((a, b) => a.efficiency - b.efficiency);
+
+    if (performers.length > 0) {
+      const bestPerformer = performers[0];
+      insights.push({
+        type: 'tip',
+        title: 'ベストパフォーマー',
+        description: `@${bestPerformer.name} が最も効率的なROIを達成しています（¥${Math.round(bestPerformer.efficiency)}/いいね）`,
+        priority: 4,
+      });
+    }
+
+    // 5. 投稿予定リマインダー
+    const upcomingPosts = data.filter(c => {
+      if (!c.desired_post_date || c.post_date) return false;
+      const postDate = new Date(c.desired_post_date);
+      const daysUntil = Math.ceil((postDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil >= 0 && daysUntil <= 7;
+    });
+
+    if (upcomingPosts.length > 0) {
+      insights.push({
+        type: 'warning',
+        title: '今週の投稿予定',
+        description: `${upcomingPosts.length}件の投稿が今後7日以内に予定されています。フォローアップを忘れずに！`,
+        value: `${upcomingPosts.length}件`,
+        priority: 0,
+      });
+    }
+
+    return insights.sort((a, b) => a.priority - b.priority);
+  };
+
+  // レコメンデーション生成
+  const generateRecommendations = (data: Campaign[]): Recommendation[] => {
+    const recommendations: Recommendation[] = [];
+
+    // インフルエンサー別のパフォーマンス分析
+    const influencerStats = new Map<string, {
+      likes: number;
+      cost: number;
+      campaigns: number;
+      name: string;
+    }>();
+
+    data.forEach(c => {
+      if (c.influencer) {
+        const key = c.influencer_id;
+        const current = influencerStats.get(key) || { likes: 0, cost: 0, campaigns: 0, name: c.influencer.insta_name };
+        influencerStats.set(key, {
+          likes: current.likes + (c.likes || 0),
+          cost: current.cost + (c.agreed_amount || 0),
+          campaigns: current.campaigns + 1,
+          name: c.influencer.insta_name,
+        });
+      }
+    });
+
+    const sortedInfluencers = Array.from(influencerStats.values())
+      .filter(i => i.likes > 0)
+      .map(i => ({ ...i, efficiency: i.cost / i.likes }))
+      .sort((a, b) => a.efficiency - b.efficiency);
+
+    // 高効率インフルエンサーの活用
+    if (sortedInfluencers.length >= 3) {
+      const topThree = sortedInfluencers.slice(0, 3);
+      recommendations.push({
+        category: 'influencer',
+        title: '高効率インフルエンサーの活用',
+        description: `@${topThree.map(i => i.name).join('、@')} が最もコスト効率が良いです。これらのインフルエンサーとの案件を増やすことを検討してください。`,
+        action: '案件を提案する',
+        impact: 'high',
+      });
+    }
+
+    // 予算最適化
+    const avgCost = data.reduce((sum, c) => sum + (c.agreed_amount || 0), 0) / data.length;
+    const highCostCampaigns = data.filter(c => (c.agreed_amount || 0) > avgCost * 1.5);
+
+    if (highCostCampaigns.length > 0) {
+      recommendations.push({
+        category: 'budget',
+        title: '予算の最適化',
+        description: `${highCostCampaigns.length}件の案件が平均より50%以上高い費用がかかっています。これらの案件のROIを確認してください。`,
+        impact: 'medium',
+      });
+    }
+
+    // タイミング最適化
+    const completedCampaigns = data.filter(c => c.post_date && c.likes);
+    const byMonth = new Map<number, { count: number; avgLikes: number }>();
+
+    completedCampaigns.forEach(c => {
+      const month = new Date(c.post_date!).getMonth();
+      const current = byMonth.get(month) || { count: 0, avgLikes: 0 };
+      byMonth.set(month, {
+        count: current.count + 1,
+        avgLikes: (current.avgLikes * current.count + (c.likes || 0)) / (current.count + 1),
+      });
+    });
+
+    if (byMonth.size >= 3) {
+      const sortedMonths = Array.from(byMonth.entries())
+        .sort((a, b) => b[1].avgLikes - a[1].avgLikes);
+
+      const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+      const bestMonth = monthNames[sortedMonths[0][0]];
+
+      recommendations.push({
+        category: 'timing',
+        title: '最適な投稿時期',
+        description: `過去のデータでは${bestMonth}の投稿が最もエンゲージメントが高い傾向があります。`,
+        impact: 'medium',
+      });
+    }
+
+    // パフォーマンス改善
+    const lowEngagementRate = data.filter(c => {
+      if (!c.likes || !c.agreed_amount) return false;
+      return c.agreed_amount / c.likes > 300;
+    });
+
+    if (lowEngagementRate.length >= 3) {
+      recommendations.push({
+        category: 'performance',
+        title: 'エンゲージメント改善',
+        description: `${lowEngagementRate.length}件の案件でいいね単価が¥300を超えています。コンテンツ戦略やターゲット選定を見直してください。`,
+        impact: 'high',
+      });
+    }
+
+    return recommendations;
+  };
+
+  // 異常値検出
+  const detectAnomalies = (data: Campaign[]): Anomaly[] => {
+    const anomalies: Anomaly[] = [];
+
+    // 統計値の計算
+    const completedCampaigns = data.filter(c => c.agreed_amount && c.likes);
+    if (completedCampaigns.length < 5) return anomalies;
+
+    const avgCost = completedCampaigns.reduce((sum, c) => sum + (c.agreed_amount || 0), 0) / completedCampaigns.length;
+    const avgLikes = completedCampaigns.reduce((sum, c) => sum + (c.likes || 0), 0) / completedCampaigns.length;
+
+    // 標準偏差
+    const costVariance = completedCampaigns.reduce((sum, c) => sum + Math.pow((c.agreed_amount || 0) - avgCost, 2), 0) / completedCampaigns.length;
+    const costStdDev = Math.sqrt(costVariance);
+
+    const likesVariance = completedCampaigns.reduce((sum, c) => sum + Math.pow((c.likes || 0) - avgLikes, 2), 0) / completedCampaigns.length;
+    const likesStdDev = Math.sqrt(likesVariance);
+
+    data.forEach(c => {
+      if (!c.influencer) return;
+
+      // 高コスト異常
+      if (c.agreed_amount && c.agreed_amount > avgCost + 2 * costStdDev) {
+        anomalies.push({
+          type: 'high_cost',
+          campaignId: c.id,
+          influencer: c.influencer.insta_name,
+          description: `案件費用(¥${c.agreed_amount.toLocaleString()})が平均より大幅に高いです`,
+          severity: c.agreed_amount > avgCost + 3 * costStdDev ? 'critical' : 'warning',
+        });
+      }
+
+      // 低エンゲージメント異常
+      if (c.likes !== null && c.likes < avgLikes - 2 * likesStdDev && c.likes >= 0) {
+        anomalies.push({
+          type: 'low_engagement',
+          campaignId: c.id,
+          influencer: c.influencer.insta_name,
+          description: `いいね数(${c.likes.toLocaleString()})が平均より大幅に低いです`,
+          severity: c.likes < avgLikes - 3 * likesStdDev ? 'critical' : 'warning',
+        });
+      }
+
+      // 投稿遅延
+      if (c.desired_post_date && !c.post_date && c.status === 'agree') {
+        const desiredDate = new Date(c.desired_post_date);
+        const now = new Date();
+        const daysLate = Math.floor((now.getTime() - desiredDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysLate > 7) {
+          anomalies.push({
+            type: 'delayed_post',
+            campaignId: c.id,
+            influencer: c.influencer.insta_name,
+            description: `投稿予定日から${daysLate}日経過していますが、投稿が確認されていません`,
+            severity: daysLate > 14 ? 'critical' : 'warning',
+          });
+        }
+      }
+    });
+
+    return anomalies.sort((a, b) => {
+      const severityOrder = { critical: 0, warning: 1, info: 2 };
+      return severityOrder[a.severity] - severityOrder[b.severity];
+    });
+  };
+
+  // 自然言語検索
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    const query = searchQuery.toLowerCase();
+    const results: SearchResult[] = [];
+
+    // キーワード解析
+    const keywords = query.split(/\s+/);
+
+    campaigns.forEach(c => {
+      let relevance = 0;
+      const searchableText = [
+        c.influencer?.insta_name,
+        c.brand,
+        c.item_code,
+        c.notes,
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      keywords.forEach(keyword => {
+        if (searchableText.includes(keyword)) relevance += 1;
+
+        // 数値検索
+        if (keyword.match(/^\d+円?$/)) {
+          const amount = parseInt(keyword.replace('円', ''));
+          if (c.agreed_amount === amount || c.offered_amount === amount) relevance += 2;
+        }
+
+        // ステータス検索
+        if (['合意', 'agree', 'ok'].includes(keyword) && c.status === 'agree') relevance += 2;
+        if (['保留', 'pending', '検討'].includes(keyword) && c.status === 'pending') relevance += 2;
+        if (['不合意', 'disagree', 'ng'].includes(keyword) && c.status === 'disagree') relevance += 2;
+
+        // 特殊クエリ
+        if (['高い', '高額', '高コスト'].includes(keyword) && (c.agreed_amount || 0) > 50000) relevance += 2;
+        if (['安い', '低額', '低コスト'].includes(keyword) && (c.agreed_amount || 0) < 20000) relevance += 2;
+        if (['人気', '高エンゲージメント', '好調'].includes(keyword) && (c.likes || 0) > 1000) relevance += 2;
+      });
+
+      if (relevance > 0) {
+        results.push({
+          type: 'campaign',
+          id: c.id,
+          title: `@${c.influencer?.insta_name || '不明'} - ${c.brand || ''}`,
+          subtitle: `${c.item_code || ''} | ¥${(c.agreed_amount || 0).toLocaleString()} | ${c.likes?.toLocaleString() || 0}いいね`,
+          relevance,
+        });
+      }
+    });
+
+    // 関連度でソート
+    results.sort((a, b) => b.relevance - a.relevance);
+    setSearchResults(results.slice(0, 10));
+    setSearching(false);
+  }, [searchQuery, campaigns]);
+
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      handleSearch();
+    }, 300);
+
+    return () => clearTimeout(debounce);
+  }, [searchQuery, handleSearch]);
+
+  const getImpactBadge = (impact: 'high' | 'medium' | 'low') => {
+    switch (impact) {
+      case 'high':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'medium':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'low':
+        return 'bg-green-100 text-green-700 border-green-200';
+    }
+  };
+
+  const getSeverityIcon = (severity: 'critical' | 'warning' | 'info') => {
+    switch (severity) {
+      case 'critical':
+        return <AlertTriangle className="text-red-500" size={18} />;
+      case 'warning':
+        return <AlertTriangle className="text-amber-500" size={18} />;
+      case 'info':
+        return <CheckCircle className="text-blue-500" size={18} />;
+    }
+  };
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen message="認証中..." />;
+  }
+
+  if (error && !loading) {
+    return (
+      <MainLayout>
+        <ErrorDisplay message={error} onRetry={fetchData} showHomeLink />
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        {/* ヘッダー */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg shadow-violet-500/30">
+              <Brain className="text-white" size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">AIインサイト</h1>
+              <p className="text-gray-500 mt-0.5">データ分析・レコメンデーション・異常検知</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 自然言語検索 */}
+        <div className="card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Search className="text-purple-600" size={20} />
+            </div>
+            <h3 className="font-bold text-gray-900">スマート検索</h3>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="自然言語で検索（例：「高いいいね数の案件」「TLブランドの合意済み」）..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field pl-10"
+            />
+            {searching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" size={20} />
+            )}
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {searchResults.map(result => (
+                <div
+                  key={result.id}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <p className="font-medium text-gray-900">{result.title}</p>
+                  <p className="text-sm text-gray-500">{result.subtitle}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {searchQuery && searchResults.length === 0 && !searching && (
+            <p className="mt-4 text-center text-gray-500 text-sm">
+              検索結果がありません
+            </p>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="card animate-pulse h-96" />
+            <div className="card animate-pulse h-96" />
+          </div>
+        ) : (
+          <>
+            {/* インサイト＆レコメンデーション */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* インサイト */}
+              <div className="card">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Sparkles className="text-blue-600" size={20} />
+                  </div>
+                  <h3 className="font-bold text-gray-900">キーインサイト</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {insights.map((insight, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-xl border ${
+                        insight.type === 'success' ? 'bg-green-50 border-green-200' :
+                        insight.type === 'warning' ? 'bg-amber-50 border-amber-200' :
+                        insight.type === 'tip' ? 'bg-purple-50 border-purple-200' :
+                        'bg-blue-50 border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          {insight.type === 'success' && <CheckCircle className="text-green-500" size={18} />}
+                          {insight.type === 'warning' && <AlertTriangle className="text-amber-500" size={18} />}
+                          {insight.type === 'tip' && <Lightbulb className="text-purple-500" size={18} />}
+                          {insight.type === 'info' && <Target className="text-blue-500" size={18} />}
+                          <span className="font-medium text-gray-900">{insight.title}</span>
+                        </div>
+                        {insight.value && (
+                          <div className="flex items-center gap-1">
+                            <span className="font-bold text-gray-900">{insight.value}</span>
+                            {insight.trend === 'up' && <ArrowUpRight className="text-green-500" size={16} />}
+                            {insight.trend === 'down' && <ArrowDownRight className="text-red-500" size={16} />}
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600">{insight.description}</p>
+                    </div>
+                  ))}
+
+                  {insights.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">
+                      データが不足しています
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* レコメンデーション */}
+              <div className="card">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Lightbulb className="text-green-600" size={20} />
+                  </div>
+                  <h3 className="font-bold text-gray-900">AIレコメンデーション</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {recommendations.map((rec, index) => (
+                    <div
+                      key={index}
+                      className="p-4 bg-gray-50 rounded-xl border border-gray-200"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {rec.category === 'influencer' && <Users className="text-purple-500" size={18} />}
+                          {rec.category === 'budget' && <DollarSign className="text-green-500" size={18} />}
+                          {rec.category === 'timing' && <Clock className="text-blue-500" size={18} />}
+                          {rec.category === 'performance' && <TrendingUp className="text-pink-500" size={18} />}
+                          <span className="font-medium text-gray-900">{rec.title}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getImpactBadge(rec.impact)}`}>
+                          {rec.impact === 'high' ? '高' : rec.impact === 'medium' ? '中' : '低'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{rec.description}</p>
+                      {rec.action && (
+                        <button className="mt-3 text-sm text-primary-600 font-medium hover:underline">
+                          {rec.action} →
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {recommendations.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">
+                      レコメンデーションはありません
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 異常値検出 */}
+            {anomalies.length > 0 && (
+              <div className="card border-amber-200 bg-amber-50/30">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <AlertTriangle className="text-amber-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">異常値検出</h3>
+                    <p className="text-sm text-gray-500">{anomalies.length}件の異常を検出しました</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {anomalies.slice(0, 6).map((anomaly, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-xl border ${
+                        anomaly.severity === 'critical' ? 'bg-red-50 border-red-200' :
+                        anomaly.severity === 'warning' ? 'bg-amber-50 border-amber-200' :
+                        'bg-blue-50 border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        {getSeverityIcon(anomaly.severity)}
+                        <span className="font-medium text-gray-900">@{anomaly.influencer}</span>
+                      </div>
+                      <p className="text-sm text-gray-600">{anomaly.description}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {anomalies.length > 6 && (
+                  <p className="mt-4 text-center text-gray-500 text-sm">
+                    他 {anomalies.length - 6} 件の異常があります
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* クイックスタッツ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="stat-card">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <BarChart3 className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">分析対象</p>
+                    <p className="text-xl font-bold text-gray-900">{campaigns.length}件</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Sparkles className="text-green-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">インサイト</p>
+                    <p className="text-xl font-bold text-green-600">{insights.length}件</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Lightbulb className="text-purple-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">提案</p>
+                    <p className="text-xl font-bold text-purple-600">{recommendations.length}件</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <AlertTriangle className="text-amber-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">要注意</p>
+                    <p className="text-xl font-bold text-amber-600">{anomalies.length}件</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </MainLayout>
+  );
+}
