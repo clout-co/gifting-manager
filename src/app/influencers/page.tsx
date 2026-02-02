@@ -75,39 +75,57 @@ export default function InfluencersPage() {
       const scoredInfluencers: InfluencerWithScore[] = influencersData.map(inf => {
         const campaigns = campaignsData.filter(c => c.influencer_id === inf.id);
         const totalCampaigns = campaigns.length;
+        const agreedCampaigns = campaigns.filter(c => c.status === 'agree').length;
         const totalLikes = campaigns.reduce((sum, c) => sum + (c.likes || 0), 0);
         const totalComments = campaigns.reduce((sum, c) => sum + (c.comments || 0), 0);
         const totalSpent = campaigns.reduce((sum, c) => sum + (c.agreed_amount || 0), 0);
         const costPerLike = totalLikes > 0 ? totalSpent / totalLikes : 0;
+        const avgLikes = totalCampaigns > 0 ? totalLikes / totalCampaigns : 0;
         const avgEngagement = totalCampaigns > 0 ? (totalLikes + totalComments) / totalCampaigns : 0;
+        const agreementRate = totalCampaigns > 0 ? (agreedCampaigns / totalCampaigns) * 100 : 0;
 
-        // スコア計算（0-100）
-        // コスパが良いほど高スコア、いいね数が多いほど高スコア
+        // 納期遵守率を計算
+        const campaignsWithDeadline = campaigns.filter(c => c.desired_post_date && c.post_date);
+        const onTimeCampaigns = campaignsWithDeadline.filter(c => {
+          const desired = new Date(c.desired_post_date!);
+          const actual = new Date(c.post_date!);
+          return actual <= desired;
+        });
+        const onTimeRate = campaignsWithDeadline.length > 0
+          ? (onTimeCampaigns.length / campaignsWithDeadline.length) * 100
+          : 100;
+
+        // スコア計算（改良版・詳細ページと同じロジック）
         let score = 0;
 
         if (totalCampaigns > 0) {
-          // コスパスコア（いいね単価が低いほど高い）- 最大40点
-          const costScore = costPerLike > 0 ? Math.max(0, 40 - (costPerLike / 50)) : 0;
+          // 1. エンゲージメントスコア（重み: 35%）- 平均いいね数基準
+          const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
 
-          // エンゲージメントスコア - 最大30点
-          const engagementScore = Math.min(30, (totalLikes / 1000) * 10);
+          // 2. コスト効率スコア（重み: 30%）- いいね単価基準
+          const efficiencyScore = costPerLike > 0
+            ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
+            : 50;
 
-          // 実績スコア（案件数）- 最大20点
-          const campaignScore = Math.min(20, totalCampaigns * 4);
+          // 3. 信頼性スコア（重み: 20%）- 合意率 + 納期遵守率
+          const reliabilityScore = (agreementRate * 0.6 + onTimeRate * 0.4);
 
-          // 信頼性スコア（成功率）- 最大10点
-          const successRate = campaigns.filter(c => c.status === 'agree').length / totalCampaigns;
-          const reliabilityScore = successRate * 10;
+          // 4. 実績スコア（重み: 15%）- 案件数基準
+          const experienceScore = Math.min(100, (totalCampaigns / 10) * 100);
 
-          score = Math.round(costScore + engagementScore + campaignScore + reliabilityScore);
+          score = Math.round(
+            engagementScore * 0.35 +
+            efficiencyScore * 0.30 +
+            reliabilityScore * 0.20 +
+            experienceScore * 0.15
+          );
         }
 
-        // ランク判定
-        let rank = 'D';
-        if (score >= 80) rank = 'S';
-        else if (score >= 60) rank = 'A';
-        else if (score >= 40) rank = 'B';
-        else if (score >= 20) rank = 'C';
+        // ランク判定（詳細ページと同じ基準）
+        let rank = 'C';
+        if (score >= 75) rank = 'S';
+        else if (score >= 55) rank = 'A';
+        else if (score >= 35) rank = 'B';
 
         // 最終活動日
         const sortedCampaigns = [...campaigns].sort((a, b) =>
