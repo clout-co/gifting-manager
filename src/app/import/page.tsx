@@ -43,7 +43,7 @@ const HEADER_PATTERNS: Record<string, string[]> = {
   post_url: ['投稿URL', 'post url', 'Post URL', 'posturl', '投稿url', '投稿リンク', 'post link', '投稿link', 'post_url', '掲載URL', '掲載url'],
   likes: ['いいね数', 'like', 'likes', 'Like', 'Likes', 'いいね', 'like count', 'likecount', 'LIKE', 'いいね！'],
   comments: ['コメント数', 'comment', 'comments', 'Comment', 'Comments', 'コメント', 'comment count', 'コメントcount', 'COMMENT'],
-  consideration_comment: ['考慮コメント', 'consideration comment', 'Consideration Comment', 'considerationcomment', '検討コメント', '備考コメント', '注意事項', 'consideration', 'Consideration'],
+  consideration_comment: ['検討コメント', '考慮コメント', 'consideration comment', 'Consideration Comment', 'considerationcomment', '備考コメント', '注意事項', 'consideration', 'Consideration'],
   number_of_times: ['number of times', 'Number of times', 'numberoftimes', '回数', 'times', '実施回数', '案件回数'],
   notes: ['notes', 'Notes', 'note', 'Note', 'memo', 'Memo', 'メモ', '備考', 'remarks', 'Remarks', '注記', '補足', 'その他'],
 };
@@ -531,7 +531,7 @@ export default function ImportPage() {
     post_url: '投稿URL',
     likes: 'いいね数',
     comments: 'コメント数',
-    consideration_comment: '考慮コメント',
+    consideration_comment: '検討コメント',
     number_of_times: '回数',
     notes: 'メモ',
   };

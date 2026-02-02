@@ -474,7 +474,7 @@ export default function CampaignModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  考慮コメント
+                  検討コメント
                 </label>
                 <input
                   type="number"
