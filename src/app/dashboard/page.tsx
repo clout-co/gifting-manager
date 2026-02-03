@@ -73,7 +73,7 @@ interface Stats {
   }[];
 }
 
-const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+const COLORS = ['#374151', '#6b7280', '#9ca3af', '#d1d5db', '#e5e7eb', '#f3f4f6'];
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -233,10 +233,10 @@ export default function DashboardPage() {
         totalLikes: campaigns.reduce((sum, c) => sum + (c.likes || 0), 0),
         totalComments: campaigns.reduce((sum, c) => sum + (c.comments || 0), 0),
         statusBreakdown: [
-          { name: '合意', value: statusCount.agree, color: '#10b981' },
-          { name: '保留', value: statusCount.pending, color: '#f59e0b' },
-          { name: '不合意', value: statusCount.disagree, color: '#ef4444' },
-          { name: 'キャンセル', value: statusCount.cancelled, color: '#6b7280' },
+          { name: '合意', value: statusCount.agree, color: '#374151' },
+          { name: '保留', value: statusCount.pending, color: '#6b7280' },
+          { name: '不合意', value: statusCount.disagree, color: '#9ca3af' },
+          { name: 'キャンセル', value: statusCount.cancelled, color: '#d1d5db' },
         ].filter((s) => s.value > 0),
         brandStats: Array.from(brandMap.entries())
           .map(([brand, data]) => ({ brand, ...data }))
@@ -389,9 +389,6 @@ export default function DashboardPage() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-primary-500 to-purple-600 rounded-xl shadow-lg shadow-primary-500/30">
-                <Sparkles className="text-white" size={24} />
-              </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">ダッシュボード</h1>
                 <p className="text-gray-500 mt-0.5">ギフティング活動のBI分析</p>
@@ -428,64 +425,64 @@ export default function DashboardPage() {
 
         {/* KPIカード */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="stat-card group">
+          <div className="stat-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">総案件数</p>
-                <p className="text-3xl font-bold mt-1 gradient-text">{formatNumber(stats.totalCampaigns)}</p>
+                <p className="text-3xl font-bold mt-1 text-gray-900">{formatNumber(stats.totalCampaigns)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl group-hover:scale-110 transition-transform">
-                <Gift className="text-primary-600" size={28} />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Gift className="text-gray-500" size={24} />
               </div>
             </div>
           </div>
 
-          <div className="stat-card group">
+          <div className="stat-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">インフルエンサー</p>
-                <p className="text-3xl font-bold mt-1">{formatNumber(stats.totalInfluencers)}</p>
+                <p className="text-3xl font-bold mt-1 text-gray-900">{formatNumber(stats.totalInfluencers)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl group-hover:scale-110 transition-transform">
-                <Users className="text-purple-600" size={28} />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Users className="text-gray-500" size={24} />
               </div>
             </div>
           </div>
 
-          <div className="stat-card group">
+          <div className="stat-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">総支出額</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(stats.totalSpent)}</p>
+                <p className="text-2xl font-bold mt-1 text-gray-900">{formatCurrency(stats.totalSpent)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-green-100 to-green-50 rounded-xl group-hover:scale-110 transition-transform">
-                <DollarSign className="text-green-600" size={28} />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <DollarSign className="text-gray-500" size={24} />
               </div>
             </div>
           </div>
 
-          <div className="stat-card group">
+          <div className="stat-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">総いいね</p>
-                <p className="text-3xl font-bold mt-1 text-pink-600">{formatNumber(stats.totalLikes)}</p>
+                <p className="text-3xl font-bold mt-1 text-gray-900">{formatNumber(stats.totalLikes)}</p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-pink-100 to-pink-50 rounded-xl group-hover:scale-110 transition-transform">
-                <Heart className="text-pink-600" size={28} />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Heart className="text-gray-500" size={24} />
               </div>
             </div>
           </div>
 
-          <div className="stat-card group">
+          <div className="stat-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">いいね単価</p>
-                <p className="text-2xl font-bold mt-1 text-blue-600">
+                <p className="text-2xl font-bold mt-1 text-gray-900">
                   {stats.totalLikes > 0 ? formatCurrency(stats.totalSpent / stats.totalLikes) : '-'}
                 </p>
               </div>
-              <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl group-hover:scale-110 transition-transform">
-                <Target className="text-blue-600" size={28} />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Target className="text-gray-500" size={24} />
               </div>
             </div>
           </div>
@@ -496,40 +493,28 @@ export default function DashboardPage() {
           {/* インフルエンサーランキング */}
           <div className="card lg:col-span-1">
             <div className="flex items-center gap-2 mb-6">
-              <div className="p-2 bg-gradient-to-br from-yellow-100 to-amber-100 rounded-lg">
-                <Trophy className="text-yellow-600" size={20} />
-              </div>
+              <Trophy className="text-gray-500" size={20} />
               <h3 className="font-bold text-gray-900">成績ランキング TOP10</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {stats.influencerRanking.map((inf, index) => (
                 <div
                   key={inf.display_name}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
-                    index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200/50 shadow-sm' :
-                    index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200/50' :
-                    index === 2 ? 'bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/50' :
-                    'bg-gray-50/50 hover:bg-gray-100/50'
-                  }`}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <div className="flex-shrink-0">
-                    {getRankIcon(index)}
+                  <div className="flex-shrink-0 w-6 text-center">
+                    <span className="text-sm font-bold text-gray-500">{index + 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 truncate">@{inf.display_name}</p>
-                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
-                        inf.rank === 'S' ? 'bg-amber-100 text-amber-700' :
-                        inf.rank === 'A' ? 'bg-purple-100 text-purple-700' :
-                        inf.rank === 'B' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>{inf.rank}</span>
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{inf.rank}</span>
                     </div>
                     <p className="text-xs text-gray-500">{inf.total_campaigns}件 | スコア: {inf.score}</p>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1 text-pink-500">
-                      <Heart size={14} fill="currentColor" />
+                    <div className="flex items-center gap-1 text-gray-700">
+                      <Heart size={14} />
                       <span className="font-bold">{formatNumber(inf.total_likes)}</span>
                     </div>
                     <p className="text-xs text-gray-400">
@@ -546,9 +531,7 @@ export default function DashboardPage() {
             {/* 商品別パフォーマンス */}
             <div className="card">
               <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-lg">
-                  <Package className="text-purple-600" size={20} />
-                </div>
+                <Package className="text-gray-500" size={20} />
                 <h3 className="font-bold text-gray-900">商品別パフォーマンス</h3>
               </div>
               <div className="h-64">
@@ -570,8 +553,8 @@ export default function DashboardPage() {
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="likes" fill="#ec4899" name="いいね" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="comments" fill="#8b5cf6" name="コメント" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="likes" fill="#374151" name="いいね" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="comments" fill="#9ca3af" name="コメント" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -627,7 +610,7 @@ export default function DashboardPage() {
                         }}
                         formatter={(value: number) => formatCurrency(value)}
                       />
-                      <Bar dataKey="amount" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="amount" fill="#374151" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -639,9 +622,7 @@ export default function DashboardPage() {
         {/* 月別トレンド */}
         <div className="card">
           <div className="flex items-center gap-2 mb-6">
-            <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg">
-              <TrendingUp className="text-blue-600" size={20} />
-            </div>
+            <TrendingUp className="text-gray-500" size={20} />
             <h3 className="font-bold text-gray-900">月別トレンド</h3>
           </div>
           <div className="h-80">
@@ -649,12 +630,12 @@ export default function DashboardPage() {
               <AreaChart data={stats.monthlyStats}>
                 <defs>
                   <linearGradient id="colorCampaigns" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#374151" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#374151" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorLikes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#9ca3af" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#9ca3af" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -677,7 +658,7 @@ export default function DashboardPage() {
                   yAxisId="left"
                   type="monotone"
                   dataKey="campaigns"
-                  stroke="#8b5cf6"
+                  stroke="#374151"
                   strokeWidth={2}
                   fill="url(#colorCampaigns)"
                   name="案件数"
@@ -686,7 +667,7 @@ export default function DashboardPage() {
                   yAxisId="right"
                   type="monotone"
                   dataKey="likes"
-                  stroke="#ec4899"
+                  stroke="#9ca3af"
                   strokeWidth={2}
                   fill="url(#colorLikes)"
                   name="いいね"
@@ -699,51 +680,49 @@ export default function DashboardPage() {
         {/* コスト効率分析 */}
         <div className="card">
           <div className="flex items-center gap-2 mb-6">
-            <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-              <Zap className="text-green-600" size={20} />
-            </div>
+            <Zap className="text-gray-500" size={20} />
             <h3 className="font-bold text-gray-900">コスト効率分析</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-6 bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl border border-pink-100/50">
-              <div className="flex items-center gap-3 mb-2">
-                <Heart className="text-pink-500" size={20} />
+            <div className="p-5 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="text-gray-400" size={18} />
                 <span className="text-sm text-gray-500">いいね単価</span>
               </div>
-              <p className="text-3xl font-bold text-pink-600">
+              <p className="text-2xl font-bold text-gray-900">
                 {stats.totalLikes > 0 ? formatCurrency(stats.totalSpent / stats.totalLikes) : '-'}
               </p>
               <p className="text-xs text-gray-400 mt-1">1いいねあたり</p>
             </div>
 
-            <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100/50">
-              <div className="flex items-center gap-3 mb-2">
-                <MessageCircle className="text-blue-500" size={20} />
+            <div className="p-5 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="text-gray-400" size={18} />
                 <span className="text-sm text-gray-500">コメント単価</span>
               </div>
-              <p className="text-3xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-gray-900">
                 {stats.totalComments > 0 ? formatCurrency(stats.totalSpent / stats.totalComments) : '-'}
               </p>
               <p className="text-xs text-gray-400 mt-1">1コメントあたり</p>
             </div>
 
-            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100/50">
-              <div className="flex items-center gap-3 mb-2">
-                <Gift className="text-green-500" size={20} />
+            <div className="p-5 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Gift className="text-gray-400" size={18} />
                 <span className="text-sm text-gray-500">案件単価</span>
               </div>
-              <p className="text-3xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-gray-900">
                 {stats.totalCampaigns > 0 ? formatCurrency(stats.totalSpent / stats.totalCampaigns) : '-'}
               </p>
               <p className="text-xs text-gray-400 mt-1">1案件あたり</p>
             </div>
 
-            <div className="p-6 bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl border border-purple-100/50">
-              <div className="flex items-center gap-3 mb-2">
-                <Star className="text-purple-500" size={20} />
+            <div className="p-5 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="text-gray-400" size={18} />
                 <span className="text-sm text-gray-500">エンゲージメント率</span>
               </div>
-              <p className="text-3xl font-bold text-purple-600">
+              <p className="text-2xl font-bold text-gray-900">
                 {stats.totalLikes > 0
                   ? ((stats.totalComments / stats.totalLikes) * 100).toFixed(1) + '%'
                   : '-'}
