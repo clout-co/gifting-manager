@@ -246,21 +246,21 @@ export default function InfluencersPage() {
 
   const getRankColor = (rank: string) => {
     switch (rank) {
-      case 'S': return 'from-yellow-400 to-amber-500 text-white';
-      case 'A': return 'from-purple-400 to-purple-600 text-white';
-      case 'B': return 'from-blue-400 to-blue-600 text-white';
-      case 'C': return 'from-green-400 to-green-600 text-white';
-      default: return 'from-gray-400 to-gray-500 text-white';
+      case 'S': return 'from-gray-900 to-gray-800 text-white';
+      case 'A': return 'from-gray-700 to-gray-600 text-white';
+      case 'B': return 'from-gray-500 to-gray-400 text-white';
+      case 'C': return 'from-gray-400 to-gray-300 text-gray-800';
+      default: return 'from-gray-300 to-gray-200 text-gray-700';
     }
   };
 
   const getRankBgColor = (rank: string) => {
     switch (rank) {
-      case 'S': return 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200';
-      case 'A': return 'bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200';
-      case 'B': return 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200';
-      case 'C': return 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200';
-      default: return 'bg-gray-50 border-gray-200';
+      case 'S': return 'bg-gray-50 border-gray-400';
+      case 'A': return 'bg-gray-50 border-gray-300';
+      case 'B': return 'bg-white border-gray-200';
+      case 'C': return 'bg-white border-gray-200';
+      default: return 'bg-white border-gray-200';
     }
   };
 
@@ -286,7 +286,7 @@ export default function InfluencersPage() {
         {/* ヘッダー */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-lg shadow-purple-500/30">
+            <div className="p-3 bg-gray-800 rounded-xl shadow-lg">
               <Users className="text-white" size={24} />
             </div>
             <div>
@@ -307,12 +307,12 @@ export default function InfluencersPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="stat-card">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Crown className="text-yellow-600" size={20} />
+              <div className="p-2 bg-gray-800 rounded-lg">
+                <Crown className="text-white" size={20} />
               </div>
               <div>
                 <p className="text-xs text-gray-500">Sランク</p>
-                <p className="text-xl font-bold text-yellow-600">
+                <p className="text-xl font-bold text-gray-800">
                   {influencers.filter(i => i.rank === 'S').length}名
                 </p>
               </div>
@@ -320,12 +320,12 @@ export default function InfluencersPage() {
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Award className="text-purple-600" size={20} />
+              <div className="p-2 bg-gray-600 rounded-lg">
+                <Award className="text-white" size={20} />
               </div>
               <div>
                 <p className="text-xs text-gray-500">Aランク</p>
-                <p className="text-xl font-bold text-purple-600">
+                <p className="text-xl font-bold text-gray-700">
                   {influencers.filter(i => i.rank === 'A').length}名
                 </p>
               </div>
@@ -333,12 +333,12 @@ export default function InfluencersPage() {
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-pink-100 rounded-lg">
-                <Heart className="text-pink-600" size={20} />
+              <div className="p-2 bg-gray-500 rounded-lg">
+                <Heart className="text-white" size={20} />
               </div>
               <div>
                 <p className="text-xs text-gray-500">総いいね</p>
-                <p className="text-xl font-bold text-pink-600">
+                <p className="text-xl font-bold text-gray-700">
                   {formatNumber(influencers.reduce((sum, i) => sum + i.totalLikes, 0))}
                 </p>
               </div>
@@ -346,12 +346,12 @@ export default function InfluencersPage() {
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="text-green-600" size={20} />
+              <div className="p-2 bg-gray-400 rounded-lg">
+                <DollarSign className="text-white" size={20} />
               </div>
               <div>
                 <p className="text-xs text-gray-500">平均いいね単価</p>
-                <p className="text-xl font-bold text-green-600">
+                <p className="text-xl font-bold text-gray-700">
                   {formatCurrency(
                     influencers.reduce((sum, i) => sum + i.totalSpent, 0) /
                     Math.max(1, influencers.reduce((sum, i) => sum + i.totalLikes, 0))
@@ -428,7 +428,7 @@ export default function InfluencersPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Instagram size={16} className="text-pink-500" />
+                        <Instagram size={16} className="text-gray-600" />
                         <span className="font-bold text-gray-900">@{influencer.insta_name || influencer.tiktok_name}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -438,9 +438,9 @@ export default function InfluencersPage() {
                   </div>
                   {index < 3 && (
                     <div className="flex items-center gap-1">
-                      {index === 0 && <Crown className="text-yellow-500" size={20} />}
-                      {index === 1 && <Medal className="text-gray-400" size={20} />}
-                      {index === 2 && <Medal className="text-orange-400" size={20} />}
+                      {index === 0 && <Crown className="text-gray-800" size={20} />}
+                      {index === 1 && <Medal className="text-gray-500" size={20} />}
+                      {index === 2 && <Medal className="text-gray-400" size={20} />}
                     </div>
                   )}
                 </div>
@@ -450,10 +450,10 @@ export default function InfluencersPage() {
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full bg-gradient-to-r ${
-                        influencer.rank === 'S' ? 'from-yellow-400 to-amber-500' :
-                        influencer.rank === 'A' ? 'from-purple-400 to-purple-600' :
-                        influencer.rank === 'B' ? 'from-blue-400 to-blue-600' :
-                        'from-green-400 to-green-600'
+                        influencer.rank === 'S' ? 'from-gray-800 to-gray-700' :
+                        influencer.rank === 'A' ? 'from-gray-700 to-gray-600' :
+                        influencer.rank === 'B' ? 'from-gray-500 to-gray-400' :
+                        'from-gray-400 to-gray-300'
                       } rounded-full transition-all duration-500`}
                       style={{ width: `${influencer.score}%` }}
                     />
@@ -468,7 +468,7 @@ export default function InfluencersPage() {
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
                     <p className="text-xs text-gray-500">総いいね</p>
-                    <p className="font-bold text-pink-600">{formatNumber(influencer.totalLikes)}</p>
+                    <p className="font-bold text-gray-800">{formatNumber(influencer.totalLikes)}</p>
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
                     <p className="text-xs text-gray-500">総支出</p>
@@ -476,7 +476,7 @@ export default function InfluencersPage() {
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
                     <p className="text-xs text-gray-500">いいね単価</p>
-                    <p className={`font-bold ${influencer.costPerLike < 100 ? 'text-green-600' : 'text-gray-900'}`}>
+                    <p className={`font-bold ${influencer.costPerLike < 100 ? 'text-gray-800' : 'text-gray-600'}`}>
                       {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
                     </p>
                   </div>
@@ -502,7 +502,7 @@ export default function InfluencersPage() {
                   </button>
                   <button
                     onClick={() => handleDelete(influencer.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -537,7 +537,7 @@ export default function InfluencersPage() {
                       </td>
                       <td className="table-cell font-medium">
                         <div className="flex items-center gap-2">
-                          <Instagram size={16} className="text-pink-500" />
+                          <Instagram size={16} className="text-gray-600" />
                           @{influencer.insta_name || influencer.tiktok_name}
                         </div>
                       </td>
@@ -553,15 +553,15 @@ export default function InfluencersPage() {
                         </div>
                       </td>
                       <td className="table-cell">{influencer.totalCampaigns}件</td>
-                      <td className="table-cell text-pink-600 font-medium">
+                      <td className="table-cell text-gray-800 font-medium">
                         {formatNumber(influencer.totalLikes)}
                       </td>
                       <td className="table-cell">{formatCurrency(influencer.totalSpent)}</td>
                       <td className="table-cell">
                         <span className={`px-2 py-1 rounded-full text-sm ${
-                          influencer.costPerLike < 50 ? 'bg-green-100 text-green-700' :
-                          influencer.costPerLike < 100 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
+                          influencer.costPerLike < 50 ? 'bg-gray-800 text-white' :
+                          influencer.costPerLike < 100 ? 'bg-gray-200 text-gray-700' :
+                          'bg-gray-100 text-gray-600'
                         }`}>
                           {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
                         </span>
@@ -576,7 +576,7 @@ export default function InfluencersPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(influencer.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
                           >
                             <Trash2 size={16} />
                           </button>
