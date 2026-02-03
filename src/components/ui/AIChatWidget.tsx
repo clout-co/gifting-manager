@@ -51,17 +51,23 @@ export default function AIChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: input,
-          context: {
-            source: 'widget',
-          },
         }),
       });
 
       const data = await response.json();
 
+      let responseContent = data.response;
+
+      // エラーレスポンスの場合
+      if (!response.ok || data.error) {
+        responseContent = data.error === 'AIチャット中にエラーが発生しました'
+          ? 'AIアシスタントは現在利用できません。\n\n環境変数 CLAUDE_API_KEY が設定されているか確認してください。'
+          : data.error || 'エラーが発生しました。';
+      }
+
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: data.response || 'すみません、エラーが発生しました。',
+        content: responseContent || 'すみません、応答を生成できませんでした。',
         timestamp: new Date(),
       };
 
@@ -69,7 +75,7 @@ export default function AIChatWidget() {
     } catch (error) {
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: 'すみません、接続エラーが発生しました。',
+        content: 'すみません、サーバーへの接続に失敗しました。\nネットワーク接続を確認してください。',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
