@@ -137,6 +137,7 @@ html {
   .status-ignored {
     @apply bg-gray-50 text-gray-400
            px-3 py-1.5 rounded-full text-xs font-semibold;
+  }
 
   /* アニメーション */
   .animate-fade-in {
