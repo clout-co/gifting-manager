@@ -82,7 +82,7 @@ export default function AIChatWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 lg:bottom-6 right-6 z-50 p-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full shadow-lg shadow-violet-500/30 hover:shadow-xl hover:scale-105 transition-all duration-300"
+        className="fixed bottom-24 lg:bottom-6 right-6 z-50 p-4 bg-gray-800 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
         aria-label="AIアシスタントを開く"
       >
         <Sparkles size={24} />
@@ -97,7 +97,7 @@ export default function AIChatWidget() {
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-violet-500 to-purple-600 rounded-t-2xl">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-800 rounded-t-2xl">
         <div className="flex items-center gap-2 text-white">
           <Sparkles size={20} />
           <span className="font-semibold">AIアシスタント</span>
@@ -130,7 +130,7 @@ export default function AIChatWidget() {
                 <div
                   className={`max-w-[85%] px-4 py-2.5 rounded-2xl ${
                     message.role === 'user'
-                      ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-md'
+                      ? 'bg-gray-800 text-white rounded-br-md'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
                   }`}
                 >
@@ -141,7 +141,7 @@ export default function AIChatWidget() {
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md">
-                  <Loader2 className="animate-spin text-violet-500" size={20} />
+                  <Loader2 className="animate-spin text-gray-600" size={20} />
                 </div>
               </div>
             )}
@@ -156,13 +156,13 @@ export default function AIChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="質問を入力..."
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:text-white"
+                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:text-white"
                 disabled={loading}
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="p-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="p-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-50"
               >
                 <Send size={18} />
               </button>

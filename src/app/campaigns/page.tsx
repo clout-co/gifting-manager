@@ -67,7 +67,8 @@ export default function CampaignsPage() {
           .from('campaigns')
           .select(`
             *,
-            influencer:influencers(*)
+            influencer:influencers(*),
+            staff:staffs(*)
           `)
           .eq('brand', currentBrand) // ブランドでフィルター
           .order('created_at', { ascending: false }),
@@ -279,16 +280,21 @@ export default function CampaignsPage() {
     }).format(amount);
   };
 
-  // 合意案件の未入力必須フィールドをチェック
+  // 合意案件の未入力必須フィールドをチェック（販売日から5日経過後のみ）
   const getMissingFieldsForAgreed = (campaign: Campaign): string[] => {
     if (campaign.status !== 'agree') return [];
+
+    // 販売日がない場合、または販売日から5日経過していない場合は通知しない
+    if (!campaign.sale_date) return [];
+    const saleDate = new Date(campaign.sale_date);
+    const today = new Date();
+    const daysSinceSale = Math.floor((today.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceSale < 5) return [];
 
     const missingFields: string[] = [];
 
     if (!campaign.post_date) missingFields.push('投稿日');
     if (!campaign.post_url) missingFields.push('投稿URL');
-    if (!campaign.likes && campaign.likes !== 0) missingFields.push('いいね数');
-    if (!campaign.comments && campaign.comments !== 0) missingFields.push('コメント数');
     // 回数は自動計算なので削除
 
     return missingFields;
@@ -354,9 +360,6 @@ export default function CampaignsPage() {
         {/* ヘッダー */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl shadow-lg shadow-pink-500/30">
-              <Gift className="text-white" size={24} />
-            </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">ギフティング案件管理</h1>
               <p className="text-gray-500 mt-0.5">案件数: {campaigns.length}件</p>
@@ -379,11 +382,11 @@ export default function CampaignsPage() {
           </div>
           <div className="stat-card">
             <p className="text-xs text-gray-500">合意済み</p>
-            <p className="text-xl font-bold text-green-600">{stats.agree}件</p>
+            <p className="text-xl font-bold text-gray-800">{stats.agree}件</p>
           </div>
           <div className="stat-card">
             <p className="text-xs text-gray-500">保留中</p>
-            <p className="text-xl font-bold text-amber-600">{stats.pending}件</p>
+            <p className="text-xl font-bold text-gray-500">{stats.pending}件</p>
           </div>
           <div className="stat-card">
             <p className="text-xs text-gray-500">総支出</p>
@@ -391,23 +394,23 @@ export default function CampaignsPage() {
           </div>
           <div className="stat-card">
             <p className="text-xs text-gray-500">総いいね</p>
-            <p className="text-xl font-bold text-pink-600">{stats.totalLikes.toLocaleString()}</p>
+            <p className="text-xl font-bold text-gray-700">{stats.totalLikes.toLocaleString()}</p>
           </div>
         </div>
 
         {/* BE専用: 国別海外発送分析 */}
         {currentBrand === 'BE' && internationalStats && internationalStats.total > 0 && (
-          <div className="card bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200">
+          <div className="card bg-gray-50 border-gray-200">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <Globe className="text-emerald-600" size={20} />
+              <div className="p-2 bg-gray-200 rounded-lg">
+                <Globe className="text-gray-600" size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-emerald-900 flex items-center gap-2">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
                   <Plane size={16} />
                   海外発送分析（BE専用）
                 </h3>
-                <p className="text-sm text-emerald-700">
+                <p className="text-sm text-gray-600">
                   海外発送案件: {internationalStats.total}件 / 総送料: ¥{internationalStats.totalShippingCost.toLocaleString()}
                 </p>
               </div>
@@ -417,16 +420,16 @@ export default function CampaignsPage() {
               {internationalStats.byCountry.map(({ country, count, cost, likes }) => (
                 <div
                   key={country}
-                  className="bg-white/70 rounded-lg p-3 border border-emerald-100 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <MapPin size={14} className="text-emerald-500" />
-                    <span className="font-medium text-emerald-900 text-sm truncate">{country}</span>
+                    <MapPin size={14} className="text-gray-500" />
+                    <span className="font-medium text-gray-900 text-sm truncate">{country}</span>
                   </div>
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-500">案件数</span>
-                      <span className="font-bold text-emerald-700">{count}件</span>
+                      <span className="font-bold text-gray-800">{count}件</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">送料計</span>
@@ -434,7 +437,7 @@ export default function CampaignsPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">いいね</span>
-                      <span className="font-medium text-pink-500">{likes.toLocaleString()}</span>
+                      <span className="font-medium text-gray-600">{likes.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -476,19 +479,15 @@ export default function CampaignsPage() {
 
         {/* 合意案件の未入力通知 */}
         {agreedWithMissingFields.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 animate-slide-up">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 animate-slide-up">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Bell className="text-amber-600" size={18} />
-              </div>
+              <Bell className="text-gray-500 mt-0.5" size={18} />
               <div className="flex-1">
-                <h4 className="font-medium text-amber-900 flex items-center gap-2">
-                  <AlertTriangle size={16} />
+                <h4 className="font-medium text-gray-900">
                   合意案件で未入力の項目があります
                 </h4>
-                <p className="text-sm text-amber-700 mt-1">
-                  以下の{agreedWithMissingFields.length}件の合意済み案件で、必須項目が未入力です。
-                  投稿完了後に入力してください。
+                <p className="text-sm text-gray-600 mt-1">
+                  以下の{agreedWithMissingFields.length}件の合意済み案件で、必須項目が未入力です。投稿完了後に入力してください。
                 </p>
 
                 <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
@@ -497,23 +496,23 @@ export default function CampaignsPage() {
                     return (
                       <div
                         key={campaign.id}
-                        className="flex items-center justify-between bg-white/60 rounded-lg p-2 text-sm"
+                        className="flex items-center justify-between bg-white rounded-lg p-2 text-sm border border-gray-100"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-amber-900">
+                          <span className="font-medium text-gray-900">
                             @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
                           </span>
-                          <span className="text-amber-600">
+                          <span className="text-gray-500">
                             {campaign.item_code || '-'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-amber-600 text-xs">
+                          <span className="text-gray-500 text-xs">
                             未入力: {missing.join('、')}
                           </span>
                           <button
                             onClick={() => handleEdit(campaign)}
-                            className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs hover:bg-amber-200 transition-colors"
+                            className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 transition-colors"
                           >
                             編集
                           </button>
@@ -522,7 +521,7 @@ export default function CampaignsPage() {
                     );
                   })}
                   {agreedWithMissingFields.length > 5 && (
-                    <p className="text-xs text-amber-600 text-center py-1">
+                    <p className="text-xs text-gray-500 text-center py-1">
                       ...他{agreedWithMissingFields.length - 5}件
                     </p>
                   )}
@@ -534,10 +533,10 @@ export default function CampaignsPage() {
 
         {/* 一括操作バー */}
         {selectedIds.size > 0 && (
-          <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 flex items-center justify-between animate-slide-up">
+          <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 flex items-center justify-between animate-slide-up">
             <div className="flex items-center gap-3">
-              <CheckSquare className="text-primary-600" size={20} />
-              <span className="font-medium text-primary-900">
+              <CheckSquare className="text-gray-700" size={20} />
+              <span className="font-medium text-gray-900">
                 {selectedIds.size}件選択中
               </span>
             </div>
@@ -551,16 +550,16 @@ export default function CampaignsPage() {
               </button>
               <button
                 onClick={handleBulkDelete}
-                className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors flex items-center gap-2"
               >
                 <Trash2 size={16} />
                 一括削除
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
-                className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <X size={18} className="text-primary-600" />
+                <X size={18} className="text-gray-600" />
               </button>
             </div>
           </div>
@@ -656,7 +655,7 @@ export default function CampaignsPage() {
                         className="p-1 hover:bg-gray-100 rounded"
                       >
                         {selectedIds.size === filteredCampaigns.length ? (
-                          <CheckSquare size={18} className="text-primary-600" />
+                          <CheckSquare size={18} className="text-gray-700" />
                         ) : (
                           <Square size={18} className="text-gray-400" />
                         )}
@@ -668,7 +667,7 @@ export default function CampaignsPage() {
                     {currentBrand === 'BE' && (
                       <th className="table-header px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <Plane size={14} className="text-emerald-500" />
+                          <Plane size={14} className="text-gray-500" />
                           発送先
                         </div>
                       </th>
@@ -687,7 +686,7 @@ export default function CampaignsPage() {
                   {filteredCampaigns.map((campaign) => (
                     <tr
                       key={campaign.id}
-                      className={`table-row ${selectedIds.has(campaign.id) ? 'bg-primary-50' : ''}`}
+                      className={`table-row ${selectedIds.has(campaign.id) ? 'bg-gray-100' : ''}`}
                     >
                       <td className="table-cell">
                         <button
@@ -695,7 +694,7 @@ export default function CampaignsPage() {
                           className="p-1 hover:bg-gray-100 rounded"
                         >
                           {selectedIds.has(campaign.id) ? (
-                            <CheckSquare size={18} className="text-primary-600" />
+                            <CheckSquare size={18} className="text-gray-700" />
                           ) : (
                             <Square size={18} className="text-gray-400" />
                           )}
@@ -710,8 +709,8 @@ export default function CampaignsPage() {
                         <td className="table-cell">
                           {campaign.is_international_shipping ? (
                             <div className="flex items-center gap-1">
-                              <MapPin size={12} className="text-emerald-500" />
-                              <span className="text-emerald-700 text-xs font-medium">
+                              <MapPin size={12} className="text-gray-500" />
+                              <span className="text-gray-700 text-xs font-medium">
                                 {campaign.shipping_country || '未設定'}
                               </span>
                             </div>
@@ -746,11 +745,11 @@ export default function CampaignsPage() {
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1 text-pink-500">
+                          <span className="flex items-center gap-1 text-gray-700">
                             <Heart size={14} />
                             {campaign.likes?.toLocaleString() || 0}
                           </span>
-                          <span className="flex items-center gap-1 text-blue-500">
+                          <span className="flex items-center gap-1 text-gray-500">
                             <MessageCircle size={14} />
                             {campaign.comments?.toLocaleString() || 0}
                           </span>
@@ -762,7 +761,7 @@ export default function CampaignsPage() {
                             href={campaign.post_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary-600 hover:underline flex items-center gap-1"
+                            className="text-gray-700 hover:underline flex items-center gap-1"
                           >
                             表示
                             <ExternalLink size={14} />
