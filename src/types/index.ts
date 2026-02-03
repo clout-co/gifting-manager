@@ -1,6 +1,7 @@
 // 管理者メールアドレス
 export const ADMIN_EMAILS = [
   'taishi.sawada@clout.co.jp',
+  'hideaki.kudo@clout.co.jp',
   's@clout.co.jp',
 ];
 

@@ -93,7 +93,12 @@ export default function ReportsPage() {
     }
 
     const { data: campaigns } = await query;
-    const { data: influencers } = await supabase.from('influencers').select('*').eq('brand', currentBrand);
+    // brandカラムが存在しない場合のフォールバック
+    let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
+    if (influencersRes.error && influencersRes.error.message.includes('brand')) {
+      influencersRes = await supabase.from('influencers').select('*');
+    }
+    const influencers = influencersRes.data;
 
     const campaignList = campaigns || [];
     const influencerList = influencers || [];

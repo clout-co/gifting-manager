@@ -74,12 +74,23 @@ export default function InfluencerDetailPage() {
     setLoading(true);
     try {
       // インフルエンサー情報を取得（ブランドも確認）
-      const { data: influencerData, error: influencerError } = await supabase
+      let influencerRes = await supabase
         .from('influencers')
         .select('*')
         .eq('id', influencerId)
         .eq('brand', currentBrand)
         .single();
+
+      // brandカラムが存在しない場合のフォールバック
+      if (influencerRes.error && influencerRes.error.message.includes('brand')) {
+        influencerRes = await supabase
+          .from('influencers')
+          .select('*')
+          .eq('id', influencerId)
+          .single();
+      }
+
+      const { data: influencerData, error: influencerError } = influencerRes;
 
       if (influencerError) {
         // ブランドが異なる場合はインフルエンサー一覧にリダイレクト

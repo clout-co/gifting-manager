@@ -61,10 +61,13 @@ export default function InfluencersPage() {
 
     try {
       // インフルエンサーと案件を取得（ブランドでフィルター）
-      const [influencersRes, campaignsRes] = await Promise.all([
-        supabase.from('influencers').select('*').eq('brand', currentBrand).order('created_at', { ascending: false }),
-        supabase.from('campaigns').select('*').eq('brand', currentBrand),
-      ]);
+      // brandカラムが存在しない場合のフォールバック
+      let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand).order('created_at', { ascending: false });
+      if (influencersRes.error && influencersRes.error.message.includes('brand')) {
+        influencersRes = await supabase.from('influencers').select('*').order('created_at', { ascending: false });
+      }
+
+      const campaignsRes = await supabase.from('campaigns').select('*').eq('brand', currentBrand);
 
       if (influencersRes.error) throw influencersRes.error;
       if (campaignsRes.error) throw campaignsRes.error;

@@ -141,7 +141,12 @@ export default function DashboardPage() {
     }
 
     const campaignsRes = await query;
-    const influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
+    // brandカラムが存在しない場合のフォールバック
+    let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
+    if (influencersRes.error && influencersRes.error.message.includes('brand')) {
+      // brandカラムがない場合は全件取得
+      influencersRes = await supabase.from('influencers').select('*');
+    }
 
     if (campaignsRes.error) throw campaignsRes.error;
     if (influencersRes.error) throw influencersRes.error;

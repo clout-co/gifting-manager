@@ -455,20 +455,18 @@ export default function ImportPage() {
         const name = row.insta_name || row.tiktok_name;
         if (!name) continue;
 
-        // インフルエンサーを検索（ブランド内で検索）
-        const { data: influencer } = row.insta_name
-          ? await supabase
-              .from('influencers')
-              .select('id')
-              .eq('insta_name', row.insta_name)
-              .eq('brand', currentBrand)
-              .single()
-          : await supabase
-              .from('influencers')
-              .select('id')
-              .eq('tiktok_name', row.tiktok_name)
-              .eq('brand', currentBrand)
-              .single();
+        // インフルエンサーを検索（ブランド内で検索、brandカラムがない場合はフォールバック）
+        let influencerRes = row.insta_name
+          ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).eq('brand', currentBrand).single()
+          : await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).eq('brand', currentBrand).single();
+
+        // brandカラムがない場合のフォールバック
+        if (influencerRes.error && influencerRes.error.message.includes('brand')) {
+          influencerRes = row.insta_name
+            ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).single()
+            : await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).single();
+        }
+        const influencer = influencerRes.data;
 
         if (influencer) {
           // 同じブランド、同じ品番の既存案件をチェック
@@ -581,22 +579,23 @@ export default function ImportPage() {
 
       try {
         // インフルエンサーを検索または作成
-        // Instagram名またはTikTok名で検索（ブランド内で検索）
-        let { data: influencer } = row.insta_name
-          ? await supabase
-              .from('influencers')
-              .select('id')
-              .eq('insta_name', row.insta_name)
-              .eq('brand', currentBrand)
-              .single()
+        // Instagram名またはTikTok名で検索（ブランド内で検索、brandカラムがない場合はフォールバック）
+        let influencerSearchRes = row.insta_name
+          ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).eq('brand', currentBrand).single()
           : row.tiktok_name
-          ? await supabase
-              .from('influencers')
-              .select('id')
-              .eq('tiktok_name', row.tiktok_name)
-              .eq('brand', currentBrand)
-              .single()
-          : { data: null };
+          ? await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).eq('brand', currentBrand).single()
+          : { data: null, error: null };
+
+        // brandカラムがない場合のフォールバック
+        if (influencerSearchRes.error && influencerSearchRes.error.message.includes('brand')) {
+          influencerSearchRes = row.insta_name
+            ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).single()
+            : row.tiktok_name
+            ? await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).single()
+            : { data: null, error: null };
+        }
+
+        let influencer = influencerSearchRes.data;
 
         if (!influencer) {
           const { data: newInfluencer, error: createError } = await supabase
