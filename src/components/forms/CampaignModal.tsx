@@ -45,7 +45,8 @@ export default function CampaignModal({
     consideration_comment: campaign?.consideration_comment || 0,
     engagement_date: campaign?.engagement_date || '',
     number_of_times: campaign?.number_of_times || 1,
-    product_cost: campaign?.product_cost ?? 800,
+    product_cost: campaign?.product_cost ?? 0,
+    shipping_cost: 800, // 送料は800円固定
     is_international_shipping: campaign?.is_international_shipping ?? false,
     shipping_country: campaign?.shipping_country || '',
     international_shipping_cost: campaign?.international_shipping_cost ?? 0,
@@ -186,7 +187,8 @@ export default function CampaignModal({
         consideration_comment: formData.consideration_comment || 0,
         engagement_date: formData.engagement_date || null,
         number_of_times: formData.number_of_times || 1,
-        product_cost: formData.product_cost || 800,
+        product_cost: formData.product_cost || 0,
+        shipping_cost: 800, // 送料は800円固定
         is_international_shipping: formData.is_international_shipping || false,
         shipping_country: formData.is_international_shipping ? (formData.shipping_country || null) : null,
         international_shipping_cost: formData.is_international_shipping ? (formData.international_shipping_cost || null) : null,
@@ -490,7 +492,7 @@ export default function CampaignModal({
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 border-b pb-2">金額・ステータス</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   提示額 (円)
@@ -527,18 +529,31 @@ export default function CampaignModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  商品原価・送料 (円)
+                  商品原価 (円)
                 </label>
                 <input
                   type="number"
                   value={formData.product_cost}
                   onChange={(e) =>
-                    setFormData({ ...formData, product_cost: parseFloat(e.target.value) || 800 })
+                    setFormData({ ...formData, product_cost: parseFloat(e.target.value) || 0 })
                   }
                   className="input-field"
                   min={0}
+                  placeholder="0"
                 />
-                <p className="text-xs text-gray-500 mt-1">デフォルト: ¥800</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  送料 (円)
+                </label>
+                <input
+                  type="number"
+                  value={800}
+                  disabled
+                  className="input-field bg-gray-100 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">固定: ¥800</p>
               </div>
 
               <div>

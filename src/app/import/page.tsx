@@ -55,7 +55,6 @@ const HEADER_PATTERNS: Record<string, string[]> = {
   is_international_shipping: ['海外発送', '海外', 'international', 'International', 'overseas', 'Overseas', '国際発送'],
   shipping_country: ['発送先国', '国', 'country', 'Country', '発送国', '配送先国', '送り先国'],
   international_shipping_cost: ['海外送料', '国際送料', 'international shipping cost', 'International Shipping Cost', '海外発送送料'],
-  currency: ['通貨', 'currency', 'Currency', '通貨コード'],
   notes: ['notes', 'Notes', 'note', 'Note', 'memo', 'Memo', 'メモ', '備考', 'remarks', 'Remarks', '注記', '補足', 'その他'],
 };
 
@@ -738,7 +737,6 @@ export default function ImportPage() {
     is_international_shipping: '海外発送',
     shipping_country: '発送先国',
     international_shipping_cost: '海外送料',
-    currency: '通貨',
     notes: 'メモ',
   };
 

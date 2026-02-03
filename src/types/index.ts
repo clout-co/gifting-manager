@@ -41,7 +41,8 @@ export interface Campaign {
   consideration_comment: number | null;
   engagement_date: string | null; // エンゲージメント入力日
   number_of_times: number | null; // 回数
-  product_cost: number; // 商品原価・送料（デフォルト800円）
+  product_cost: number; // 商品原価
+  shipping_cost: number; // 送料（800円固定）
   // BE用海外発送フィールド
   is_international_shipping: boolean; // 海外発送フラグ
   shipping_country: string | null; // 発送先国
@@ -132,6 +133,7 @@ export interface CampaignFormData {
   engagement_date: string;
   number_of_times: number;
   product_cost: number;
+  shipping_cost: number;
   // BE用海外発送フィールド
   is_international_shipping: boolean;
   shipping_country: string;
