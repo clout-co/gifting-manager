@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import TagInput, { SUGGESTED_TAGS } from '@/components/ui/TagInput';
 import QuickTemplates, { QuickAmountButtons, QuickDateButtons } from '@/components/ui/QuickTemplates';
 import { useBrand } from '@/contexts/BrandContext';
+import { useToast, translateError } from '@/lib/toast';
 
 interface CampaignModalProps {
   campaign: Campaign | null;
@@ -24,6 +25,7 @@ export default function CampaignModal({
 }: CampaignModalProps) {
   const { user } = useAuth();
   const { currentBrand } = useBrand();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<CampaignFormData>({
     influencer_id: campaign?.influencer_id || '',
     brand: campaign?.brand || currentBrand, // 現在のブランドを自動設定
@@ -249,9 +251,12 @@ export default function CampaignModal({
         if (error) throw error;
       }
 
+      showToast('success', campaign ? '案件を更新しました' : '案件を登録しました');
       onSave();
-    } catch (err: any) {
-      setError(err.message || 'エラーが発生しました');
+    } catch (err: unknown) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -473,7 +478,7 @@ export default function CampaignModal({
                     onClick={() => setPostDateMode('single')}
                     className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                       postDateMode === 'single'
-                        ? 'bg-primary-500 text-white'
+                        ? 'bg-gray-800 text-white'
                         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -484,7 +489,7 @@ export default function CampaignModal({
                     onClick={() => setPostDateMode('range')}
                     className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
                       postDateMode === 'range'
-                        ? 'bg-primary-500 text-white'
+                        ? 'bg-gray-800 text-white'
                         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -542,7 +547,7 @@ export default function CampaignModal({
               {formData.sale_date && (formData.desired_post_date || formData.desired_post_start) && (
                 <div className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2 border border-gray-200">
                   <span className="font-medium">投稿ステータス（自動）: </span>
-                  <span className="text-primary-600 font-medium">
+                  <span className="text-gray-800 font-medium">
                     {calculatePostStatus(
                       formData.sale_date,
                       formData.post_date,
@@ -649,19 +654,19 @@ export default function CampaignModal({
           {currentBrand === 'BE' && (
             <div className="space-y-4">
               <h3 className="font-medium text-gray-900 border-b pb-2 flex items-center gap-2">
-                <Globe size={18} className="text-emerald-500" />
+                <Globe size={18} className="text-gray-500" />
                 海外発送設定（BEブランド）
               </h3>
 
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-4 border border-gray-200">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.is_international_shipping}
                     onChange={(e) => setFormData({ ...formData, is_international_shipping: e.target.checked })}
-                    className="w-5 h-5 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                    className="w-5 h-5 rounded border-gray-400 text-gray-800 focus:ring-gray-500"
                   />
-                  <span className="font-medium text-emerald-900 flex items-center gap-2">
+                  <span className="font-medium text-gray-800 flex items-center gap-2">
                     <Plane size={16} />
                     海外発送案件として登録
                   </span>
@@ -670,7 +675,7 @@ export default function CampaignModal({
                 {formData.is_international_shipping && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-8">
                     <div>
-                      <label className="block text-sm font-medium text-emerald-800 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         発送先国
                       </label>
                       <select
@@ -687,7 +692,7 @@ export default function CampaignModal({
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-emerald-800 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         海外発送送料（円）
                       </label>
                       <input

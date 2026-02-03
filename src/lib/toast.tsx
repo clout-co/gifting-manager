@@ -69,25 +69,26 @@ function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 }
 
 function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
+  // グレースケールで統一されたスタイル
   const icons = {
-    success: <CheckCircle className="text-green-500" size={20} />,
-    error: <XCircle className="text-red-500" size={20} />,
-    warning: <AlertTriangle className="text-amber-500" size={20} />,
-    info: <Info className="text-blue-500" size={20} />,
+    success: <CheckCircle className="text-gray-700" size={20} />,
+    error: <XCircle className="text-gray-600" size={20} />,
+    warning: <AlertTriangle className="text-gray-500" size={20} />,
+    info: <Info className="text-gray-500" size={20} />,
   };
 
   const backgrounds = {
-    success: 'bg-green-50 border-green-200',
-    error: 'bg-red-50 border-red-200',
-    warning: 'bg-amber-50 border-amber-200',
-    info: 'bg-blue-50 border-blue-200',
+    success: 'bg-gray-800 border-gray-700',
+    error: 'bg-gray-100 border-gray-300',
+    warning: 'bg-gray-50 border-gray-200',
+    info: 'bg-white border-gray-200',
   };
 
   const textColors = {
-    success: 'text-green-800',
-    error: 'text-red-800',
-    warning: 'text-amber-800',
-    info: 'text-blue-800',
+    success: 'text-white',
+    error: 'text-gray-800',
+    warning: 'text-gray-700',
+    info: 'text-gray-700',
   };
 
   return (
