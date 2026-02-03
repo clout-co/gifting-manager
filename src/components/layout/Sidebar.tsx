@@ -155,9 +155,9 @@ export default function Sidebar() {
             </div>
             {/* 選択中ブランドの説明 */}
             <div className={`mt-3 text-xs ${BRAND_COLORS[currentBrand].text} text-center font-medium`}>
-              {currentBrand === 'TL' && '🏷️ THELABEL'}
-              {currentBrand === 'BE' && '🌏 BECAUSE（海外発送対応）'}
-              {currentBrand === 'AM' && '💎 AMERI'}
+              {currentBrand === 'TL' && "👑 That's life"}
+              {currentBrand === 'BE' && '🌏 Belvet（海外発送対応）'}
+              {currentBrand === 'AM' && '💎 Antimid'}
             </div>
           </div>
 

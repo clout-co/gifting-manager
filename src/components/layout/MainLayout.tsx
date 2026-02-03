@@ -25,7 +25,7 @@ const BRAND_CONFIG: Record<Brand, {
     bgGradient: 'from-blue-50/50 via-white to-blue-50/30',
     accentColor: 'bg-blue-500',
     borderColor: 'border-blue-200',
-    description: 'THELABEL',
+    description: "That's life",
   },
   BE: {
     name: 'BE',
@@ -33,7 +33,7 @@ const BRAND_CONFIG: Record<Brand, {
     bgGradient: 'from-emerald-50/50 via-white to-emerald-50/30',
     accentColor: 'bg-emerald-500',
     borderColor: 'border-emerald-200',
-    description: 'BECAUSE（海外発送対応）',
+    description: 'Belvet（海外発送対応）',
   },
   AM: {
     name: 'AM',
@@ -41,7 +41,7 @@ const BRAND_CONFIG: Record<Brand, {
     bgGradient: 'from-rose-50/50 via-white to-rose-50/30',
     accentColor: 'bg-rose-500',
     borderColor: 'border-rose-200',
-    description: 'AMERI',
+    description: 'Antimid',
   },
 };
 
