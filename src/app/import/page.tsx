@@ -455,17 +455,19 @@ export default function ImportPage() {
         const name = row.insta_name || row.tiktok_name;
         if (!name) continue;
 
-        // インフルエンサーを検索
+        // インフルエンサーを検索（ブランド内で検索）
         const { data: influencer } = row.insta_name
           ? await supabase
               .from('influencers')
               .select('id')
               .eq('insta_name', row.insta_name)
+              .eq('brand', currentBrand)
               .single()
           : await supabase
               .from('influencers')
               .select('id')
               .eq('tiktok_name', row.tiktok_name)
+              .eq('brand', currentBrand)
               .single();
 
         if (influencer) {
@@ -579,18 +581,20 @@ export default function ImportPage() {
 
       try {
         // インフルエンサーを検索または作成
-        // Instagram名またはTikTok名で検索
+        // Instagram名またはTikTok名で検索（ブランド内で検索）
         let { data: influencer } = row.insta_name
           ? await supabase
               .from('influencers')
               .select('id')
               .eq('insta_name', row.insta_name)
+              .eq('brand', currentBrand)
               .single()
           : row.tiktok_name
           ? await supabase
               .from('influencers')
               .select('id')
               .eq('tiktok_name', row.tiktok_name)
+              .eq('brand', currentBrand)
               .single()
           : { data: null };
 
@@ -603,6 +607,7 @@ export default function ImportPage() {
                 insta_url: row.insta_url || null,
                 tiktok_name: row.tiktok_name || null,
                 tiktok_url: row.tiktok_url || null,
+                brand: currentBrand, // 現在のブランドに紐付け
               },
             ])
             .select()

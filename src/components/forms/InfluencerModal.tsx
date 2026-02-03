@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Influencer, InfluencerFormData } from '@/types';
 import { X, Loader2 } from 'lucide-react';
+import { useBrand } from '@/contexts/BrandContext';
+import { useToast, translateError } from '@/lib/toast';
 
 interface InfluencerModalProps {
   influencer: Influencer | null;
@@ -16,11 +18,14 @@ export default function InfluencerModal({
   onClose,
   onSave,
 }: InfluencerModalProps) {
+  const { currentBrand } = useBrand();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<InfluencerFormData>({
     insta_name: influencer?.insta_name || '',
     insta_url: influencer?.insta_url || '',
     tiktok_name: influencer?.tiktok_name || '',
     tiktok_url: influencer?.tiktok_url || '',
+    brand: influencer?.brand || currentBrand, // 現在のブランドを自動設定
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,27 +52,33 @@ export default function InfluencerModal({
             insta_url: formData.insta_url || null,
             tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
+            // brandは変更しない（ブランド間移動不可）
           })
           .eq('id', influencer.id);
 
         if (error) throw error;
+        showToast('success', 'インフルエンサーを更新しました');
       } else {
-        // 新規作成
+        // 新規作成（現在のブランドに紐付け）
         const { error } = await supabase.from('influencers').insert([
           {
             insta_name: formData.insta_name || null,
             insta_url: formData.insta_url || null,
             tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
+            brand: currentBrand,
           },
         ]);
 
         if (error) throw error;
+        showToast('success', 'インフルエンサーを登録しました');
       }
 
       onSave();
-    } catch (err: any) {
-      setError(err.message || 'エラーが発生しました');
+    } catch (err: unknown) {
+      const errorMessage = translateError(err);
+      setError(errorMessage);
+      showToast('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -77,9 +88,14 @@ export default function InfluencerModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-bold">
-            {influencer ? 'インフルエンサー編集' : '新規インフルエンサー'}
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold">
+              {influencer ? 'インフルエンサー編集' : '新規インフルエンサー'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              ブランド: <span className="font-semibold text-gray-800">{currentBrand}</span>
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg"
@@ -164,7 +180,7 @@ export default function InfluencerModal({
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg text-sm border border-gray-200">
               {error}
             </div>
           )}

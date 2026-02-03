@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import AccessDenied from '@/components/ui/AccessDenied';
 import {
   Users,
   Activity,
@@ -69,6 +71,7 @@ interface ActivityLog {
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdminAuth();
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
@@ -76,10 +79,28 @@ export default function AdminPage() {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
-    if (user) {
+    if (user && isAdmin) {
       fetchAdminData();
     }
-  }, [user]);
+  }, [user, isAdmin]);
+
+  // 管理者権限チェック
+  if (adminLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="animate-spin mx-auto text-gray-500" size={48} />
+            <p className="mt-4 text-gray-500">権限を確認中...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!isAdmin) {
+    return <AccessDenied message="管理者ダッシュボードは管理者のみアクセス可能です。" />;
+  }
 
   const fetchAdminData = async () => {
     setLoading(true);

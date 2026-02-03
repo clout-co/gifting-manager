@@ -93,7 +93,7 @@ export default function ReportsPage() {
     }
 
     const { data: campaigns } = await query;
-    const { data: influencers } = await supabase.from('influencers').select('*');
+    const { data: influencers } = await supabase.from('influencers').select('*').eq('brand', currentBrand);
 
     const campaignList = campaigns || [];
     const influencerList = influencers || [];

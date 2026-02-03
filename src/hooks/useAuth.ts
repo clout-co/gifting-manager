@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // 現在のセッションを取得
@@ -19,6 +20,13 @@ export function useAuth() {
 
       if (!session?.user) {
         router.push('/auth');
+        return;
+      }
+
+      // ブランド選択ページと認証ページ以外で、ブランド未選択なら選択画面へ
+      const brandSelected = localStorage.getItem('brandSelected') === 'true';
+      if (!brandSelected && pathname !== '/brand-select' && pathname !== '/auth') {
+        router.push('/brand-select');
       }
     };
 
@@ -35,7 +43,7 @@ export function useAuth() {
     );
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, pathname]);
 
   return { user, loading };
 }

@@ -6,6 +6,7 @@ import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import PWAProvider from '@/components/PWAProvider';
 import { BrandProvider } from '@/contexts/BrandContext';
+import ForceRelogin from '@/components/ForceRelogin';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -53,7 +54,9 @@ export default function RootLayout({
             <ToastProvider>
               <ConfirmProvider>
                 <PWAProvider>
-                  {children}
+                  <ForceRelogin>
+                    {children}
+                  </ForceRelogin>
                 </PWAProvider>
               </ConfirmProvider>
             </ToastProvider>

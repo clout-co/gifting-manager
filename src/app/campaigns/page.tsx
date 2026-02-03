@@ -59,7 +59,7 @@ export default function CampaignsPage() {
 
     try {
       const [influencersRes, campaignsRes] = await Promise.all([
-        supabase.from('influencers').select('*'),
+        supabase.from('influencers').select('*').eq('brand', currentBrand),
         supabase
           .from('campaigns')
           .select(`

@@ -8,6 +8,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast, translateError } from '@/lib/toast';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useBrand } from '@/contexts/BrandContext';
 import {
   ArrowLeft,
   Instagram,
@@ -59,6 +60,7 @@ export default function InfluencerDetailPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { currentBrand } = useBrand();
   const [loading, setLoading] = useState(true);
   const [influencer, setInfluencer] = useState<InfluencerDetail | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -71,14 +73,23 @@ export default function InfluencerDetailPage() {
 
     setLoading(true);
     try {
-      // インフルエンサー情報を取得
+      // インフルエンサー情報を取得（ブランドも確認）
       const { data: influencerData, error: influencerError } = await supabase
         .from('influencers')
         .select('*')
         .eq('id', influencerId)
+        .eq('brand', currentBrand)
         .single();
 
-      if (influencerError) throw influencerError;
+      if (influencerError) {
+        // ブランドが異なる場合はインフルエンサー一覧にリダイレクト
+        if (influencerError.code === 'PGRST116') {
+          showToast('error', 'このインフルエンサーは現在のブランドに属していません');
+          router.push('/influencers');
+          return;
+        }
+        throw influencerError;
+      }
 
       // キャンペーン情報を取得
       const { data: campaignsData, error: campaignsError } = await supabase
@@ -180,7 +191,7 @@ export default function InfluencerDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [influencerId, showToast, router]);
+  }, [influencerId, showToast, router, currentBrand]);
 
   useEffect(() => {
     if (user && influencerId) {

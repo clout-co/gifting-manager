@@ -746,74 +746,83 @@ export default function CampaignModal({
             </div>
           </div>
 
-          {/* エンゲージメント */}
+          {/* エンゲージメント（合意後のみ入力可能・必須） */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 border-b pb-2">エンゲージメント</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  いいね数 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={formData.likes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, likes: parseInt(e.target.value) || 0 })
-                  }
-                  className="input-field"
-                  min={0}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  コメント数 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={formData.comments}
-                  onChange={(e) =>
-                    setFormData({ ...formData, comments: parseInt(e.target.value) || 0 })
-                  }
-                  className="input-field"
-                  min={0}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  検討コメント <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={formData.consideration_comment}
-                  onChange={(e) =>
-                    setFormData({ ...formData, consideration_comment: parseInt(e.target.value) || 0 })
-                  }
-                  className="input-field"
-                  min={0}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  入力日 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={formData.engagement_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, engagement_date: e.target.value })
-                  }
-                  className="input-field"
-                  required
-                />
-              </div>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-medium text-gray-900">エンゲージメント</h3>
+              {formData.status !== 'agree' && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  合意後に入力可能
+                </span>
+              )}
             </div>
+
+            {formData.status === 'agree' ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    いいね数
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.likes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, likes: parseInt(e.target.value) || 0 })
+                    }
+                    className="input-field"
+                    min={0}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    コメント数
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.comments}
+                    onChange={(e) =>
+                      setFormData({ ...formData, comments: parseInt(e.target.value) || 0 })
+                    }
+                    className="input-field"
+                    min={0}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    検討コメント
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.consideration_comment}
+                    onChange={(e) =>
+                      setFormData({ ...formData, consideration_comment: parseInt(e.target.value) || 0 })
+                    }
+                    className="input-field"
+                    min={0}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    入力日
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.engagement_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, engagement_date: e.target.value })
+                    }
+                    className="input-field"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500 text-sm">
+                ステータスを「合意」に変更するとエンゲージメント情報を入力できます
+              </div>
+            )}
 
             {/* 回数（自動計算）*/}
             {formData.influencer_id && (

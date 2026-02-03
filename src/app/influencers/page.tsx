@@ -62,7 +62,7 @@ export default function InfluencersPage() {
     try {
       // インフルエンサーと案件を取得（ブランドでフィルター）
       const [influencersRes, campaignsRes] = await Promise.all([
-        supabase.from('influencers').select('*').order('created_at', { ascending: false }),
+        supabase.from('influencers').select('*').eq('brand', currentBrand).order('created_at', { ascending: false }),
         supabase.from('campaigns').select('*').eq('brand', currentBrand),
       ]);
 

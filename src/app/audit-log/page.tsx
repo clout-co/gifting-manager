@@ -72,6 +72,7 @@ export default function AuditLogPage() {
       .order('updated_at', { ascending: false })
       .limit(200);
 
+    // 注意: audit-logは全ブランドの履歴を表示（管理・監査目的）
     const { data: influencers } = await supabase
       .from('influencers')
       .select('*')

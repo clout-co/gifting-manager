@@ -17,10 +17,11 @@ import {
   UserCog,
   RefreshCw,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useBrand, BRANDS, Brand } from '@/contexts/BrandContext';
+import { ADMIN_EMAILS } from '@/types';
 
 // ブランドの色設定（グレー系で統一）
 const BRAND_COLORS: Record<Brand, {
@@ -57,10 +58,15 @@ const navigation = [
   { name: 'インポート', href: '/import', icon: Upload },
 ];
 
-const settingsNavigation = [
-  { name: '社員管理', href: '/staffs', icon: UserCog },
+// 一般ユーザー向け設定
+const generalSettingsNavigation = [
   { name: '通知設定', href: '/notifications', icon: Bell },
   { name: '変更履歴', href: '/audit-log', icon: History },
+];
+
+// 管理者専用設定
+const adminSettingsNavigation = [
+  { name: '社員管理', href: '/staffs', icon: UserCog },
   { name: '管理者', href: '/admin', icon: Shield },
 ];
 
@@ -68,8 +74,20 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { currentBrand, setCurrentBrand, clearBrandSelection } = useBrand();
   const colors = BRAND_COLORS[currentBrand];
+
+  // 管理者権限チェック
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setIsAdmin(ADMIN_EMAILS.includes(user.email.toLowerCase()));
+      }
+    };
+    checkAdminStatus();
+  }, []);
 
   const handleLogout = async () => {
     clearBrandSelection();
@@ -164,13 +182,30 @@ export default function Sidebar() {
 
             <div className="pt-4 mt-4 border-t space-y-1">
               <p className="px-3 py-1 text-xs text-gray-400">設定</p>
-              {settingsNavigation.map((item) => (
+              {generalSettingsNavigation.map((item) => (
                 <NavLink
                   key={item.name}
                   item={item}
                   onClick={() => setIsMobileMenuOpen(false)}
                 />
               ))}
+
+              {/* 管理者専用メニュー */}
+              {isAdmin && (
+                <>
+                  <p className="px-3 py-1 pt-3 text-xs text-gray-400 flex items-center gap-1">
+                    <Shield size={12} />
+                    管理者メニュー
+                  </p>
+                  {adminSettingsNavigation.map((item) => (
+                    <NavLink
+                      key={item.name}
+                      item={item}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    />
+                  ))}
+                </>
+              )}
             </div>
           </nav>
 

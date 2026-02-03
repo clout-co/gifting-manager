@@ -141,7 +141,7 @@ export default function DashboardPage() {
     }
 
     const campaignsRes = await query;
-    const influencersRes = await supabase.from('influencers').select('*');
+    const influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
 
     if (campaignsRes.error) throw campaignsRes.error;
     if (influencersRes.error) throw influencersRes.error;

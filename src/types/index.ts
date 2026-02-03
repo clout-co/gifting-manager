@@ -1,22 +1,35 @@
-// インフルエンサー
+// 管理者メールアドレス
+export const ADMIN_EMAILS = [
+  'taishi.sawada@clout.co.jp',
+  's@clout.co.jp',
+];
+
+// チーム種別
+export type TeamType = 'TL' | 'BE' | 'AM' | 'ADMIN';
+
+// インフルエンサー（ブランド紐付け追加）
 export interface Influencer {
   id: string;
   insta_name: string | null;
   insta_url: string | null;
   tiktok_name: string | null;
   tiktok_url: string | null;
+  brand: string; // ブランド紐付け（TL, BE, AM）
   created_at: string;
   updated_at: string;
 }
 
-// 社員（担当者）
+// 社員（担当者）- チーム紐付け追加
 export interface Staff {
   id: string;
+  user_id: string | null; // Supabase Auth ユーザーID
   name: string;
   email: string | null;
+  team: TeamType; // 所属チーム（TL, BE, AM, ADMIN）
   department: string | null;
   position: string | null;
   is_active: boolean;
+  is_admin: boolean; // 管理者フラグ
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +172,7 @@ export interface CampaignFormData {
 export interface StaffFormData {
   name: string;
   email: string;
+  team: TeamType;
   department: string;
   position: string;
 }
@@ -168,6 +182,7 @@ export interface InfluencerFormData {
   insta_url: string;
   tiktok_name: string;
   tiktok_url: string;
+  brand: string; // ブランド紐付け
 }
 
 // インポート用
