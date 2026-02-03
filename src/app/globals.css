@@ -44,24 +44,22 @@ html {
 }
 
 @layer components {
-  /* ボタン */
+  /* ボタン（グレースケール統一） */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-600 to-primary-500 text-white px-5 py-2.5 rounded-xl
-           hover:from-primary-700 hover:to-primary-600 transition-all duration-300 font-medium
-           shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30
+    @apply bg-gray-800 text-white px-5 py-2.5 rounded-xl
+           hover:bg-gray-900 transition-all duration-200 font-medium
            active:scale-[0.98] transform;
   }
 
   .btn-secondary {
-    @apply bg-white text-gray-700 px-5 py-2.5 rounded-xl border border-gray-200
-           hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 font-medium
-           shadow-sm hover:shadow active:scale-[0.98] transform;
+    @apply bg-white text-gray-700 px-5 py-2.5 rounded-xl border border-gray-300
+           hover:bg-gray-50 transition-all duration-200 font-medium
+           active:scale-[0.98] transform;
   }
 
   .btn-danger {
-    @apply bg-gradient-to-r from-red-600 to-red-500 text-white px-5 py-2.5 rounded-xl
-           hover:from-red-700 hover:to-red-600 transition-all duration-300 font-medium
-           shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30
+    @apply bg-gray-600 text-white px-5 py-2.5 rounded-xl
+           hover:bg-gray-700 transition-all duration-200 font-medium
            active:scale-[0.98] transform;
   }
 
@@ -72,8 +70,8 @@ html {
 
   /* 入力フィールド */
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-xl
-           focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl
+           focus:outline-none focus:ring-2 focus:ring-gray-400/30 focus:border-gray-500
            transition-all duration-200 bg-white text-gray-900
            placeholder:text-gray-400;
   }
@@ -112,40 +110,33 @@ html {
   }
 
   .table-row {
-    @apply hover:bg-gradient-to-r hover:from-primary-50/50 hover:to-transparent
-           transition-all duration-200 border-b border-gray-100;
+    @apply hover:bg-gray-50 transition-all duration-200 border-b border-gray-100;
   }
 
-  /* ステータスバッジ */
+  /* ステータスバッジ（グレースケール統一） */
   .status-agree {
-    @apply bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700
-           px-3 py-1.5 rounded-full text-xs font-semibold
-           border border-emerald-200/50 shadow-sm;
+    @apply bg-gray-800 text-white
+           px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   .status-disagree {
-    @apply bg-gradient-to-r from-red-100 to-rose-100 text-red-700
-           px-3 py-1.5 rounded-full text-xs font-semibold
-           border border-red-200/50 shadow-sm;
+    @apply bg-gray-400 text-white
+           px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   .status-pending {
-    @apply bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700
-           px-3 py-1.5 rounded-full text-xs font-semibold
-           border border-amber-200/50 shadow-sm;
+    @apply bg-gray-200 text-gray-700
+           px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   .status-cancelled {
-    @apply bg-gradient-to-r from-gray-100 to-slate-100 text-gray-600
-           px-3 py-1.5 rounded-full text-xs font-semibold
-           border border-gray-200/50 shadow-sm;
+    @apply bg-gray-100 text-gray-500
+           px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   .status-ignored {
-    @apply bg-gradient-to-r from-slate-100 to-zinc-100 text-slate-500
-           px-3 py-1.5 rounded-full text-xs font-semibold
-           border border-slate-200/50 shadow-sm opacity-70;
-  }
+    @apply bg-gray-50 text-gray-400
+           px-3 py-1.5 rounded-full text-xs font-semibold;
 
   /* アニメーション */
   .animate-fade-in {
@@ -176,14 +167,13 @@ html {
 
   /* グラデーションテキスト */
   .gradient-text {
-    @apply bg-gradient-to-r from-primary-600 via-purple-600 to-pink-600
-           bg-clip-text text-transparent;
+    @apply text-gray-900;
   }
 
   /* フローティングラベル */
   .floating-label {
     @apply absolute left-4 top-3 text-gray-400 transition-all duration-200 pointer-events-none
-           peer-focus:-top-2 peer-focus:left-3 peer-focus:text-xs peer-focus:text-primary-600
+           peer-focus:-top-2 peer-focus:left-3 peer-focus:text-xs peer-focus:text-gray-600
            peer-focus:bg-white peer-focus:px-1;
   }
 }
