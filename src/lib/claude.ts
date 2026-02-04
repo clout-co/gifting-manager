@@ -1,8 +1,18 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+// Environment variable validation
+const apiKey = process.env.CLAUDE_API_KEY;
+
+if (!apiKey) {
+  console.warn(
+    'Warning: CLAUDE_API_KEY is not set. AI features will not work.\n' +
+    'Please set CLAUDE_API_KEY in your .env.local file'
+  );
+}
+
 // Claude APIクライアントの初期化
 const anthropic = new Anthropic({
-  apiKey: process.env.CLAUDE_API_KEY || process.env.NEXT_PUBLIC_CLAUDE_API_KEY,
+  apiKey: apiKey || '',
 });
 
 export interface AIAnalysisRequest {

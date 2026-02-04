@@ -599,6 +599,7 @@ export default function CampaignsPage() {
                     <th className="table-header px-4 py-3">投稿日</th>
                     <th className="table-header px-4 py-3">エンゲージメント</th>
                     <th className="table-header px-4 py-3">投稿</th>
+                    <th className="table-header px-4 py-3">担当者</th>
                     <th className="table-header px-4 py-3">更新日</th>
                     <th className="table-header px-4 py-3">操作</th>
                   </tr>
@@ -672,13 +673,22 @@ export default function CampaignsPage() {
                             href={campaign.post_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-gray-700 hover:underline flex items-center gap-1"
+                            className="text-gray-300 hover:text-white hover:underline flex items-center gap-1"
                           >
                             表示
                             <ExternalLink size={14} />
                           </a>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-500">-</span>
+                        )}
+                      </td>
+                      <td className="table-cell">
+                        {campaign.staff ? (
+                          <span className="text-xs text-gray-300 font-medium">
+                            {campaign.staff.name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600 text-xs">未設定</span>
                         )}
                       </td>
                       <td className="table-cell">

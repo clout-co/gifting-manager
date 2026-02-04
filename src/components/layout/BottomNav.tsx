@@ -57,7 +57,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-40 lg:hidden safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[oklch(0.165_0_0)] border-t border-white/10 z-40 lg:hidden safe-area-pb">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const active = isActive(item);
@@ -67,12 +67,12 @@ export default function BottomNav() {
               href={item.href}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 active
-                  ? 'text-primary-600 dark:text-primary-400'
-                  : 'text-gray-500 dark:text-gray-400'
+                  ? 'text-white'
+                  : 'text-gray-500'
               }`}
             >
               <div className={`p-1.5 rounded-lg transition-colors ${
-                active ? 'bg-primary-100 dark:bg-primary-900/30' : ''
+                active ? 'bg-white/15' : ''
               }`}>
                 {item.icon}
               </div>

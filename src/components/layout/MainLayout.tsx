@@ -11,29 +11,29 @@ interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-// ブランドごとの設定（グレー系で統一）
+// ブランドごとの設定（ダークテーマ + アクセントカラー）
 const BRAND_CONFIG: Record<Brand, {
   name: string;
-  bgColor: string;
-  textColor: string;
+  accentColor: string;
+  accentBg: string;
   description: string;
 }> = {
   TL: {
     name: 'TL',
-    bgColor: 'bg-gray-800',
-    textColor: 'text-gray-800',
+    accentColor: 'text-emerald-400',
+    accentBg: 'bg-emerald-500/20 border-emerald-500/30',
     description: "That's life",
   },
   BE: {
     name: 'BE',
-    bgColor: 'bg-gray-800',
-    textColor: 'text-gray-800',
+    accentColor: 'text-blue-400',
+    accentBg: 'bg-blue-500/20 border-blue-500/30',
     description: 'Belvet',
   },
   AM: {
     name: 'AM',
-    bgColor: 'bg-gray-800',
-    textColor: 'text-gray-800',
+    accentColor: 'text-purple-400',
+    accentBg: 'bg-purple-500/20 border-purple-500/30',
     description: 'Antimid',
   },
 };
@@ -52,19 +52,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, [isBrandSelected, pathname, router]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[oklch(0.145_0_0)]">
       <Sidebar />
       <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
-        {/* シンプルなブランド表示バー */}
-        <div className={`sticky top-0 z-30 ${brandConfig.bgColor}`}>
+        {/* ブランド表示バー（ダークテーマ） */}
+        <div className="sticky top-0 z-30 bg-[oklch(0.18_0_0)] border-b border-white/10 backdrop-blur-sm">
           <div className="px-4 lg:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-white font-bold text-lg">{brandConfig.name}</span>
-              <span className="text-white/70 text-sm">
+              <span className={`${brandConfig.accentBg} border px-3 py-1 rounded-lg font-bold text-sm ${brandConfig.accentColor}`}>
+                {brandConfig.name}
+              </span>
+              <span className="text-gray-400 text-sm">
                 {brandConfig.description}
               </span>
             </div>
-            <div className="text-white/50 text-xs">
+            <div className="text-gray-600 text-xs">
               {brandConfig.name} のデータを表示中
             </div>
           </div>
