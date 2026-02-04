@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Influencer } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
@@ -27,6 +27,8 @@ import {
   Users,
 } from 'lucide-react';
 import InfluencerModal from '@/components/forms/InfluencerModal';
+import { useInfluencersWithScores } from '@/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface InfluencerWithScore extends Influencer {
   totalCampaigns: number;
@@ -45,133 +47,19 @@ export default function InfluencersPage() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { currentBrand } = useBrand();
-  const [influencers, setInfluencers] = useState<InfluencerWithScore[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // React Query hooks
+  const { data: influencersData, isLoading: loading, error: queryError, refetch } = useInfluencersWithScores();
+  const influencers = (influencersData || []) as InfluencerWithScore[];
+  const error = queryError ? translateError(queryError) : null;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [sortBy, setSortBy] = useState<'score' | 'likes' | 'cost' | 'campaigns'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  const fetchInfluencersWithScores = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // インフルエンサーと案件を取得（ブランドでフィルター）
-      // brandカラムが存在しない場合のフォールバック
-      let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand).order('created_at', { ascending: false });
-      if (influencersRes.error && influencersRes.error.message.includes('brand')) {
-        influencersRes = await supabase.from('influencers').select('*').order('created_at', { ascending: false });
-      }
-
-      const campaignsRes = await supabase.from('campaigns').select('*').eq('brand', currentBrand);
-
-      if (influencersRes.error) throw influencersRes.error;
-      if (campaignsRes.error) throw campaignsRes.error;
-
-      const influencersData = influencersRes.data;
-      const campaignsData = campaignsRes.data;
-
-    if (influencersData) {
-      // インフルエンサーごとにスコア計算
-      const scoredInfluencers: InfluencerWithScore[] = influencersData.map(inf => {
-        const campaigns = campaignsData.filter(c => c.influencer_id === inf.id);
-        const totalCampaigns = campaigns.length;
-        const agreedCampaigns = campaigns.filter(c => c.status === 'agree').length;
-        const totalLikes = campaigns.reduce((sum, c) => sum + (c.likes || 0), 0);
-        const totalComments = campaigns.reduce((sum, c) => sum + (c.comments || 0), 0);
-        const totalSpent = campaigns.reduce((sum, c) => sum + (c.agreed_amount || 0), 0);
-        const costPerLike = totalLikes > 0 ? totalSpent / totalLikes : 0;
-        const avgLikes = totalCampaigns > 0 ? totalLikes / totalCampaigns : 0;
-        const avgEngagement = totalCampaigns > 0 ? (totalLikes + totalComments) / totalCampaigns : 0;
-        const agreementRate = totalCampaigns > 0 ? (agreedCampaigns / totalCampaigns) * 100 : 0;
-
-        // 納期遵守率を計算
-        const campaignsWithDeadline = campaigns.filter(c => c.desired_post_date && c.post_date);
-        const onTimeCampaigns = campaignsWithDeadline.filter(c => {
-          const desired = new Date(c.desired_post_date!);
-          const actual = new Date(c.post_date!);
-          return actual <= desired;
-        });
-        const onTimeRate = campaignsWithDeadline.length > 0
-          ? (onTimeCampaigns.length / campaignsWithDeadline.length) * 100
-          : 100;
-
-        // 検討コメント数を計算
-        const totalConsiderationComments = campaigns.reduce((sum, c) => sum + (c.consideration_comment || 0), 0);
-        const avgConsiderationComments = totalCampaigns > 0 ? totalConsiderationComments / totalCampaigns : 0;
-
-        // スコア計算（ギフティング向け・詳細ページと同じロジック）
-        let score = 0;
-
-        if (totalCampaigns > 0) {
-          // 1. 検討コメントスコア（重み: 40%）- 最重要指標
-          const considerationScore = Math.min(100, (avgConsiderationComments / 50) * 100);
-
-          // 2. エンゲージメントスコア（重み: 25%）- 平均いいね数基準
-          const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
-
-          // 3. コスト効率スコア（重み: 20%）- いいね単価基準
-          const efficiencyScore = costPerLike > 0
-            ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
-            : 50;
-
-          // 4. 信頼性スコア（重み: 15%）- 納期遵守率のみ
-          const reliabilityScore = onTimeRate;
-
-          score = Math.round(
-            considerationScore * 0.40 +
-            engagementScore * 0.25 +
-            efficiencyScore * 0.20 +
-            reliabilityScore * 0.15
-          );
-        }
-
-        // ランク判定
-        let rank = 'C';
-        if (score >= 75) rank = 'S';
-        else if (score >= 55) rank = 'A';
-        else if (score >= 35) rank = 'B';
-
-        // 最終活動日
-        const sortedCampaigns = [...campaigns].sort((a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        );
-        const lastActivity = sortedCampaigns[0]?.updated_at;
-
-        return {
-          ...inf,
-          totalCampaigns,
-          totalLikes,
-          totalComments,
-          totalSpent,
-          costPerLike,
-          avgEngagement,
-          score,
-          rank,
-          lastActivity,
-        };
-      });
-
-      setInfluencers(scoredInfluencers);
-    }
-    } catch (err) {
-      const errorMessage = translateError(err);
-      setError(errorMessage);
-      showToast('error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast, currentBrand]);
-
-  useEffect(() => {
-    if (user) {
-      fetchInfluencersWithScores();
-    }
-  }, [user, fetchInfluencersWithScores]);
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
@@ -188,7 +76,9 @@ export default function InfluencersPage() {
       const { error } = await supabase.from('influencers').delete().eq('id', id);
       if (error) throw error;
 
-      setInfluencers(influencers.filter((i) => i.id !== id));
+      // React Queryのキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] });
       showToast('success', 'インフルエンサーを削除しました');
     } catch (err) {
       showToast('error', translateError(err));
@@ -206,7 +96,9 @@ export default function InfluencersPage() {
   };
 
   const handleSave = () => {
-    fetchInfluencersWithScores();
+    // React Queryのキャッシュを無効化
+    queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
+    queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] });
     handleModalClose();
     showToast('success', editingInfluencer ? 'インフルエンサーを更新しました' : 'インフルエンサーを追加しました');
   };
@@ -276,7 +168,7 @@ export default function InfluencersPage() {
       <MainLayout>
         <ErrorDisplay
           message={error}
-          onRetry={fetchInfluencersWithScores}
+          onRetry={() => refetch()}
           showHomeLink
         />
       </MainLayout>

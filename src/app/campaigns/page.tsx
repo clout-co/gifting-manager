@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
@@ -29,16 +29,26 @@ import {
 } from 'lucide-react';
 import CampaignModal from '@/components/forms/CampaignModal';
 import { useBrand } from '@/contexts/BrandContext';
+import { useCampaigns, useInfluencers, useDeleteCampaign } from '@/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CampaignsPage() {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { currentBrand } = useBrand();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [influencers, setInfluencers] = useState<Influencer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // React Query hooks
+  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch } = useCampaigns();
+  const { data: influencersData } = useInfluencers();
+  const deleteCampaignMutation = useDeleteCampaign();
+
+  const campaigns = campaignsData || [];
+  const influencers = influencersData || [];
+  const loading = campaignsLoading;
+  const error = campaignsError ? translateError(campaignsError) : null;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,47 +63,6 @@ export default function CampaignsPage() {
   });
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // brandカラムが存在しない場合のフォールバック
-      let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
-      if (influencersRes.error && influencersRes.error.message.includes('brand')) {
-        influencersRes = await supabase.from('influencers').select('*');
-      }
-
-      const campaignsRes = await supabase
-        .from('campaigns')
-        .select(`
-          *,
-          influencer:influencers(*),
-          staff:staffs(*)
-        `)
-        .eq('brand', currentBrand)
-        .order('created_at', { ascending: false });
-
-      if (influencersRes.error) throw influencersRes.error;
-      if (campaignsRes.error) throw campaignsRes.error;
-
-      setInfluencers(influencersRes.data || []);
-      setCampaigns(campaignsRes.data || []);
-    } catch (err) {
-      const errorMessage = translateError(err);
-      setError(errorMessage);
-      showToast('error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast, currentBrand]);
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user, fetchData]);
-
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
       title: '案件の削除',
@@ -106,10 +75,7 @@ export default function CampaignsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('campaigns').delete().eq('id', id);
-      if (error) throw error;
-
-      setCampaigns(campaigns.filter((c) => c.id !== id));
+      await deleteCampaignMutation.mutateAsync(id);
       setSelectedIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(id);
@@ -132,7 +98,9 @@ export default function CampaignsPage() {
   };
 
   const handleSave = () => {
-    fetchData();
+    // React Queryのキャッシュを無効化して自動的に再取得
+    queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
+    queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
     handleModalClose();
     showToast('success', editingCampaign ? '案件を更新しました' : '案件を作成しました');
   };
@@ -183,7 +151,10 @@ export default function CampaignsPage() {
 
       if (error) throw error;
 
-      await fetchData();
+      // React Queryのキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
+
       setSelectedIds(new Set());
       setIsBulkEditOpen(false);
       setBulkEditData({ status: '', agreed_amount: '' });
@@ -217,7 +188,10 @@ export default function CampaignsPage() {
 
       if (error) throw error;
 
-      setCampaigns(campaigns.filter(c => !selectedIds.has(c.id)));
+      // React Queryのキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
+
       setSelectedIds(new Set());
       showToast('success', `${selectedIds.size}件の案件を削除しました`);
     } catch (err) {
@@ -322,7 +296,7 @@ export default function CampaignsPage() {
       <MainLayout>
         <ErrorDisplay
           message={error}
-          onRetry={fetchData}
+          onRetry={() => refetch()}
           showHomeLink
         />
       </MainLayout>

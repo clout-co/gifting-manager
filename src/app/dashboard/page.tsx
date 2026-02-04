@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +8,7 @@ import { useToast, translateError } from '@/lib/toast';
 import LoadingSpinner, { StatCardSkeleton } from '@/components/ui/LoadingSpinner';
 import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import { useBrand } from '@/contexts/BrandContext';
+import { useDashboardFullStats } from '@/hooks/useQueries';
 import {
   Users,
   Gift,
@@ -79,13 +80,15 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { currentBrand } = useBrand();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
   const [items, setItems] = useState<string[]>([]);
 
+  // React Query for dashboard stats
+  const { data: stats, isLoading: loading, error: queryError, refetch } = useDashboardFullStats(selectedItem, dateRange);
+  const error = queryError ? translateError(queryError) : null;
+
+  // Fetch item codes for filter dropdown
   useEffect(() => {
     const fetchFilters = async () => {
       try {
@@ -103,219 +106,6 @@ export default function DashboardPage() {
     };
     fetchFilters();
   }, [currentBrand]);
-
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-
-    let query = supabase
-      .from('campaigns')
-      .select('*, influencer:influencers(*)')
-      .eq('brand', currentBrand); // 常に現在のブランドでフィルター
-
-    if (selectedItem !== 'all') {
-      query = query.eq('item_code', selectedItem);
-    }
-    if (dateRange !== 'all') {
-      const now = new Date();
-      let startDate: Date;
-      switch (dateRange) {
-        case '7d':
-          startDate = new Date(now.setDate(now.getDate() - 7));
-          break;
-        case '30d':
-          startDate = new Date(now.setDate(now.getDate() - 30));
-          break;
-        case '90d':
-          startDate = new Date(now.setDate(now.getDate() - 90));
-          break;
-        case '1y':
-          startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-          break;
-        default:
-          startDate = new Date(0);
-      }
-      query = query.gte('created_at', startDate.toISOString());
-    }
-
-    const campaignsRes = await query;
-    // brandカラムが存在しない場合のフォールバック
-    let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
-    if (influencersRes.error && influencersRes.error.message.includes('brand')) {
-      // brandカラムがない場合は全件取得
-      influencersRes = await supabase.from('influencers').select('*');
-    }
-
-    if (campaignsRes.error) throw campaignsRes.error;
-    if (influencersRes.error) throw influencersRes.error;
-
-    const campaigns = campaignsRes.data;
-    const influencers = influencersRes.data;
-
-    if (campaigns) {
-      const statusCount = { pending: 0, agree: 0, disagree: 0, cancelled: 0 };
-      campaigns.forEach((c) => {
-        if (c.status in statusCount) {
-          statusCount[c.status as keyof typeof statusCount]++;
-        }
-      });
-
-      const brandMap = new Map<string, { count: number; amount: number; likes: number }>();
-      campaigns.forEach((c) => {
-        const brand = c.brand || '未設定';
-        const existing = brandMap.get(brand) || { count: 0, amount: 0, likes: 0 };
-        brandMap.set(brand, {
-          count: existing.count + 1,
-          amount: existing.amount + (c.agreed_amount || 0),
-          likes: existing.likes + (c.likes || 0),
-        });
-      });
-
-      const monthMap = new Map<string, { campaigns: number; amount: number; likes: number }>();
-      campaigns.forEach((c) => {
-        const date = c.post_date || c.created_at;
-        if (date) {
-          const month = date.substring(0, 7);
-          const existing = monthMap.get(month) || { campaigns: 0, amount: 0, likes: 0 };
-          monthMap.set(month, {
-            campaigns: existing.campaigns + 1,
-            amount: existing.amount + (c.agreed_amount || 0),
-            likes: existing.likes + (c.likes || 0),
-          });
-        }
-      });
-
-      const influencerMap = new Map<string, {
-        display_name: string;
-        total_likes: number;
-        total_comments: number;
-        total_campaigns: number;
-        total_amount: number;
-        total_consideration_comments: number;
-      }>();
-      campaigns.forEach((c) => {
-        if (c.influencer) {
-          const key = c.influencer.id;
-          const displayName = c.influencer.insta_name || c.influencer.tiktok_name || '不明';
-          const existing = influencerMap.get(key) || {
-            display_name: displayName,
-            total_likes: 0,
-            total_comments: 0,
-            total_campaigns: 0,
-            total_amount: 0,
-            total_consideration_comments: 0,
-          };
-          influencerMap.set(key, {
-            display_name: displayName,
-            total_likes: existing.total_likes + (c.likes || 0),
-            total_comments: existing.total_comments + (c.comments || 0),
-            total_campaigns: existing.total_campaigns + 1,
-            total_amount: existing.total_amount + (c.agreed_amount || 0),
-            total_consideration_comments: existing.total_consideration_comments + (c.consideration_comment || 0),
-          });
-        }
-      });
-
-      const itemMap = new Map<string, { count: number; likes: number; comments: number; amount: number }>();
-      campaigns.forEach((c) => {
-        if (c.item_code) {
-          const existing = itemMap.get(c.item_code) || { count: 0, likes: 0, comments: 0, amount: 0 };
-          itemMap.set(c.item_code, {
-            count: existing.count + 1,
-            likes: existing.likes + (c.likes || 0),
-            comments: existing.comments + (c.comments || 0),
-            amount: existing.amount + (c.agreed_amount || 0),
-          });
-        }
-      });
-
-      setStats({
-        totalCampaigns: campaigns.length,
-        totalInfluencers: new Set(campaigns.map(c => c.influencer_id)).size,
-        totalSpent: campaigns.reduce((sum, c) => sum + (c.agreed_amount || 0), 0),
-        totalLikes: campaigns.reduce((sum, c) => sum + (c.likes || 0), 0),
-        totalComments: campaigns.reduce((sum, c) => sum + (c.comments || 0), 0),
-        statusBreakdown: [
-          { name: '合意', value: statusCount.agree, color: '#374151' },
-          { name: '保留', value: statusCount.pending, color: '#6b7280' },
-          { name: '不合意', value: statusCount.disagree, color: '#9ca3af' },
-          { name: 'キャンセル', value: statusCount.cancelled, color: '#d1d5db' },
-        ].filter((s) => s.value > 0),
-        brandStats: Array.from(brandMap.entries())
-          .map(([brand, data]) => ({ brand, ...data }))
-          .sort((a, b) => b.amount - a.amount)
-          .slice(0, 10),
-        monthlyStats: Array.from(monthMap.entries())
-          .map(([month, data]) => ({ month, ...data }))
-          .sort((a, b) => a.month.localeCompare(b.month))
-          .slice(-12),
-        influencerRanking: Array.from(influencerMap.values())
-          .map((inf) => {
-            const costPerLike = inf.total_likes > 0 ? inf.total_amount / inf.total_likes : 0;
-            const avgLikes = inf.total_campaigns > 0 ? inf.total_likes / inf.total_campaigns : 0;
-            const avgConsiderationComments = inf.total_campaigns > 0 ? inf.total_consideration_comments / inf.total_campaigns : 0;
-
-            // スコア計算（ギフティング向け・詳細ページと同じロジック）
-            let score = 0;
-            if (inf.total_campaigns > 0) {
-              // 1. 検討コメントスコア（重み: 40%）- 最重要指標
-              const considerationScore = Math.min(100, (avgConsiderationComments / 50) * 100);
-
-              // 2. エンゲージメントスコア（重み: 25%）
-              const engagementScore = Math.min(100, (avgLikes / 1000) * 100);
-
-              // 3. コスト効率スコア（重み: 20%）
-              const efficiencyScore = costPerLike > 0
-                ? Math.max(0, Math.min(100, ((200 - costPerLike) / 150) * 100))
-                : 50;
-
-              // 4. 信頼性スコア（重み: 15%）- ダッシュボードでは簡易計算
-              const reliabilityScore = 80; // デフォルト値
-
-              score = Math.round(
-                considerationScore * 0.40 +
-                engagementScore * 0.25 +
-                efficiencyScore * 0.20 +
-                reliabilityScore * 0.15
-              );
-            }
-
-            let rank = 'C';
-            if (score >= 75) rank = 'S';
-            else if (score >= 55) rank = 'A';
-            else if (score >= 35) rank = 'B';
-
-            return {
-              ...inf,
-              cost_per_like: costPerLike,
-              score,
-              rank,
-            };
-          })
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 10),
-        itemStats: Array.from(itemMap.entries())
-          .map(([item_code, data]) => ({ item_code, ...data }))
-          .sort((a, b) => b.likes - a.likes)
-          .slice(0, 10),
-      });
-    }
-    } catch (err) {
-      const errorMessage = translateError(err);
-      setError(errorMessage);
-      showToast('error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentBrand, selectedItem, dateRange, showToast]);
-
-  useEffect(() => {
-    if (user) {
-      fetchStats();
-    }
-  }, [user, fetchStats]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('ja-JP', {
@@ -351,7 +141,7 @@ export default function DashboardPage() {
       <MainLayout>
         <ErrorDisplay
           message={error}
-          onRetry={fetchStats}
+          onRetry={() => refetch()}
           showHomeLink
         />
       </MainLayout>
