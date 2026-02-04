@@ -110,6 +110,25 @@ const response = await fetch(`${apiUrl}/api/master/brands`, {
   - globals.css に `html.light-mode` スタイル追加
   - カード、ボタン、テーブル、入力フィールドなど全コンポーネント対応
 
+#### Phase 7: パフォーマンス最適化・一括入力（2026-02-03）
+- [x] **React Query導入**
+  - `@tanstack/react-query` インストール
+  - QueryProvider をアプリ全体にラップ
+  - キャッシュ戦略: staleTime 2-10分、gcTime 30分
+- [x] **データフェッチカスタムフック**
+  - `/src/hooks/useQueries.ts` 作成
+  - useCampaigns, useInfluencers, useStaffs
+  - useDashboardStats, useBulkUpdateCampaigns
+- [x] **一括エンゲージメント入力画面**
+  - `/bulk-input` ページ追加
+  - 複数案件のいいね数・コメント数を一括更新
+  - 検索・フィルター機能
+  - 変更行のハイライト表示
+- [x] **DataTableコンポーネント**
+  - `@tanstack/react-table` 導入
+  - ソート・ページネーション・検索機能
+  - 再利用可能な汎用テーブルコンポーネント
+
 ---
 
 ### 🔄 残りのタスク
@@ -125,13 +144,6 @@ const response = await fetch(`${apiUrl}/api/master/brands`, {
 |--------|------|------|
 | SSO有効化 | ⏳ 準備完了 | `NEXT_PUBLIC_SSO_ENABLED=true` を設定 |
 | Supabase Auth削除 | ⏳ 待ち | Clerk JWT検証に完全移行 |
-
-#### 優先度: 中
-| タスク | 状態 | 備考 |
-|--------|------|------|
-| パフォーマンス最適化 | 未着手 | React Query/SWR導入、ページネーション |
-| 一括エンゲージメント入力画面 | 未着手 | 複数案件の一括更新 |
-| shadcn/ui DataTable移行 | 未着手 | ソート・フィルタ標準化 |
 
 #### 優先度: 低
 | タスク | 状態 | 備考 |
@@ -235,6 +247,8 @@ s@clout.co.jp
 - **フレームワーク**: Next.js 14 (App Router)
 - **スタイリング**: Tailwind CSS
 - **データベース**: Supabase
+- **状態管理**: React Query (@tanstack/react-query)
+- **テーブル**: TanStack Table (@tanstack/react-table)
 - **チャート**: Recharts
 - **バリデーション**: react-hook-form + zod
 - **デプロイ**: Vercel
@@ -249,6 +263,7 @@ s@clout.co.jp
 | `/src/app/dashboard/page.tsx` | ダッシュボード |
 | `/src/app/campaigns/page.tsx` | ギフティング案件一覧（担当者表示追加） |
 | `/src/app/influencers/page.tsx` | インフルエンサー一覧 |
+| `/src/app/bulk-input/page.tsx` | 一括エンゲージメント入力 |
 | `/src/app/import/page.tsx` | Excelインポート |
 | `/src/app/calendar/page.tsx` | カレンダー |
 | `/src/app/ai-insights/page.tsx` | AI分析 |
@@ -267,9 +282,16 @@ s@clout.co.jp
 | `/src/components/ForceRelogin.tsx` | 強制ログアウト管理 |
 | `/src/hooks/useAuth.ts` | 認証フック |
 | `/src/hooks/useAdminAuth.ts` | 管理者権限フック |
+| `/src/hooks/useQueries.ts` | React Queryデータフェッチフック |
 | `/src/contexts/BrandContext.tsx` | ブランド状態管理（Clout API連携） |
+| `/src/providers/QueryProvider.tsx` | React Queryプロバイダー |
 | `/src/lib/clout-auth.ts` | SSO認証ヘルパー |
 | `/src/middleware.ts` | SSO認証ミドルウェア |
+
+### UIコンポーネント
+| ファイル | 説明 |
+|---------|------|
+| `/src/components/ui/DataTable.tsx` | 汎用データテーブル（ソート・ページネーション） |
 
 ### フォーム
 | ファイル | 説明 |
@@ -321,14 +343,15 @@ https://gifting-app-seven.vercel.app
 2. ROI分析
 3. インフルエンサー
 4. ギフティング案件
-5. インポート
-6. 他のアプリ
+5. 一括入力
+6. インポート
+7. 他のアプリ
    - Clout Dashboard（統合ポータル）
    - ShortsOS（動画分析）
    - ModelCRM（撮影管理・TLのみ）
    - Master（商品マスター）
-7. ライトモード/ダークモード（テーマ切り替え）
-8. ログアウト
+8. ライトモード/ダークモード（テーマ切り替え）
+9. ログアウト
 
 **削除済み項目**:
 - 設定セクション
@@ -368,6 +391,7 @@ Clout Dashboardで一度ログインすれば全アプリにアクセス可能�
 
 | 日付 | 変更内容 |
 |------|---------|
+| 2026-02-03 | React Query導入、一括入力ページ追加、DataTableコンポーネント作成 |
 | 2026-02-03 | サイドバーナビゲーション整理（社員管理・管理者・変更履歴を削除） |
 | 2026-02-03 | ダーク/ライトモード切り替え機能追加 |
 | 2026-02-03 | ライトモードCSS追加（globals.css） |
