@@ -19,6 +19,7 @@ import {
   Home,
   Sun,
   Moon,
+  ListChecks,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -61,6 +62,7 @@ const navigation = [
   { name: 'ROI分析', href: '/analytics', icon: BarChart3 },
   { name: 'インフルエンサー', href: '/influencers', icon: Users },
   { name: 'ギフティング案件', href: '/campaigns', icon: Gift },
+  { name: '一括入力', href: '/bulk-input', icon: ListChecks },
   { name: 'インポート', href: '/import', icon: Upload },
 ];
 

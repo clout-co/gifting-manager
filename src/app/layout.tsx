@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import PWAProvider from '@/components/PWAProvider';
 import { BrandProvider } from '@/contexts/BrandContext';
 import ForceRelogin from '@/components/ForceRelogin';
+import QueryProvider from '@/providers/QueryProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -49,19 +50,21 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <BrandProvider>
-            <ToastProvider>
-              <ConfirmProvider>
-                <PWAProvider>
-                  <ForceRelogin>
-                    {children}
-                  </ForceRelogin>
-                </PWAProvider>
-              </ConfirmProvider>
-            </ToastProvider>
-          </BrandProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <BrandProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <PWAProvider>
+                    <ForceRelogin>
+                      {children}
+                    </ForceRelogin>
+                  </PWAProvider>
+                </ConfirmProvider>
+              </ToastProvider>
+            </BrandProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
