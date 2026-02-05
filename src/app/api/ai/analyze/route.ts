@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeCampaigns, AIAnalysisRequest } from '@/lib/claude';
+import { validateOrigin } from '@/lib/api-guard';
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   try {
     const body: AIAnalysisRequest = await request.json();
 

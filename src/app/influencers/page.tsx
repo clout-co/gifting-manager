@@ -9,6 +9,7 @@ import { useToast, translateError } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import LoadingSpinner, { CardSkeleton } from '@/components/ui/LoadingSpinner';
 import ErrorDisplay from '@/components/ui/ErrorDisplay';
+import EmptyState from '@/components/ui/EmptyState';
 import { useBrand } from '@/contexts/BrandContext';
 import {
   Plus,
@@ -261,7 +262,7 @@ export default function InfluencersPage() {
           <div className="flex gap-2">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="input-field text-sm"
             >
               <option value="score">スコア順</option>
@@ -290,11 +291,23 @@ export default function InfluencersPage() {
         {loading ? (
           <CardSkeleton count={6} />
         ) : filteredAndSortedInfluencers.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            {searchTerm
-              ? '検索結果がありません'
-              : 'インフルエンサーが登録されていません'}
-          </div>
+          searchTerm ? (
+            <EmptyState
+              icon={<Search size={32} />}
+              title="検索結果がありません"
+              description="検索条件を変更してお試しください"
+            />
+          ) : (
+            <EmptyState
+              icon={<Users size={32} />}
+              title="インフルエンサーが登録されていません"
+              description="インフルエンサーを追加して管理を始めましょう"
+              action={{
+                label: '新規追加',
+                onClick: () => setIsModalOpen(true),
+              }}
+            />
+          )
         ) : viewMode === 'cards' ? (
           /* カードビュー */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

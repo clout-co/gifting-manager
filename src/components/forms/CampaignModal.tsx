@@ -750,7 +750,7 @@ export default function CampaignModal({
                 <select
                   value={formData.status}
                   onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value as any })
+                    setFormData({ ...formData, status: e.target.value as Campaign['status'] })
                   }
                   className="input-field"
                 >

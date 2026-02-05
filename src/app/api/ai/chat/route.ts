@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatWithAI } from '@/lib/claude';
 import { createClient } from '@supabase/supabase-js';
+import { validateOrigin } from '@/lib/api-guard';
 
 // Supabaseクライアント（サーバーサイド用）
 const supabase = createClient(
@@ -9,6 +10,9 @@ const supabase = createClient(
 );
 
 export async function POST(request: NextRequest) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   try {
     const body = await request.json();
 

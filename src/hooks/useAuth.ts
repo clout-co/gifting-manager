@@ -8,25 +8,45 @@ import { useRouter, usePathname } from 'next/navigation';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     // 現在のセッションを取得
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (!session?.user) {
+        if (error) {
+          console.error('Session fetch error:', error.message);
+          setAuthError('セッションの取得に失敗しました');
+          setUser(null);
+          setLoading(false);
+          router.push('/auth');
+          return;
+        }
+
+        setUser(session?.user ?? null);
+        setAuthError(null);
+        setLoading(false);
+
+        if (!session?.user) {
+          router.push('/auth');
+          return;
+        }
+
+        // ブランド選択ページと認証ページ以外で、ブランド未選択なら選択画面へ
+        const brandSelected = localStorage.getItem('brandSelected') === 'true';
+        if (!brandSelected && pathname !== '/brand-select' && pathname !== '/auth') {
+          router.push('/brand-select');
+        }
+      } catch (err) {
+        console.error('Unexpected auth error:', err);
+        setAuthError('認証エラーが発生しました');
+        setUser(null);
+        setLoading(false);
         router.push('/auth');
-        return;
-      }
-
-      // ブランド選択ページと認証ページ以外で、ブランド未選択なら選択画面へ
-      const brandSelected = localStorage.getItem('brandSelected') === 'true';
-      if (!brandSelected && pathname !== '/brand-select' && pathname !== '/auth') {
-        router.push('/brand-select');
       }
     };
 
@@ -36,6 +56,7 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
+        setAuthError(null);
         if (!session?.user) {
           router.push('/auth');
         }
@@ -45,5 +66,5 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, [router, pathname]);
 
-  return { user, loading };
+  return { user, loading, authError };
 }

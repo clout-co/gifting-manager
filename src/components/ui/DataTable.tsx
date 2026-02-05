@@ -192,7 +192,7 @@ export function DataTable<TData, TValue>({
                 (table.getState().pagination.pageIndex + 1) * pageSize,
                 table.getFilteredRowModel().rows.length
               )}
-              件を表示
+              件を表示（ページ {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}）
             </div>
             <div className="flex items-center gap-1">
               <button

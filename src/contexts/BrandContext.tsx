@@ -146,9 +146,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('brandSelected');
   };
 
-  // 初期化完了まで待機
+  // 初期化完了まで待機（ローディングUIを表示）
   if (!isInitialized || isLoading) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[oklch(0.145_0_0)]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="mt-3 text-sm text-gray-400">ブランド情報を読み込み中...</p>
+        </div>
+      </div>
+    );
   }
 
   const brands = brandData.map(b => b.code);

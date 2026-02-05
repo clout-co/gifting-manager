@@ -28,9 +28,10 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(isIOSDevice);
 
-    // スタンドアロンモード判定
+    // スタンドアロンモード判定（iOS Safari用のstandaloneプロパティ）
+    const nav = window.navigator as Navigator & { standalone?: boolean };
     const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone ||
+      nav.standalone === true ||
       document.referrer.includes('android-app://');
     setIsStandalone(isInStandaloneMode);
 

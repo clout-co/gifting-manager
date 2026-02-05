@@ -75,8 +75,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
-  const [dailyStats, setDailyStats] = useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [dailyStats, setDailyStats] = useState<{ date: string; created: number; updated: number }[]>([]);
+  const [recentActivities, setRecentActivities] = useState<{
+    id: string;
+    type: string;
+    action: string;
+    user: string;
+    influencer: string;
+    timestamp: string;
+  }[]>([]);
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -221,7 +228,8 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  const formatDate = (date: string) => {
+  // 日時フォーマット（時刻付き）- admin固有
+  const formatDateTime = (date: string) => {
     if (!date) return '-';
     return new Date(date).toLocaleString('ja-JP', {
       month: 'short',
@@ -231,6 +239,7 @@ export default function AdminPage() {
     });
   };
 
+  // 短い日付フォーマット - admin固有
   const formatDateShort = (date: string) => {
     return new Date(date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
   };
@@ -409,7 +418,7 @@ export default function AdminPage() {
                     </p>
                   </div>
                   <span className="text-xs text-gray-400 whitespace-nowrap">
-                    {formatDate(activity.timestamp)}
+                    {formatDateTime(activity.timestamp)}
                   </span>
                 </div>
               ))}
@@ -465,7 +474,7 @@ export default function AdminPage() {
                         {activity.campaigns_created + activity.campaigns_updated}
                       </td>
                       <td className="table-cell text-gray-500">
-                        {formatDate(activity.last_activity)}
+                        {formatDateTime(activity.last_activity)}
                       </td>
                       <td className="table-cell">
                         {isActive ? (

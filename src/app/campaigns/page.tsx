@@ -9,6 +9,7 @@ import { useToast, translateError } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import LoadingSpinner, { TableSkeleton } from '@/components/ui/LoadingSpinner';
 import ErrorDisplay from '@/components/ui/ErrorDisplay';
+import EmptyState from '@/components/ui/EmptyState';
 import {
   Plus,
   Search,
@@ -26,6 +27,7 @@ import {
   Globe,
   Plane,
   MapPin,
+  FileText,
 } from 'lucide-react';
 import CampaignModal from '@/components/forms/CampaignModal';
 import { useBrand } from '@/contexts/BrandContext';
@@ -536,11 +538,23 @@ export default function CampaignsPage() {
           {loading ? (
             <TableSkeleton rows={8} cols={10} />
           ) : filteredCampaigns.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              {searchTerm || statusFilter !== 'all'
-                ? '検索結果がありません'
-                : '案件が登録されていません'}
-            </div>
+            searchTerm || statusFilter !== 'all' ? (
+              <EmptyState
+                icon={<Search size={32} />}
+                title="検索結果がありません"
+                description="検索条件を変更してお試しください"
+              />
+            ) : (
+              <EmptyState
+                icon={<FileText size={32} />}
+                title="案件が登録されていません"
+                description="新規案件を作成して、ギフティング管理を始めましょう"
+                action={{
+                  label: '新規案件を作成',
+                  onClick: () => setIsModalOpen(true),
+                }}
+              />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
