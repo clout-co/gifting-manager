@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useBrand, Brand } from '@/contexts/BrandContext';
+import { useBrand, Brand, isValidBrand } from '@/contexts/BrandContext';
 import { CLOUT_AUTH_URL, cloutLogout } from '@/lib/clout-auth';
 import { useTheme } from '@/components/ThemeProvider';
 import { cn } from '@/lib/utils';
@@ -80,7 +80,8 @@ export default function Sidebar() {
   const [externalApps, setExternalApps] = useState<ExternalApp[]>([]);
   const [allowedApps, setAllowedApps] = useState<string[] | null>(null);
   const { currentBrand, brands: allowedBrands, clearBrandSelection } = useBrand();
-  const colors = BRAND_COLORS[currentBrand];
+  const DEFAULT_ACCENT = { accent: 'bg-muted text-foreground border-border' };
+  const colors = (isValidBrand(currentBrand) && BRAND_COLORS[currentBrand]) || DEFAULT_ACCENT;
   const hasTLTeam = allowedBrands.includes('TL');
   const APP_ICON_MAP: Record<string, typeof LayoutDashboard> = { Package, Gift, Video, Target };
 

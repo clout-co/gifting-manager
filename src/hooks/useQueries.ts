@@ -847,7 +847,8 @@ export function useBulkUpdateCampaigns() {
           const { error } = await supabase
             .from('campaigns')
             .update(data)
-            .eq('id', id);
+            .eq('id', id)
+            .eq('brand', currentBrand);
           if (error) throw error;
           return id;
         })

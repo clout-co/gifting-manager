@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import LazyAIChatWidget from '@/components/ui/LazyAIChatWidget';
-import { useBrand, Brand } from '@/contexts/BrandContext';
+import { useBrand, Brand, isValidBrand } from '@/contexts/BrandContext';
 import { useAuth } from '@/hooks/useAuth';
 
 interface MainLayoutProps {
@@ -39,12 +39,19 @@ const BRAND_CONFIG: Record<Brand, {
   },
 };
 
+const DEFAULT_CONFIG = {
+  name: '---',
+  accentColor: 'text-muted-foreground',
+  accentBg: 'bg-muted border-border',
+  description: '',
+};
+
 export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { currentBrand, isBrandSelected } = useBrand();
   const { user } = useAuth();
-  const brandConfig = BRAND_CONFIG[currentBrand];
+  const brandConfig = (isValidBrand(currentBrand) && BRAND_CONFIG[currentBrand]) || DEFAULT_CONFIG;
 
   // ブランドが選択されていない場合、ブランド選択画面にリダイレクト
   useEffect(() => {

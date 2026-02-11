@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useBrand, Brand } from '@/contexts/BrandContext';
+import { useBrand, Brand, isValidBrand } from '@/contexts/BrandContext';
 import { ArrowRight } from 'lucide-react';
 
 // ブランド情報
@@ -35,7 +35,8 @@ export default function BrandSelectPage() {
   const router = useRouter();
   const { setCurrentBrand, brands } = useBrand();
 
-  const handleSelectBrand = (brand: Brand) => {
+  const handleSelectBrand = (brand: string) => {
+    if (!isValidBrand(brand)) return;
     setCurrentBrand(brand);
     router.push('/dashboard');
   };
@@ -67,7 +68,7 @@ export default function BrandSelectPage() {
         {/* ブランド選択カード */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {brands.map((brand, index) => {
-            const info = BRAND_INFO[brand] || {
+            const info = (isValidBrand(brand) && BRAND_INFO[brand]) || {
               name: brand,
               fullName: brand,
               description: 'ブランド',

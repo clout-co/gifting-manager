@@ -1,12 +1,18 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-// ブランド型定義
-export type Brand = string;
+// ブランド型定義（厳密な型: TL | BE | AM のみ）
+export const VALID_BRANDS = ['TL', 'BE', 'AM'] as const;
+export type Brand = typeof VALID_BRANDS[number];
+
+/** 文字列が有効なブランドコードか判定する型ガード */
+export function isValidBrand(value: unknown): value is Brand {
+  return typeof value === 'string' && (VALID_BRANDS as readonly string[]).includes(value);
+}
 
 // フォールバック用のデフォルトブランド（API接続できない場合）
-const DEFAULT_BRANDS = ['TL', 'BE', 'AM'] as const;
+const DEFAULT_BRANDS = VALID_BRANDS;
 
 interface BrandData {
   code: string;
@@ -73,7 +79,7 @@ function getCachedAllowedBrands(): Brand[] | null {
     const parsed = JSON.parse(cached);
     if (!Array.isArray(parsed)) return null;
 
-    return parsed.map((b) => String(b).toUpperCase()) as Brand[];
+    return parsed.map((b) => String(b).toUpperCase()).filter(isValidBrand);
   } catch {
     return null;
   }
@@ -145,7 +151,7 @@ async function fetchAllowedBrands(): Promise<Brand[]> {
 
     const data = await response.json();
     const brands = Array.isArray(data?.brands) ? data.brands : [];
-    const normalized = (brands as string[]).map((b) => String(b).toUpperCase()) as Brand[];
+    const normalized = (brands as string[]).map((b) => String(b).toUpperCase()).filter(isValidBrand);
     setCachedAllowedBrands(normalized);
     return normalized;
   } catch (error) {
@@ -216,7 +222,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       let filtered = cloutBrands;
       if (allowedBrands.length > 0) {
-        filtered = cloutBrands.filter(b => allowedBrands.includes(b.code as Brand));
+        filtered = cloutBrands.filter(b => (allowedBrands as string[]).includes(b.code));
         if (filtered.length === 0) {
           filtered = allowedBrands.map(code => ({ code, name: code }));
         }
@@ -245,10 +251,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    const urlBrand =
-      urlBrandParam === 'TL' || urlBrandParam === 'BE' || urlBrandParam === 'AM'
-        ? (urlBrandParam as Brand)
-        : '';
+    const urlBrand = isValidBrand(urlBrandParam) ? urlBrandParam : null;
 
     // URLの brand= を処理したら除去（以降はアプリ内状態で保持）
     if (urlBrandParam) {
@@ -262,7 +265,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     // URLの brand= を最優先（クロスアプリでのブランド引き継ぎ）
-    if (urlBrand && brandData.some((b) => b.code === urlBrand)) {
+    if (urlBrand && brandData.some((b) => b.code === urlBrand as string)) {
       setCurrentBrand(urlBrand);
       setIsBrandSelected(true);
       setBrandCookie(urlBrand);
@@ -278,11 +281,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         return '';
       }
     })();
-    const cookieBrand =
-      cookieBrandParam === 'TL' || cookieBrandParam === 'BE' || cookieBrandParam === 'AM'
-        ? (cookieBrandParam as Brand)
-        : '';
-    if (cookieBrand && brandData.some((b) => b.code === cookieBrand)) {
+    const cookieBrand = isValidBrand(cookieBrandParam) ? cookieBrandParam : null;
+    if (cookieBrand && brandData.some((b) => b.code === cookieBrand as string)) {
       setCurrentBrand(cookieBrand);
       setIsBrandSelected(true);
       setBrandCookie(cookieBrand);
@@ -293,8 +293,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     // One-time migration: legacy localStorage -> cookie.
     try {
       const saved = String(localStorage.getItem('selectedBrand') || '').trim().toUpperCase();
-      const isValid = saved && brandData.some((b) => b.code === saved);
-      if (isValid) {
+      if (isValidBrand(saved) && brandData.some((b) => b.code === saved)) {
         setCurrentBrand(saved);
         setIsBrandSelected(true);
         setBrandCookie(saved);
@@ -308,7 +307,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     if (brandData.length > 0) {
-      const fallback = brandData[0].code as Brand;
+      const firstCode = brandData[0].code;
+      const fallback: Brand = isValidBrand(firstCode) ? firstCode : 'TL';
       setCurrentBrand(fallback);
       // If only one brand is available, auto-select it (no extra clicks).
       const autoSelected = brandData.length === 1;
@@ -321,11 +321,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, [brandData]);
 
   // Persist to cookie (cross-app SSoT).
-  const handleSetBrand = (brand: Brand) => {
+  const handleSetBrand = useCallback((brand: Brand) => {
+    if (!isValidBrand(brand)) {
+      console.warn(`Invalid brand "${brand}" ignored`);
+      return;
+    }
     setCurrentBrand(brand);
     setIsBrandSelected(true);
     setBrandCookie(brand);
-  };
+  }, []);
 
   // Always keep cookie in sync once initialized (long-term cross-subdomain SSoT).
   useEffect(() => {
@@ -334,10 +338,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setBrandCookie(String(currentBrand).toUpperCase());
   }, [currentBrand, isInitialized]);
 
-  // ブランド選択をクリア（ログアウト時などに使用）
-  const clearBrandSelection = () => {
+  // ブランド選択をクリア（ブランド変更 / ログアウト時に使用）
+  // currentBrand は常に有効な Brand 値を保持（空文字にしない）
+  const clearBrandSelection = useCallback(() => {
     setIsBrandSelected(false);
-    setCurrentBrand('');
+    // currentBrand は変更しない（UIが undefined にならないようにする）
+    // ブランド選択ページで再選択させる
     setBrandCookie(null);
     try {
       localStorage.removeItem('selectedBrand');
@@ -345,7 +351,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-  };
+  }, []);
 
   // 初期化完了まで待機（ローディングUIを表示）
   if (!isInitialized || isLoading) {
@@ -359,7 +365,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  const brands = brandData.map(b => b.code);
+  const brands: Brand[] = brandData.map(b => b.code).filter(isValidBrand);
 
   return (
     <BrandContext.Provider value={{
