@@ -200,12 +200,13 @@ export default function ReportExportPage() {
   const generatePrintableReport = () => {
     setGenerating(true);
 
-    const reportWindow = window.open('', '_blank');
+    const reportWindow = window.open('', '_blank', 'noopener,noreferrer');
     if (!reportWindow) {
       showToast('error', 'ポップアップがブロックされました');
       setGenerating(false);
       return;
     }
+    reportWindow.opener = null;
 
     const html = `
 <!DOCTYPE html>
@@ -339,15 +340,15 @@ export default function ReportExportPage() {
         {/* ヘッダー */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/reports" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-              <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
+            <Link href="/reports" className="p-2 hover:bg-muted dark:hover:bg-gray-800 rounded-lg">
+              <ArrowLeft size={20} className="text-muted-foreground dark:text-muted-foreground" />
             </Link>
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/30">
               <FileText className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">レポート作成</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">カスタムレポートの生成・エクスポート</p>
+              <h1 className="text-2xl font-bold text-foreground dark:text-white">レポート作成</h1>
+              <p className="text-muted-foreground dark:text-muted-foreground mt-0.5">カスタムレポートの生成・エクスポート</p>
             </div>
           </div>
         </div>
@@ -357,14 +358,14 @@ export default function ReportExportPage() {
           <div className="lg:col-span-1 space-y-6">
             {/* レポートタイプ */}
             <div className="card">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Settings size={18} className="text-gray-500" />
+              <h3 className="font-bold text-foreground dark:text-white mb-4 flex items-center gap-2">
+                <Settings size={18} className="text-muted-foreground" />
                 レポート設定
               </h3>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground dark:text-muted-foreground mb-2">
                     期間プリセット
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -397,7 +398,7 @@ export default function ReportExportPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-foreground dark:text-muted-foreground mb-1">
                       開始日
                     </label>
                     <input
@@ -408,7 +409,7 @@ export default function ReportExportPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-foreground dark:text-muted-foreground mb-1">
                       終了日
                     </label>
                     <input
@@ -421,7 +422,7 @@ export default function ReportExportPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground dark:text-muted-foreground mb-2">
                     ブランドフィルター
                   </label>
                   <select
@@ -437,7 +438,7 @@ export default function ReportExportPage() {
                       <option key={brand} value={brand}>{brand}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + クリックで複数選択</p>
+                  <p className="text-xs text-muted-foreground mt-1">Ctrl/Cmd + クリックで複数選択</p>
                 </div>
 
                 <div className="space-y-2">
@@ -448,7 +449,7 @@ export default function ReportExportPage() {
                       onChange={(e) => setConfig({ ...config, includeSummary: e.target.checked })}
                       className="rounded text-primary-600"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">サマリーを含める</span>
+                    <span className="text-sm text-foreground dark:text-muted-foreground">サマリーを含める</span>
                   </label>
                   <label className="flex items-center gap-2">
                     <input
@@ -457,7 +458,7 @@ export default function ReportExportPage() {
                       onChange={(e) => setConfig({ ...config, includeDetails: e.target.checked })}
                       className="rounded text-primary-600"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">詳細データを含める</span>
+                    <span className="text-sm text-foreground dark:text-muted-foreground">詳細データを含める</span>
                   </label>
                 </div>
               </div>
@@ -465,8 +466,8 @@ export default function ReportExportPage() {
 
             {/* エクスポートボタン */}
             <div className="card">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Download size={18} className="text-gray-500" />
+              <h3 className="font-bold text-foreground dark:text-white mb-4 flex items-center gap-2">
+                <Download size={18} className="text-muted-foreground" />
                 エクスポート
               </h3>
 
@@ -499,20 +500,20 @@ export default function ReportExportPage() {
           {/* プレビュー */}
           <div className="lg:col-span-2">
             <div className="card">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <BarChart3 size={18} className="text-gray-500" />
+              <h3 className="font-bold text-foreground dark:text-white mb-4 flex items-center gap-2">
+                <BarChart3 size={18} className="text-muted-foreground" />
                 レポートプレビュー
-                <span className="ml-auto text-sm font-normal text-gray-500">
+                <span className="ml-auto text-sm font-normal text-muted-foreground">
                   {filteredCampaigns.length}件のキャンペーン
                 </span>
               </h3>
 
               {loading ? (
                 <div className="flex justify-center py-12">
-                  <Loader2 className="animate-spin text-gray-400" size={32} />
+                  <Loader2 className="animate-spin text-muted-foreground" size={32} />
                 </div>
               ) : filteredCampaigns.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <Filter size={40} className="mx-auto mb-3 opacity-50" />
                   <p>選択した条件に一致するキャンペーンがありません</p>
                 </div>
@@ -523,30 +524,30 @@ export default function ReportExportPage() {
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Target className="text-blue-500" size={18} />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">キャンペーン</span>
+                        <span className="text-sm text-muted-foreground dark:text-muted-foreground">キャンペーン</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.totalCampaigns}</p>
+                      <p className="text-2xl font-bold text-foreground dark:text-white">{summary.totalCampaigns}</p>
                     </div>
                     <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="text-green-500" size={18} />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">合意率</span>
+                        <span className="text-sm text-muted-foreground dark:text-muted-foreground">合意率</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.agreementRate.toFixed(1)}%</p>
+                      <p className="text-2xl font-bold text-foreground dark:text-white">{summary.agreementRate.toFixed(1)}%</p>
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <DollarSign className="text-purple-500" size={18} />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">総支出</span>
+                        <span className="text-sm text-muted-foreground dark:text-muted-foreground">総支出</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">¥{summary.totalSpent.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-foreground dark:text-white">¥{summary.totalSpent.toLocaleString()}</p>
                     </div>
                     <div className="bg-pink-50 dark:bg-pink-900/20 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Heart className="text-pink-500" size={18} />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">いいね単価</span>
+                        <span className="text-sm text-muted-foreground dark:text-muted-foreground">いいね単価</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">¥{Math.round(summary.avgCostPerLike).toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-foreground dark:text-white">¥{Math.round(summary.avgCostPerLike).toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -554,24 +555,24 @@ export default function ReportExportPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                          <th className="text-left py-3 px-2 font-medium text-gray-600 dark:text-gray-400">インフルエンサー</th>
-                          <th className="text-left py-3 px-2 font-medium text-gray-600 dark:text-gray-400">ブランド</th>
-                          <th className="text-right py-3 px-2 font-medium text-gray-600 dark:text-gray-400">合意額</th>
-                          <th className="text-center py-3 px-2 font-medium text-gray-600 dark:text-gray-400">ステータス</th>
-                          <th className="text-right py-3 px-2 font-medium text-gray-600 dark:text-gray-400">いいね</th>
+                        <tr className="border-b border-border dark:border-gray-700">
+                          <th className="text-left py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">インフルエンサー</th>
+                          <th className="text-left py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">ブランド</th>
+                          <th className="text-right py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">合意額</th>
+                          <th className="text-center py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">ステータス</th>
+                          <th className="text-right py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">いいね</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredCampaigns.slice(0, 10).map(c => (
                           <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
                             <td className="py-3 px-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
+                              <span className="font-medium text-foreground dark:text-white">
                                 @{c.influencer?.insta_name || c.influencer?.tiktok_name || '不明'}
                               </span>
                             </td>
-                            <td className="py-3 px-2 text-gray-600 dark:text-gray-400">{c.brand || '-'}</td>
-                            <td className="py-3 px-2 text-right text-gray-900 dark:text-white">
+                            <td className="py-3 px-2 text-muted-foreground dark:text-muted-foreground">{c.brand || '-'}</td>
+                            <td className="py-3 px-2 text-right text-foreground dark:text-white">
                               ¥{(c.agreed_amount || 0).toLocaleString()}
                             </td>
                             <td className="py-3 px-2 text-center">
@@ -585,7 +586,7 @@ export default function ReportExportPage() {
                                 {c.status === 'agree' ? '合意' : c.status === 'disagree' ? '不合意' : '保留'}
                               </span>
                             </td>
-                            <td className="py-3 px-2 text-right text-gray-900 dark:text-white">
+                            <td className="py-3 px-2 text-right text-foreground dark:text-white">
                               {(c.likes || 0).toLocaleString()}
                             </td>
                           </tr>
@@ -594,7 +595,7 @@ export default function ReportExportPage() {
                     </table>
 
                     {filteredCampaigns.length > 10 && (
-                      <p className="text-center text-sm text-gray-500 mt-4">
+                      <p className="text-center text-sm text-muted-foreground mt-4">
                         他 {filteredCampaigns.length - 10} 件のキャンペーン...
                       </p>
                     )}

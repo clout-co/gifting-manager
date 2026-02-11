@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { cookies } from 'next/headers';
 import './globals.css';
 import { ToastProvider } from '@/lib/toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
@@ -9,6 +10,7 @@ import { BrandProvider } from '@/contexts/BrandContext';
 import ForceRelogin from '@/components/ForceRelogin';
 import QueryProvider from '@/providers/QueryProvider';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import RealtimeSync from '@/components/RealtimeSync';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -38,13 +40,17 @@ export const viewport: Viewport = {
   themeColor: '#8b5cf6',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const theme = cookieStore.get('clout_theme')?.value;
+  const htmlClassName = theme === 'dark' ? 'dark' : undefined;
+
   return (
-    <html lang="ja" suppressHydrationWarning>
+    <html lang="ja" suppressHydrationWarning className={htmlClassName}>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -55,6 +61,7 @@ export default function RootLayout({
           <QueryProvider>
             <ThemeProvider>
               <BrandProvider>
+                <RealtimeSync />
                 <ToastProvider>
                   <ConfirmProvider>
                     <PWAProvider>

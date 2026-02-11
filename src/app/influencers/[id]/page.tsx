@@ -107,6 +107,7 @@ export default function InfluencerDetailPage() {
         .from('campaigns')
         .select('*')
         .eq('influencer_id', influencerId)
+        .eq('brand', currentBrand)
         .order('created_at', { ascending: false });
 
       if (campaignsError) throw campaignsError;
@@ -245,7 +246,7 @@ export default function InfluencerDetailPage() {
       case 'S': return 'text-amber-500';
       case 'A': return 'text-purple-500';
       case 'B': return 'text-blue-500';
-      default: return 'text-gray-500';
+      default: return 'text-muted-foreground';
     }
   };
 
@@ -254,7 +255,7 @@ export default function InfluencerDetailPage() {
       case 'S': return <Crown className="text-amber-500" size={24} />;
       case 'A': return <Medal className="text-purple-500" size={24} />;
       case 'B': return <Award className="text-blue-500" size={24} />;
-      default: return <Star className="text-gray-500" size={24} />;
+      default: return <Star className="text-muted-foreground" size={24} />;
     }
   };
 
@@ -266,7 +267,7 @@ export default function InfluencerDetailPage() {
     return (
       <MainLayout>
         <div className="text-center py-20">
-          <p className="text-gray-500">インフルエンサーが見つかりません</p>
+          <p className="text-muted-foreground">インフルエンサーが見つかりません</p>
           <Link href="/influencers" className="btn-primary mt-4">
             一覧に戻る
           </Link>
@@ -281,19 +282,19 @@ export default function InfluencerDetailPage() {
         {/* ヘッダー */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/influencers" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-              <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
+            <Link href="/influencers" className="p-2 hover:bg-muted dark:hover:bg-gray-800 rounded-lg">
+              <ArrowLeft size={20} className="text-muted-foreground dark:text-muted-foreground" />
             </Link>
             <div className="p-3 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl shadow-lg shadow-pink-500/30">
               <Instagram className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground dark:text-white flex items-center gap-2">
                 @{influencer.insta_name || influencer.tiktok_name || '不明'}
                 {isFavorite && <Star className="text-amber-500 fill-current" size={20} />}
                 {isBlacklisted && <Ban className="text-red-500" size={20} />}
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">インフルエンサー詳細・実績</p>
+              <p className="text-muted-foreground dark:text-muted-foreground mt-0.5">インフルエンサー詳細・実績</p>
             </div>
           </div>
 
@@ -324,12 +325,12 @@ export default function InfluencerDetailPage() {
                 <p className={`text-3xl font-bold ${getRankColor(influencer.stats.rank)}`}>
                   {influencer.stats.rank}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">ランク</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">ランク</p>
               </div>
               <div className="h-16 w-px bg-gray-300 dark:bg-gray-600" />
               <div className="text-center">
-                <p className="text-4xl font-bold text-gray-900 dark:text-white">{influencer.stats.score}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">総合スコア</p>
+                <p className="text-4xl font-bold text-foreground dark:text-white">{influencer.stats.score}</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">総合スコア</p>
               </div>
             </div>
 
@@ -337,29 +338,29 @@ export default function InfluencerDetailPage() {
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Heart className="text-pink-500" size={16} />
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                  <span className="text-lg font-bold text-foreground dark:text-white">
                     {Math.round(influencer.stats.avgLikes).toLocaleString()}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">平均いいね</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">平均いいね</p>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <DollarSign className="text-green-500" size={16} />
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                  <span className="text-lg font-bold text-foreground dark:text-white">
                     ¥{Math.round(influencer.stats.costPerLike).toLocaleString()}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">いいね単価</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">いいね単価</p>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <CheckCircle className="text-blue-500" size={16} />
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                  <span className="text-lg font-bold text-foreground dark:text-white">
                     {influencer.stats.agreementRate.toFixed(0)}%
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">合意率</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">合意率</p>
               </div>
             </div>
           </div>
@@ -373,8 +374,8 @@ export default function InfluencerDetailPage() {
                 <Target className="text-blue-600 dark:text-blue-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">総案件数</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{influencer.stats.totalCampaigns}</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">総案件数</p>
+                <p className="text-xl font-bold text-foreground dark:text-white">{influencer.stats.totalCampaigns}</p>
               </div>
             </div>
           </div>
@@ -385,8 +386,8 @@ export default function InfluencerDetailPage() {
                 <Heart className="text-pink-600 dark:text-pink-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">総いいね数</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">総いいね数</p>
+                <p className="text-xl font-bold text-foreground dark:text-white">
                   {influencer.stats.totalLikes.toLocaleString()}
                 </p>
               </div>
@@ -399,8 +400,8 @@ export default function InfluencerDetailPage() {
                 <DollarSign className="text-green-600 dark:text-green-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">総支出額</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">総支出額</p>
+                <p className="text-xl font-bold text-foreground dark:text-white">
                   ¥{influencer.stats.totalSpent.toLocaleString()}
                 </p>
               </div>
@@ -413,8 +414,8 @@ export default function InfluencerDetailPage() {
                 <Clock className="text-purple-600 dark:text-purple-400" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">納期遵守率</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">納期遵守率</p>
+                <p className="text-xl font-bold text-foreground dark:text-white">
                   {influencer.stats.onTimeRate.toFixed(0)}%
                 </p>
               </div>
@@ -424,34 +425,34 @@ export default function InfluencerDetailPage() {
 
         {/* キャンペーン履歴 */}
         <div className="card">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Activity size={20} className="text-gray-500" />
+          <h3 className="font-bold text-foreground dark:text-white mb-4 flex items-center gap-2">
+            <Activity size={20} className="text-muted-foreground" />
             キャンペーン履歴
           </h3>
 
           {influencer.campaigns.length === 0 ? (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+            <p className="text-center text-muted-foreground dark:text-muted-foreground py-8">
               キャンペーン履歴はありません
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-2 font-medium text-gray-600 dark:text-gray-400">ブランド</th>
-                    <th className="text-left py-3 px-2 font-medium text-gray-600 dark:text-gray-400">品番</th>
-                    <th className="text-right py-3 px-2 font-medium text-gray-600 dark:text-gray-400">金額</th>
-                    <th className="text-center py-3 px-2 font-medium text-gray-600 dark:text-gray-400">ステータス</th>
-                    <th className="text-right py-3 px-2 font-medium text-gray-600 dark:text-gray-400">いいね</th>
-                    <th className="text-left py-3 px-2 font-medium text-gray-600 dark:text-gray-400">日付</th>
+                  <tr className="border-b border-border dark:border-gray-700">
+                    <th className="text-left py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">ブランド</th>
+                    <th className="text-left py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">品番</th>
+                    <th className="text-right py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">金額</th>
+                    <th className="text-center py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">ステータス</th>
+                    <th className="text-right py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">いいね</th>
+                    <th className="text-left py-3 px-2 font-medium text-muted-foreground dark:text-muted-foreground">日付</th>
                   </tr>
                 </thead>
                 <tbody>
                   {influencer.campaigns.slice(0, 10).map(c => (
-                    <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <td className="py-3 px-2 font-medium text-gray-900 dark:text-white">{c.brand || '-'}</td>
-                      <td className="py-3 px-2 text-gray-600 dark:text-gray-400">{c.item_code || '-'}</td>
-                      <td className="py-3 px-2 text-right text-gray-900 dark:text-white">
+                    <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-muted dark:hover:bg-gray-800">
+                      <td className="py-3 px-2 font-medium text-foreground dark:text-white">{c.brand || '-'}</td>
+                      <td className="py-3 px-2 text-muted-foreground dark:text-muted-foreground">{c.item_code || '-'}</td>
+                      <td className="py-3 px-2 text-right text-foreground dark:text-white">
                         ¥{(c.agreed_amount || 0).toLocaleString()}
                       </td>
                       <td className="py-3 px-2 text-center">
@@ -465,10 +466,10 @@ export default function InfluencerDetailPage() {
                           {c.status === 'agree' ? '合意' : c.status === 'disagree' ? '不合意' : '保留'}
                         </span>
                       </td>
-                      <td className="py-3 px-2 text-right text-gray-900 dark:text-white">
+                      <td className="py-3 px-2 text-right text-foreground dark:text-white">
                         {(c.likes || 0).toLocaleString()}
                       </td>
-                      <td className="py-3 px-2 text-gray-600 dark:text-gray-400">
+                      <td className="py-3 px-2 text-muted-foreground dark:text-muted-foreground">
                         {c.created_at ? format(new Date(c.created_at), 'yyyy/MM/dd', { locale: ja }) : '-'}
                       </td>
                     </tr>
@@ -477,7 +478,7 @@ export default function InfluencerDetailPage() {
               </table>
 
               {influencer.campaigns.length > 10 && (
-                <p className="text-center text-sm text-gray-500 mt-4">
+                <p className="text-center text-sm text-muted-foreground mt-4">
                   他 {influencer.campaigns.length - 10} 件のキャンペーン
                 </p>
               )}
@@ -487,7 +488,7 @@ export default function InfluencerDetailPage() {
 
         {/* リンク */}
         <div className="card">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">外部リンク</h3>
+          <h3 className="font-bold text-foreground dark:text-white mb-4">外部リンク</h3>
           <div className="flex flex-wrap gap-3">
             {influencer.insta_url && (
               <a

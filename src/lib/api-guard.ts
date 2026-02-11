@@ -39,3 +39,12 @@ export function validateOrigin(request: NextRequest): NextResponse | null {
     { status: 403 }
   );
 }
+
+export function getAllowedBrands(request: NextRequest): string[] {
+  const header = request.headers.get('x-clout-brands')
+  if (!header) return []
+  return header
+    .split(',')
+    .map((b) => b.trim().toUpperCase())
+    .filter(Boolean)
+}

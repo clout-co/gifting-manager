@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/contexts/BrandContext';
 import {
   History,
   User,
@@ -37,6 +37,7 @@ interface ActivityLog {
 
 export default function AuditLogPage() {
   const { user, loading: authLoading } = useAuth();
+  const { currentBrand } = useBrand();
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
@@ -49,35 +50,33 @@ export default function AuditLogPage() {
       fetchActivityLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, currentBrand]);
 
   const fetchActivityLogs = async () => {
     setLoading(true);
 
-    // ユーザー一覧を取得
-    const { data: usersData } = await supabase.from('user_profiles').select('*');
-    if (usersData) {
-      setUsers(usersData);
+    // BFF API経由でデータを取得（service_roleでRLSバイパス）
+    let usersData: { id: string; email: string; display_name: string }[] = [];
+    let campaigns: any[] = [];
+    let influencers: any[] = [];
+
+    try {
+      const res = await fetch(`/api/audit-log?brand=${currentBrand}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        usersData = json.users || [];
+        campaigns = json.campaigns || [];
+        influencers = json.influencers || [];
+      }
+    } catch {
+      // Failed to fetch — leave empty
     }
 
-    // 案件データを取得（作成・更新履歴から活動ログを生成）
-    const { data: campaigns } = await supabase
-      .from('campaigns')
-      .select(`
-        *,
-        influencer:influencers(insta_name),
-        creator:user_profiles!campaigns_created_by_fkey(id, email, display_name),
-        updater:user_profiles!campaigns_updated_by_fkey(id, email, display_name)
-      `)
-      .order('updated_at', { ascending: false })
-      .limit(200);
-
-    // 注意: audit-logは全ブランドの履歴を表示（管理・監査目的）
-    const { data: influencers } = await supabase
-      .from('influencers')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    if (usersData.length > 0) {
+      setUsers(usersData);
+    }
 
     const logs: ActivityLog[] = [];
 
@@ -156,7 +155,7 @@ export default function AuditLogPage() {
       case 'delete':
         return <Trash2 size={16} className="text-red-600" />;
       default:
-        return <Eye size={16} className="text-gray-600" />;
+        return <Eye size={16} className="text-muted-foreground" />;
     }
   };
 
@@ -169,7 +168,7 @@ export default function AuditLogPage() {
       case 'delete':
         return 'bg-red-100 text-red-700';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -255,15 +254,15 @@ export default function AuditLogPage() {
             <History className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">変更履歴</h1>
-            <p className="text-gray-500 mt-0.5">すべての操作ログを確認</p>
+            <h1 className="text-2xl font-bold text-foreground">変更履歴</h1>
+            <p className="text-muted-foreground mt-0.5">すべての操作ログを確認</p>
           </div>
         </div>
 
         {/* フィルター */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
               placeholder="検索..."
@@ -303,23 +302,23 @@ export default function AuditLogPage() {
         {/* 統計 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="stat-card">
-            <p className="text-xs text-gray-500">総アクション</p>
-            <p className="text-xl font-bold text-gray-900">{activities.length}</p>
+            <p className="text-xs text-muted-foreground">総アクション</p>
+            <p className="text-xl font-bold text-foreground">{activities.length}</p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">作成</p>
+            <p className="text-xs text-muted-foreground">作成</p>
             <p className="text-xl font-bold text-green-600">
               {activities.filter(a => a.type === 'create').length}
             </p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">更新</p>
+            <p className="text-xs text-muted-foreground">更新</p>
             <p className="text-xl font-bold text-blue-600">
               {activities.filter(a => a.type === 'update').length}
             </p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">今日のアクション</p>
+            <p className="text-xs text-muted-foreground">今日のアクション</p>
             <p className="text-xl font-bold text-purple-600">
               {activities.filter(a =>
                 new Date(a.timestamp).toDateString() === new Date().toDateString()
@@ -334,7 +333,7 @@ export default function AuditLogPage() {
             <Loader2 className="animate-spin" size={40} />
           </div>
         ) : filteredActivities.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-muted-foreground">
             アクティビティがありません
           </div>
         ) : (
@@ -342,9 +341,9 @@ export default function AuditLogPage() {
             {Object.entries(groupedActivities).map(([date, logs]) => (
               <div key={date}>
                 <div className="flex items-center gap-3 mb-4">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium text-gray-500">{date}</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <Calendar size={16} className="text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">{date}</span>
+                  <div className="flex-1 h-px bg-muted" />
                 </div>
 
                 <div className="space-y-3">
@@ -363,15 +362,15 @@ export default function AuditLogPage() {
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(activity.type)}`}>
                               {getTypeLabel(activity.type)}
                             </span>
-                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
                               {getEntityIcon(activity.entity)}
                               {activity.entity === 'campaign' ? '案件' : 'インフルエンサー'}
                             </span>
                           </div>
 
-                          <p className="mt-2 text-gray-900">{activity.details}</p>
+                          <p className="mt-2 text-foreground">{activity.details}</p>
 
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User size={14} />
                               <span>{activity.user_name}</span>
@@ -383,7 +382,7 @@ export default function AuditLogPage() {
                           </div>
                         </div>
 
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {new Date(activity.timestamp).toLocaleTimeString('ja-JP', {
                             hour: '2-digit',
                             minute: '2-digit',

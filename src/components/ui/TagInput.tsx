@@ -30,7 +30,7 @@ const TAG_COLORS: Record<string, string> = {
   'リピーター': 'bg-pink-100 text-pink-700 border-pink-200',
 
   // デフォルト
-  default: 'bg-gray-100 text-gray-700 border-gray-200',
+  default: 'bg-muted text-foreground border-border',
 };
 
 export const SUGGESTED_TAGS = [
@@ -120,7 +120,7 @@ export default function TagInput({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div
-        className="min-h-[44px] flex flex-wrap items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 transition-all"
+        className="min-h-[44px] flex flex-wrap items-center gap-2 p-2 border border-border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 transition-all"
         onClick={() => inputRef.current?.focus()}
       >
         {tags.map((tag) => (
@@ -151,19 +151,19 @@ export default function TagInput({
             onKeyDown={handleKeyDown}
             onFocus={() => setShowSuggestions(filteredSuggestions.length > 0)}
             placeholder={tags.length === 0 ? placeholder : ''}
-            className="flex-1 min-w-[100px] bg-transparent border-none outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+            className="flex-1 min-w-[100px] bg-transparent border-none outline-none text-sm text-foreground dark:text-white placeholder:text-muted-foreground"
           />
         )}
       </div>
 
       {/* サジェスト */}
       {showSuggestions && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-border dark:border-gray-700 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
           {filteredSuggestions.map((suggestion) => (
             <button
               key={suggestion}
               onClick={() => addTag(suggestion)}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-muted dark:hover:bg-gray-700 transition-colors"
             >
               <span className={`px-2 py-0.5 rounded text-xs ${getTagColor(suggestion)}`}>
                 {suggestion}

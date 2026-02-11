@@ -342,6 +342,7 @@ export default function AIInsightsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: chatInput,
+          brand: currentBrand,
           context: {
             totalCampaigns,
             totalSpent,
@@ -705,8 +706,8 @@ export default function AIInsightsPage() {
               <Brain className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">AIインサイト</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">Claude AI搭載 - データ分析・レコメンデーション</p>
+              <h1 className="text-2xl font-bold text-foreground dark:text-white">AIインサイト</h1>
+              <p className="text-muted-foreground dark:text-muted-foreground mt-0.5">Claude AI搭載 - データ分析・レコメンデーション</p>
             </div>
           </div>
 
@@ -746,14 +747,14 @@ export default function AIInsightsPage() {
                 <Bot className="text-purple-600 dark:text-purple-400" size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">AIアシスタント</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">キャンペーンについて質問してください</p>
+                <h3 className="font-bold text-foreground dark:text-white">AIアシスタント</h3>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">キャンペーンについて質問してください</p>
               </div>
             </div>
 
-            <div className="h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4 space-y-4">
+            <div className="h-64 overflow-y-auto border border-border dark:border-gray-700 rounded-xl p-4 mb-4 space-y-4">
               {chatMessages.length === 0 && (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                <div className="text-center text-muted-foreground dark:text-muted-foreground py-8">
                   <Bot size={40} className="mx-auto mb-2 opacity-50" />
                   <p>AIアシスタントに質問してみてください</p>
                   <p className="text-sm mt-1">例：「ROIを改善するにはどうすればいい？」</p>
@@ -774,7 +775,7 @@ export default function AIInsightsPage() {
                     className={`max-w-[80%] p-3 rounded-xl ${
                       msg.role === 'user'
                         ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                        : 'bg-muted dark:bg-gray-800 text-foreground dark:text-white'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -792,8 +793,8 @@ export default function AIInsightsPage() {
                   <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg h-fit">
                     <Bot className="text-purple-600 dark:text-purple-400" size={16} />
                   </div>
-                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-xl">
-                    <Loader2 className="animate-spin text-gray-400" size={20} />
+                  <div className="bg-muted dark:bg-gray-800 p-3 rounded-xl">
+                    <Loader2 className="animate-spin text-muted-foreground" size={20} />
                   </div>
                 </div>
               )}
@@ -829,24 +830,24 @@ export default function AIInsightsPage() {
                 <Sparkles className="text-violet-600 dark:text-violet-400" size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Claude AI分析結果</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">高度なAI分析による洞察</p>
+                <h3 className="font-bold text-foreground dark:text-white">Claude AI分析結果</h3>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">高度なAI分析による洞察</p>
               </div>
             </div>
 
             <div className="space-y-6">
               {/* サマリー */}
               <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-violet-200 dark:border-violet-800">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <h4 className="font-medium text-foreground dark:text-white mb-2 flex items-center gap-2">
                   <Target className="text-violet-500" size={18} />
                   サマリー
                 </h4>
-                <p className="text-gray-700 dark:text-gray-300">{aiAnalysis.summary}</p>
+                <p className="text-foreground dark:text-muted-foreground">{aiAnalysis.summary}</p>
               </div>
 
               {/* インサイト */}
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <h4 className="font-medium text-foreground dark:text-white mb-3 flex items-center gap-2">
                   <Lightbulb className="text-amber-500" size={18} />
                   インサイト
                 </h4>
@@ -854,7 +855,7 @@ export default function AIInsightsPage() {
                   {aiAnalysis.insights.map((insight, index) => (
                     <li key={index} className="flex items-start gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg">
                       <CheckCircle className="text-green-500 mt-0.5 flex-shrink-0" size={16} />
-                      <span className="text-gray-700 dark:text-gray-300">{insight}</span>
+                      <span className="text-foreground dark:text-muted-foreground">{insight}</span>
                     </li>
                   ))}
                 </ul>
@@ -862,7 +863,7 @@ export default function AIInsightsPage() {
 
               {/* レコメンデーション */}
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <h4 className="font-medium text-foreground dark:text-white mb-3 flex items-center gap-2">
                   <Zap className="text-blue-500" size={18} />
                   レコメンデーション
                 </h4>
@@ -870,7 +871,7 @@ export default function AIInsightsPage() {
                   {aiAnalysis.recommendations.map((rec, index) => (
                     <li key={index} className="flex items-start gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg">
                       <ArrowUpRight className="text-blue-500 mt-0.5 flex-shrink-0" size={16} />
-                      <span className="text-gray-700 dark:text-gray-300">{rec}</span>
+                      <span className="text-foreground dark:text-muted-foreground">{rec}</span>
                     </li>
                   ))}
                 </ul>
@@ -885,11 +886,11 @@ export default function AIInsightsPage() {
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
               <Search className="text-purple-600 dark:text-purple-400" size={20} />
             </div>
-            <h3 className="font-bold text-gray-900 dark:text-white">AIスマート検索</h3>
+            <h3 className="font-bold text-foreground dark:text-white">AIスマート検索</h3>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
               placeholder="自然言語で検索（例：「高いいいね数の案件」「TLブランドの合意済み」）..."
@@ -898,7 +899,7 @@ export default function AIInsightsPage() {
               className="input-field pl-10"
             />
             {searching && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" size={20} />
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" size={20} />
             )}
           </div>
 
@@ -916,17 +917,17 @@ export default function AIInsightsPage() {
               {searchResults.map(result => (
                 <div
                   key={result.id}
-                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                  className="p-3 bg-muted dark:bg-gray-800 rounded-lg hover:bg-muted dark:hover:bg-gray-700 transition-colors cursor-pointer"
                 >
-                  <p className="font-medium text-gray-900 dark:text-white">{result.title}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{result.subtitle}</p>
+                  <p className="font-medium text-foreground dark:text-white">{result.title}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{result.subtitle}</p>
                 </div>
               ))}
             </div>
           )}
 
           {searchQuery && searchResults.length === 0 && !searching && (
-            <p className="mt-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+            <p className="mt-4 text-center text-muted-foreground dark:text-muted-foreground text-sm">
               検索結果がありません
             </p>
           )}
@@ -947,7 +948,7 @@ export default function AIInsightsPage() {
                   <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                     <Sparkles className="text-blue-600 dark:text-blue-400" size={20} />
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">キーインサイト</h3>
+                  <h3 className="font-bold text-foreground dark:text-white">キーインサイト</h3>
                 </div>
 
                 <div className="space-y-4">
@@ -967,22 +968,22 @@ export default function AIInsightsPage() {
                           {insight.type === 'warning' && <AlertTriangle className="text-amber-500" size={18} />}
                           {insight.type === 'tip' && <Lightbulb className="text-purple-500" size={18} />}
                           {insight.type === 'info' && <Target className="text-blue-500" size={18} />}
-                          <span className="font-medium text-gray-900 dark:text-white">{insight.title}</span>
+                          <span className="font-medium text-foreground dark:text-white">{insight.title}</span>
                         </div>
                         {insight.value && (
                           <div className="flex items-center gap-1">
-                            <span className="font-bold text-gray-900 dark:text-white">{insight.value}</span>
+                            <span className="font-bold text-foreground dark:text-white">{insight.value}</span>
                             {insight.trend === 'up' && <ArrowUpRight className="text-green-500" size={16} />}
                             {insight.trend === 'down' && <ArrowDownRight className="text-red-500" size={16} />}
                           </div>
                         )}
                       </div>
-                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{insight.description}</p>
+                      <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">{insight.description}</p>
                     </div>
                   ))}
 
                   {insights.length === 0 && (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    <p className="text-center text-muted-foreground dark:text-muted-foreground py-8">
                       データが不足しています
                     </p>
                   )}
@@ -995,14 +996,14 @@ export default function AIInsightsPage() {
                   <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                     <Lightbulb className="text-green-600 dark:text-green-400" size={20} />
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">AIレコメンデーション</h3>
+                  <h3 className="font-bold text-foreground dark:text-white">AIレコメンデーション</h3>
                 </div>
 
                 <div className="space-y-4">
                   {recommendations.map((rec, index) => (
                     <div
                       key={index}
-                      className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                      className="p-4 bg-muted dark:bg-gray-800 rounded-xl border border-border dark:border-gray-700"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -1010,13 +1011,13 @@ export default function AIInsightsPage() {
                           {rec.category === 'budget' && <DollarSign className="text-green-500" size={18} />}
                           {rec.category === 'timing' && <Clock className="text-blue-500" size={18} />}
                           {rec.category === 'performance' && <TrendingUp className="text-pink-500" size={18} />}
-                          <span className="font-medium text-gray-900 dark:text-white">{rec.title}</span>
+                          <span className="font-medium text-foreground dark:text-white">{rec.title}</span>
                         </div>
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getImpactBadge(rec.impact)}`}>
                           {rec.impact === 'high' ? '高' : rec.impact === 'medium' ? '中' : '低'}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{rec.description}</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{rec.description}</p>
                       {rec.action && (
                         <button className="mt-3 text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline">
                           {rec.action} →
@@ -1026,7 +1027,7 @@ export default function AIInsightsPage() {
                   ))}
 
                   {recommendations.length === 0 && (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    <p className="text-center text-muted-foreground dark:text-muted-foreground py-8">
                       レコメンデーションはありません
                     </p>
                   )}
@@ -1042,8 +1043,8 @@ export default function AIInsightsPage() {
                     <AlertTriangle className="text-amber-600 dark:text-amber-400" size={20} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white">異常値検出</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{anomalies.length}件の異常を検出しました</p>
+                    <h3 className="font-bold text-foreground dark:text-white">異常値検出</h3>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">{anomalies.length}件の異常を検出しました</p>
                   </div>
                 </div>
 
@@ -1059,15 +1060,15 @@ export default function AIInsightsPage() {
                     >
                       <div className="flex items-center gap-2 mb-2">
                         {getSeverityIcon(anomaly.severity)}
-                        <span className="font-medium text-gray-900 dark:text-white">@{anomaly.influencer}</span>
+                        <span className="font-medium text-foreground dark:text-white">@{anomaly.influencer}</span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{anomaly.description}</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{anomaly.description}</p>
                     </div>
                   ))}
                 </div>
 
                 {anomalies.length > 6 && (
-                  <p className="mt-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  <p className="mt-4 text-center text-muted-foreground dark:text-muted-foreground text-sm">
                     他 {anomalies.length - 6} 件の異常があります
                   </p>
                 )}
@@ -1082,8 +1083,8 @@ export default function AIInsightsPage() {
                     <BarChart3 className="text-blue-600 dark:text-blue-400" size={20} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">分析対象</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{campaigns.length}件</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">分析対象</p>
+                    <p className="text-xl font-bold text-foreground dark:text-white">{campaigns.length}件</p>
                   </div>
                 </div>
               </div>
@@ -1094,7 +1095,7 @@ export default function AIInsightsPage() {
                     <Sparkles className="text-green-600 dark:text-green-400" size={20} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">インサイト</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">インサイト</p>
                     <p className="text-xl font-bold text-green-600 dark:text-green-400">{insights.length}件</p>
                   </div>
                 </div>
@@ -1106,7 +1107,7 @@ export default function AIInsightsPage() {
                     <Lightbulb className="text-purple-600 dark:text-purple-400" size={20} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">提案</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">提案</p>
                     <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{recommendations.length}件</p>
                   </div>
                 </div>
@@ -1118,7 +1119,7 @@ export default function AIInsightsPage() {
                     <AlertTriangle className="text-amber-600 dark:text-amber-400" size={20} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">要注意</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">要注意</p>
                     <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{anomalies.length}件</p>
                   </div>
                 </div>

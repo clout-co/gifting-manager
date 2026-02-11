@@ -14,13 +14,13 @@ interface ImportResultProps {
 export default function ImportResult({ result }: ImportResultProps) {
   return (
     <div className="card">
-      <h3 className="font-bold text-gray-900 mb-4">インポート結果</h3>
+      <h3 className="font-bold text-foreground mb-4">インポート結果</h3>
 
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
           <Check className="text-green-600" size={24} />
           <div>
-            <p className="text-sm text-gray-500">成功</p>
+            <p className="text-sm text-muted-foreground">成功</p>
             <p className="text-2xl font-bold text-green-600">
               {result.success}件
             </p>
@@ -29,7 +29,7 @@ export default function ImportResult({ result }: ImportResultProps) {
         <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl">
           <AlertCircle className="text-red-600" size={24} />
           <div>
-            <p className="text-sm text-gray-500">失敗</p>
+            <p className="text-sm text-muted-foreground">失敗</p>
             <p className="text-2xl font-bold text-red-600">
               {result.failed}件
             </p>
@@ -39,7 +39,7 @@ export default function ImportResult({ result }: ImportResultProps) {
           <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl">
             <AlertTriangle className="text-amber-600" size={24} />
             <div>
-              <p className="text-sm text-gray-500">スキップ（重複）</p>
+              <p className="text-sm text-muted-foreground">スキップ（重複）</p>
               <p className="text-2xl font-bold text-amber-600">
                 {result.skipped}件
               </p>

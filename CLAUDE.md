@@ -1,6 +1,12 @@
 # Gifting App (GGCRM) 開発進捗状況
 
-最終更新: 2026-02-04
+最終更新: 2026-02-11
+
+### サービス基盤（2026-02-11 移行完了）
+- **Vercel**: Cloutチーム (`vercel.com/clout-10b5c7f9`) / プロジェクト名: `gifting-manager`
+- **GitHub**: `github.com/clout-co/gifting-manager`
+- **Supabase**: Clout Org / プロジェクト: gifting-app (Supabase G)
+- **メンバー**: daiki.ogikubo@clout.co.jp が Vercel Member / GitHub Member / Supabase Developer として参加済み
 
 ## 必読ファイル
 **実装前に必ず以下を読むこと**:
@@ -18,17 +24,18 @@
 
 ブランド情報はClout Dashboard APIから取得します。
 
-**実装ファイル**: `/src/contexts/BrandContext.tsx`
+**実装ファイル**:
+- `/src/app/api/master/brands/route.ts` - server-side proxy（Vercel OIDC: `Authorization: Bearer <oidc-jwt>`）
+- `/src/contexts/BrandContext.tsx` - same-origin fetch + cache
 
 ```typescript
-// 環境変数
-NEXT_PUBLIC_CLOUT_API_URL=https://clout-dashboard.vercel.app
-NEXT_PUBLIC_CLOUT_API_KEY=<shared-secret>
+// 環境変数（Vercel設定。service-to-service は Vercel OIDC）
+NEXT_PUBLIC_CLOUT_API_URL=https://dashboard.clout.co.jp
+// Local/dev fallback only（Vercel runtime は `x-vercel-oidc-token` を自動注入）
+VERCEL_OIDC_TOKEN=<local-dev-only>
 
-// API呼び出し
-const response = await fetch(`${apiUrl}/api/master/brands`, {
-  headers: { 'x-api-key': apiKey },
-})
+// クライアントは same-origin proxy を叩く（キーはブラウザに露出しない）
+const response = await fetch('/api/master/brands')
 ```
 
 **キャッシュ戦略**:
@@ -39,245 +46,202 @@ const response = await fetch(`${apiUrl}/api/master/brands`, {
 
 ## 現在の進捗状況
 
+現在の進捗状況:
+- 本番デプロイ済み（gifting-app-seven.vercel.app）。
+- 未認証アクセスが Clout Dashboard /sign-in に 307 リダイレクトすることを確認。
+- `?code=` 受け取りで `clout_token` cookie が発行されることを確認（`?token=` は本番/Previewでは拒否）。
+- CLI検証: `clout_token` cookie + 権限ONで HTTP 200 を確認（GGCRM）。
+- `dashboard.clout.co.jp` 反映済み。`NEXT_PUBLIC_CLOUT_AUTH_URL` / `NEXT_PUBLIC_CLOUT_API_URL` を更新して再デプロイ済み。
+- SSO完全移行（クライアント側Supabase Auth依存撤去、`/api/auth/me` 追加、middlewareで `/api/*` を保護）を実装し、本番反映済み（認証ループ解消）。
+- Master API（brands/staff）はアプリ内の same-origin proxy に変更し、service-to-service は Vercel OIDC（Bearer）へ統一（`/api/master/brands`, `/api/master/staff`）。本番反映済み。
+- 共有静的キー（`CLOUT_API_KEY` 等）は廃止。`/api/health` が `ok=true` になることを確認。
+- `/auth` 経由のサインイン導線に `redirect_url` を付与（フォールバックリンク含む。セッション切れ時も元アプリへ戻る）。本番反映済み。
+- 本番反映済み（2026-02-06）: 新規案件フォーム（`CampaignModal`）の担当者を **同ブランドチーム内**の Clout ユーザーから選択できるよう変更（`/api/master/staff?brand=TL|BE|AM` 経由、メール一致で自分を初期選択）。保存前に `staffs` へ upsert して `campaigns.staff_id` のFK整合性を維持（team/is_admin も保存）。
+- 本番反映済み（2026-02-06）: 品番を Product Master の同ブランド商品から検索して選択できるよう変更（`/api/master/products` 追加、2文字以上でtypeahead）。**原価は品番に追従して自動反映し、フォーム上は変更不可**。
+- 本番反映済み（2026-02-06）: 品番は検索結果からの選択を必須にし、Product Master に原価が未登録（`cost=null`）の品番は保存をブロック（データ整合性の担保）。
+- 本番反映済み（2026-02-06）: UX/性能改善（新規案件フォームの検索セレクト統一、品番の確定/未確定の可視化と保存ボタン制御、過去相場の表示とワンクリック反映、ダッシュボードのチャート遅延ロード、AIチャットのクリックまで遅延ロード、SW更新時の再読み込みバナー、案件一覧のクイック編集、401/403エラー表示の統一）。
+- `.env.local.example` に `PRODUCT_MASTER_URL` を追記（ローカル開発は `http://127.0.0.1:3103` を推奨）。
+- Product Master: `GET /api/products` を `app=gifting-app` でも read 許可するよう SSO proxy を拡張（GGCRMの品番検索で `master` 権限が不要になる）。本番反映済み（2026-02-06）。
+- PWA(Service Worker): `/auth`（旧ログイン画面）がキャッシュに残る問題を解消（HTMLページをキャッシュしない + cache version 更新）。本番反映済み（2026-02-06）。
+- 品番検索エラー対策: `GET /api/master/products` でブランドコードを正規化（alias吸収）し、401/403 をユーザーが判断できるメッセージに改善。本番反映済み（2026-02-06）。
+- 本番反映済み（2026-02-06）: 新規案件フォームの入力ミス削減（保存条件チェックリスト、品番サマリー、品番表記ゆれ吸収、品番検索401/403の復旧UI、総コストの即時表示）。
+- 本番反映済み（2026-02-06）: 案件一覧にオペレーション用クイックフィルタ（品番未入力/原価未登録/投稿URL未/エンゲ未）を追加。
+- 本番反映済み（2026-02-06）: ROI分析を総コスト基準に変更（合意額のみ→商品原価x枚数+送料+海外送料を加算）。チャート描画は遅延ロード。
+- 本番反映済み（2026-02-06）: Importページの `xlsx` を遅延ロードし、初期表示を軽量化。CampaignModal/AnalyticsChartsも遅延ロード。
+- 性能: middleware で `/api/auth/verify` 結果を短TTLでメモリキャッシュ（初回ロード時の same-origin API 連打で検証が多重発火するのを抑止）。BrandProvider の allowed brands も短TTLで localStorage キャッシュ。本番反映済み（2026-02-06）。
+- 安全性: 品番入力が選択済み品番と不一致になった場合、原価を 0 にリセット（誤った原価の残留を防止）。logout/強制再ログイン時に allowed brands キャッシュも削除（別ユーザー混在時の誤フィルタ防止）。本番反映済み（2026-02-06）。
+
 ### ✅ 完了したタスク
 
-#### Phase 1: 基本機能（2026-02-02以前）
-- [x] UI配色のグレースケール化
-- [x] 案件登録フォームの仕様変更（必須項目追加、回数自動計算、打診日リネーム）
-- [x] AIアシスタント機能修正
+#### Phase 1-6: 基本機能〜UI整理（2026-02-02〜03）
+- [x] UI配色のグレースケール化、案件登録フォーム仕様変更、AIアシスタント修正
+- [x] ブランド分離（BrandContext、ブランドフィルタリング、ForceRelogin、useAdminAuth）
+- [x] UX自動化（打診日・入力日・投稿日自動設定、ステータス自動更新、合意額自動コピー）
+- [x] デザイン統一（ダークテーマ、ブランドアクセントカラー、サイドバー刷新）
+- [x] DB・API連携（Clout API、マイグレーション）
+- [x] テーマ切り替え機能（ダーク/ライト）
 
-#### Phase 2: ブランド分離・認証（2026-02-02）
-- [x] ブランド選択画面（/brand-select）の実装
-- [x] BrandContextによるブランド状態管理
-- [x] インフルエンサーテーブルにbrand列追加
-- [x] 全ページでブランドフィルタリング対応
-- [x] 強制ログアウト機能（ForceRelogin.tsx）
-- [x] 管理者権限チェック（useAdminAuth.ts）
-- [x] 社員管理機能（staffsテーブルにteam, is_admin列追加）
+#### Phase 7-8: パフォーマンス・React Query統合（2026-02-03〜04）
+- [x] React Query導入、DataTableコンポーネント、一括入力ページ
+- [x] 全ページのReact Query移行、キャッシュ最適化、import/page.tsxコンポーネント分割
 
-#### Phase 3: UX改善・自動化（2026-02-03）
-- [x] カレンダーページにブランドフィルター追加
-- [x] AI Insightsページにブランドフィルター追加
-- [x] 通知ページ（/notifications）を削除
-- [x] **打診日の自動入力**: 新規案件作成時に当日日付を自動設定
-- [x] **入力日の自動入力**: いいね/コメント/検討コメント入力時に当日を自動設定
-- [x] **投稿日の自動設定**: 投稿URL入力時に当日を自動設定
-- [x] **ステータス自動更新**: いいね数入力時にステータスを「合意」に自動変更
-- [x] **インフルエンサー新規登録ボタン**: 案件モーダル内で直接追加可能
+#### Phase 9-10: コード品質改善（2026-02-04）
+- [x] console.log削除、型定義統合、constants.ts、error-handler.ts
+- [x] アクセシビリティ改善、ボタンスタイル統一
+- [x] バリデーション強化、post-status.ts、セキュリティ改善、useMemo最適化
 
-#### Phase 4: デザイン統一・UI改善（2026-02-03）
-- [x] **ダークテーマ化**: ModelCRM基準のデザインに統一
-  - 背景: `oklch(0.145 0 0)`
-  - カード: `oklch(0.205 0 0)`
-  - ボーダー: `oklch(0.30 0 0)`
-- [x] **サイドバー刷新**: ダークテーマ + 他アプリリンク追加
-  - Clout Dashboard（統合ポータル）
-  - ShortsOS（動画分析）
-  - ModelCRM（撮影管理・TLのみ）
-  - Master（商品マスター）
-- [x] **ブランド別アクセントカラー**:
-  - TL: エメラルド（emerald-400/500）
-  - BE: ブルー（blue-400/500）
-  - AM: パープル（purple-400/500）
-- [x] **ステータスバッジ改善**: カラーアクセント追加（合意=緑、保留=黄、不合意=赤）
-- [x] **担当者表示追加**: キャンペーン一覧に担当者列追加
-- [x] **MainLayout更新**: ダークテーマ + ブランドバー + テーマ切り替え対応
-- [x] **BottomNav更新**: モバイル用ナビもダークテーマ化
+#### Phase 11: コード品質向上 - 型安全性・スコア一元化（2026-02-04）
+- [x] `lib/scoring.ts` 作成（スコア計算をuseQueriesから抽出・一元化）
+- [x] `as any` 全箇所削除（reports/admin/CampaignModal/PWAProvider/import/staffs/audit-log/analytics/influencers）
+- [x] reports/page.tsx 型定義追加（InfluencerSummary, BrandSummary, CampaignWithInfluencer）
 
-#### Phase 5: DB・API連携
-- [x] **DBマイグレーション適用済み**
-  - influencers.brand列
-  - staffs.team列
-  - staffs.is_admin列
-- [x] **Clout API連携実装**
-  - ブランド取得: `/api/master/brands`
-  - キャッシュ: localStorage + 1時間TTL
-- [x] **SSO認証基盤準備**
-  - `/src/lib/clout-auth.ts` 実装済み
-  - `/src/middleware.ts` SSO対応済み
-  - 環境変数で有効化可能（`NEXT_PUBLIC_SSO_ENABLED=true`）
+#### Phase 12: 総合診断・高優先度改善（2026-02-04）
+- [x] **ErrorBoundary** 作成（`components/ErrorBoundary.tsx`）- アプリ全体のクラッシュ保護
+- [x] **useAuth エラーハンドリング強化** - try/catch + authError 状態追加
+- [x] **BrandContext ローディングUI** - 初期化中の空白画面をスピナーに置換
+- [x] **Middleware リトライロジック** - `fetchWithRetry`（最大2回、5秒タイムアウト）
+- [x] **EmptyState コンポーネント** 作成・campaigns/influencers に適用
+- [x] **API CSRF保護** - `lib/api-guard.ts` 作成、ai/chat・search・analyze に適用
+- [x] **DataTable ページネーション改善** - 「ページ X / Y」表示追加
 
-#### Phase 6: UI整理・テーマ機能（2026-02-03）
-- [x] **サイドバーナビゲーション整理**
-  - 「社員管理」「管理者」「変更履歴」を削除
-  - シンプルなナビゲーション構成に変更
-- [x] **ダーク/ライトモード切り替え機能**
-  - サイドバー下部にテーマ切り替えボタン追加
-  - Sun/Moonアイコンでわかりやすく表示
-  - localStorage に設定を保存（ページリロード後も維持）
-  - サイドバー、MainLayout、globals.css 全てテーマ対応
-- [x] **ライトモードCSS追加**
-  - globals.css に `html.light-mode` スタイル追加
-  - カード、ボタン、テーブル、入力フィールドなど全コンポーネント対応
+#### Phase 13: SSO動線整備（2026-02-05）
+- [x] `?code=...` 受け取り → Dashboard exchange → `clout_token` cookie 保存（proxy.ts）
+- [x] SSO権限ON/OFFの反映確認（CLIで HTTP 200/307 を確認）
 
-#### Phase 7: パフォーマンス最適化・一括入力（2026-02-03）
-- [x] **React Query導入**
-  - `@tanstack/react-query` インストール
-  - QueryProvider をアプリ全体にラップ
-  - キャッシュ戦略: staleTime 2-10分、gcTime 30分
-- [x] **データフェッチカスタムフック**
-  - `/src/hooks/useQueries.ts` 作成
-  - useCampaigns, useInfluencers, useStaffs
-  - useDashboardStats, useBulkUpdateCampaigns
-- [x] **一括エンゲージメント入力画面**
-  - `/bulk-input` ページ追加
-  - 複数案件のいいね数・コメント数を一括更新
-  - 検索・フィルター機能
-  - 変更行のハイライト表示
-- [x] **DataTableコンポーネント**
-  - `@tanstack/react-table` 導入
-  - ソート・ページネーション・検索機能
-  - 再利用可能な汎用テーブルコンポーネント
+#### Phase 14: 新規案件フォーム改善（2026-02-06）
+- [x] 担当者: Clout Dashboard のユーザー一覧から選択（`useStaffs()` + `/api/master/staff`）
+- [x] 品番: Product Master の商品を同ブランドで検索して選択（`/api/master/products` + typeahead）
+- [x] 品番: 検索結果からの選択必須 + 原価未登録（`cost=null`）は保存を拒否（誤登録防止）
+- [x] `PRODUCT_MASTER_URL` を `.env.local.example` に追加（server-side proxy 用）
 
-#### Phase 8: React Query統合・リファクタリング（2026-02-04）
-- [x] **useQueries.ts修正**
-  - useDashboardStats: `cost` → `agreed_amount` フィールド修正
-  - useInfluencersWithScores: スコア計算付きインフルエンサー取得
-  - useDashboardFullStats: 詳細ダッシュボード統計
-- [x] **ページのReact Query移行**
-  - campaigns/page.tsx: useCampaigns, useInfluencers, useDeleteCampaign
-  - influencers/page.tsx: useInfluencersWithScores
-  - dashboard/page.tsx: useDashboardFullStats
-- [x] **キャッシュ最適化**
-  - ページ間でデータ共有（重複リクエスト削減）
-  - invalidateQueries による自動更新
-- [x] **import/page.tsx コンポーネント分割**
-  - FileUploadArea: ファイルアップロードエリア
-  - DuplicateWarning: 重複警告表示
-  - ValidationErrors: バリデーションエラー表示
-  - ColumnMappingSettings: カラムマッピング設定
-  - InternationalShippingSettings: 海外発送設定（BE専用）
-  - PreviewTable: プレビューテーブル
-  - ImportResult: インポート結果表示
+#### Phase 15: UX/性能改善（2026-02-06）
+- [x] 新規案件フォーム: インフルエンサー/担当者/品番を検索可能なセレクトUIに統一（最近/自分ピン留め）
+- [x] 品番: 未入力/未確定/確定/原価未登録の可視化 + 保存ボタン制御（確定/原価OKまで保存不可）
+- [x] 過去相場（新規案件）: 平均提示/合意/いいねを表示し、ワンクリックで金額へ適用
+- [x] ダッシュボード: KPI先出し + チャート遅延ロード（初回表示を短縮）
+- [x] AIチャット: 初回クリックまで読み込み遅延（初動軽量化）
+- [x] PWA: Service Worker 更新検知で「再読み込み」バナー表示
+- [x] 案件一覧: ステータス/投稿URL/いいね/コメントのクイック編集（モーダル回数削減）
+- [x] エラー表示: 401/403系を分類して「再ログイン」「権限依頼文コピー」を出し分け
 
-#### Phase 9: コード品質改善（2026-02-04）
-- [x] **console.log削除**
-  - 開発用デバッグログを削除（41件→0件）
-  - エラーハンドリング用console.errorは残置
-- [x] **型定義統合**
-  - `types/index.ts` に `InfluencerWithScore` 型追加
-  - スコア付きインフルエンサーの型定義を一元化
-- [x] **定数ファイル作成**
-  - `lib/constants.ts` 新規作成
-  - ステータス定義、ランク定義、ブランド定義を集約
-  - チャートカラー、スコア計算定数を一元化
-- [x] **エラーハンドリングユーティリティ**
-  - `lib/error-handler.ts` 新規作成
-  - AppErrorクラス、parseSupabaseError関数
-  - withRetry、withErrorHandling ユーティリティ
-- [x] **アクセシビリティ改善**
-  - `components/ui/AccessibleComponents.tsx` 新規作成
-  - ARIA属性付きButton, Input, Select コンポーネント
-  - Modal, Alert, LoadingState コンポーネント
-  - VisuallyHidden, SkipLink ユーティリティ
-- [x] **合意額自動入力機能**
-  - CampaignModal: 提示額入力時に合意額へ自動コピー
-  - 合意額が未入力の場合のみ動作
-- [x] **ボタンスタイル統一**
-  - globals.css: btn-sm, btn-lg サイズバリエーション追加
-  - btn-loading ローディング状態スタイル追加
+#### Phase 16: オペレーションUX/コスト整合（2026-02-06）
+- [x] 新規案件フォーム: 保存条件チェックリスト（未達項目の可視化 + 該当フィールドへジャンプ）
+- [x] 品番: サマリーカード（品番/商品情報/原価/画像/品番コピー/（権限がある場合）Product Master導線）
+- [x] 品番: 表記ゆれ吸収（全角→半角、ハイフン無し入力のfallback検索、canonicalで一致判定）+ canonical品番を保存
+- [x] 品番検索: 401/403 の復旧導線（再ログイン/権限依頼文コピー）
+- [x] 品番検索: Product Master 側の認証差分に耐えるため、proxy が `__session/clout_token` + `Authorization` を併送（`/api/master/products`）
+- [x] 金額: 総コスト（合意+原価x枚数+送料+海外送料）を即時表示
+- [x] 案件一覧: オペレーション用クイックフィルタ（品番未入力/原価未登録/投稿URL未/エンゲ未）
+- [x] ROI分析: 総コスト基準へ変更 + チャート遅延ロード
+- [x] Import: `xlsx` を遅延ロード（初期表示を軽量化）
+- [x] CampaignModal: 遅延ロード（案件一覧の初期表示を軽量化）
 
-#### Phase 10: コード品質改善 Part2（2026-02-04）
-- [x] **入力バリデーション強化**
-  - `lib/validation.ts` 新規作成
-  - 枚数上限チェック（1-100）、海外発送必須項目チェック
-  - 日付範囲バリデーション（開始日<終了日）
-- [x] **投稿ステータス計算の抽出**
-  - `lib/post-status.ts` 新規作成
-  - calculatePostStatus関数を定数化・lib移動
-  - suggestPostDate関数追加（セール日からの自動計算）
-- [x] **セキュリティ改善**
-  - 管理者メールアドレスを環境変数対応（NEXT_PUBLIC_ADMIN_EMAILS）
-  - フォールバック付きで既存動作維持
-- [x] **型安全性修正**
-  - influencers/page.tsx: 重複InfluencerWithScore型定義削除
-  - bulk-input/page.tsx: any型をInfluencerInfo型に修正
-- [x] **メモリリーク修正**
-  - CampaignModal: useEffect依存配列をcampaign?.idに修正
-- [x] **パフォーマンス最適化**
-  - campaigns/page.tsx: BE海外発送統計をuseMemoで最適化
-- [x] **React Queryフック追加**
-  - useItemCodes: 品番リストのキャッシュ化
-  - useInfluencerPastStats: 過去相場データ取得
-- [x] **過去相場自動表示機能**
-  - CampaignModal: インフルエンサー選択時に過去平均値を取得
+#### Phase 17: UIデザイン統一 — ModelCRM方式（2026-02-11）
+- [x] shadcn/ui基盤導入（CVA, clsx, tailwind-merge, `cn()` ユーティリティ）
+- [x] globals.css刷新: ダークテーマ優先 → ModelCRM方式（`@theme` ライト優先 + `.dark` オーバーライド）
+- [x] shadcn/uiコンポーネント11ファイル追加（Button, Card, Badge, Input, Label, SelectUI, Textarea, Skeleton, DialogUI, TableUI, TooltipUI）
+- [x] レイアウト刷新: MainLayout/Sidebar/BottomNavをModelCRM風デザインに（`isDarkMode`分岐撤去、CSS変数ベース化）
+- [x] tailwind.config.ts: `darkMode: 'class'`、旧primaryカラースケール削除
+- [x] 全ページのハードコードカラー置換（約43ファイル、863箇所）: `text-gray-*` → `text-foreground`/`text-muted-foreground`、`bg-gray-*` → `bg-muted`、`border-gray-*` → `border-border`
+- [x] ビルド確認: `npm run build` 成功（全36ルート正常生成）
 
 ---
 
-### 🔄 残りのタスク
+## 作業進捗（2026-02-06）
 
-#### 優先度: 最高（ユーザー作業必要）
-| タスク | 状態 | 備考 |
-|--------|------|------|
-| Clerkアカウント設定 | ⏳ 待ち | https://dashboard.clerk.com |
-| Vercel環境変数設定（Clerk keys） | ⏳ 待ち | `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` |
+現在の進捗状況:
+- UI/UX改善（1,2,3,4,5,6,8,9）を実装し、本番へ反映済み（`https://gifting-app-seven.vercel.app`）。
+- 品番選択エラーの再発要因だった Product Master 認証差分を吸収するため、`/api/master/products` の認証転送を強化して再デプロイ済み。
 
-#### 優先度: 高（Clerk設定後）
-| タスク | 状態 | 備考 |
-|--------|------|------|
-| SSO有効化 | ⏳ 準備完了 | `NEXT_PUBLIC_SSO_ENABLED=true` を設定 |
-| Supabase Auth削除 | ⏳ 待ち | Clerk JWT検証に完全移行 |
+完了したタスク:
+- 新規案件フォーム: 担当者=同ブランドチーム、品番=同ブランドProduct Master検索、原価=自動反映（変更不可）、保存前チェックリスト/品番サマリー/401-403復旧導線。
+- 一覧/分析/インポート: オペ用クイックフィルタ、総コスト基準ROI、重いUI（CampaignModal/Charts/XLSX）の遅延ロード。
 
-#### 優先度: 低
-| タスク | 状態 | 備考 |
-|--------|------|------|
-| キーボードショートカット | 未着手 | Cmd+S保存、Escape閉じる |
-| 最近使ったインフルエンサー表示 | 未着手 | ドロップダウン上位に表示 |
-| ドラッグ&ドロップインポート | 未着手 | Excelファイル |
+### 解消済み: 認証二重系統（Supabase Auth vs Clout SSO）
 
----
+- `useAuth.ts` / `useAdminAuth.ts` / `ForceRelogin.tsx` / `Sidebar.tsx` / `page.tsx (/)` を Clout SSO ベースに移行済み
+- `/api/auth/me` を追加（middleware 注入の `x-clout-user-*` / `x-clout-brands` を返却）
+- middleware を `/api/*` にも適用し、APIルートは `401/403` JSON を返す（リダイレクトしない）
+- BrandContext の「許可ブランド取得」を `/api/auth/me` 経由に変更（ブラウザから `Authorization` 付きクロスオリジンfetchに依存しない）
 
-## 次にやるべきこと
+### 現ブロッカー: Supabase RLS / DB FK が Supabase Auth 前提
 
-### 1. ユーザー作業（最優先）
+現状の Supabase 側が以下の前提のため、**SSOのみ（Supabase Auth廃止）だと DB が空/書込失敗になる可能性がある**。
 
-**Clerkアカウント設定**:
-1. https://dashboard.clerk.com で新規登録
-2. アプリケーション作成
-3. Google OAuth設定（@clout.co.jpドメイン制限）
-4. Publishable Key / Secret Key を取得
+- RLS が `auth.role() = 'authenticated'` 前提
+- `campaigns.created_by / updated_by` が `UUID REFERENCES auth.users(id)` 前提
 
-**Vercel環境変数設定**:
-```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx
-CLERK_SECRET_KEY=sk_live_xxx
-```
-
-### 2. SSO有効化（Clerk設定後）
-
-環境変数追加でSSO有効化:
-```
-NEXT_PUBLIC_SSO_ENABLED=true
-```
-
-### 3. 動作確認項目（完了済み）
-- [x] 各ブランドでのログイン・データ分離確認
-- [x] ダークテーマの表示確認
-- [x] ライトテーマの表示確認
-- [x] テーマ切り替え機能の動作確認
-- [x] 担当者表示の動作確認
-- [x] 他アプリリンクの動作確認
-- [x] サイドバーのナビゲーション整理確認
+推奨対応（最短で堅牢）:
+- Next.js API(BFF) を追加し、DBアクセスはサーバー側 `SUPABASE_SERVICE_ROLE_KEY` で実行（RLS回避）
+- API側で `x-clout-brands` で絞り込み（service role を安全に使うための必須要件）
+- クライアントの `supabase.from(...)` 直接アクセスを段階的に撤去
 
 ---
 
-## デザインシステム（ARCHITECTURE.md準拠）
+## 残りのタスク
 
-### カラー（ダークテーマ）
-| 用途 | 値 | 備考 |
-|------|-----|------|
-| 背景（メイン） | `oklch(0.145 0 0)` | ダークグレー |
-| 背景（カード） | `oklch(0.205 0 0)` | やや明るいグレー |
-| ボーダー | `oklch(0.30 0 0)` | 薄いボーダー |
-| テキスト | `oklch(0.985 0 0)` | 白系 |
+### P0（最優先）
+- 実ユーザーE2E: 本番で「インフルエンサー登録 → 一覧即反映 → 案件紐付け」まで連続検証（ブランドTL/BE/AM）
+- 未反映が残る場合、発生時刻/ブランド/ログインユーザー/Networkレスポンス（status/error/reason/rid）を採取して切り分け
+- 認証エラー発生時、`/api/*` レスポンスの `rid`（request id）を回収し、clout-dashboard 側ログと突合できる状態にする
 
-### カラー（ライトテーマ）
-| 用途 | 値 | 備考 |
-|------|-----|------|
-| 背景（メイン） | `bg-gray-50` | ライトグレー |
-| 背景（カード） | `bg-white` | 白 |
-| ボーダー | `border-gray-200` | 薄いグレー |
-| テキスト | `text-gray-900` | 黒系 |
+### P0 - SSO完全移行（DB側）— ADR-009 ✅ BFF化完了（2026-02-11）
+認証は一本化済み。**BFF API化完了** — 4ページのクライアント直接Supabaseアクセスをすべてサーバー側APIに移行。
+
+**BFF化完了**:
+| ページ | 移行先API | ステータス |
+|--------|-----------|-----------|
+| `import/page.tsx` | `/api/import` (新規: check-duplicates, find-or-create-influencer) + `/api/campaigns` (既存) | ✅ |
+| `audit-log/page.tsx` | `/api/audit-log` (新規) | ✅ |
+| `admin/page.tsx` | `/api/admin/stats` (新規) | ✅ |
+| `reports/page.tsx` | `/api/reports/data` (新規) | ✅ |
+
+**既存BFF済み**: `/api/campaigns`, `/api/influencers`, `/api/campaigns/[id]`, `/api/influencers/[id]`
+
+**FK制約migration**: `supabase/migrations/20260211_drop_auth_users_fk.sql` を作成済み（**未適用**）。
+- `created_by`/`updated_by` を UUID→TEXT に変更
+- `auth.users` への FK 制約を削除
+- 適用時は audit-log/admin API の FK join（`campaigns_created_by_fkey`）も同時修正が必要
+
+**残りの手順**:
+1. デプロイ（`npx vercel --prod`）して本番BFF化を反映
+2. FK migration を Supabase 管理画面で適用
+3. E2Eで CRUD を通す（campaigns / influencers / import / bulk update）
+
+### P1
+- E2E追加（担当者/品番検索）: Playwrightで「候補が取得できる」「選択して保存できる」を自動化
+- `PRODUCT_MASTER_URL` のenv整備: 本番/プレビュー/ローカルの接続先を固定（将来のドメイン変更に備える）
+
+### P2
+- Optimistic Updates 導入（mutation 時の即時UI反映）
+- Cookie 解析の堅牢化（clout-auth.ts）
+- フォーム送信時のローディング表示統一（mutation isPending 活用）
+- production console.warn 削除
+- localStorage キー整理
+
+### P3（機能追加）
+- キーボードショートカット（Cmd+S保存、Escape閉じる）
+- 最近使ったインフルエンサー表示（ドロップダウン上位に表示）
+- ドラッグ&ドロップインポート（Excelファイル）
+- レスポンシブ対応強化（bulk-input 等のモバイル最適化）
+
+### 動作確認項目
+- [ ] SSO 認証フロー E2E テスト
+- [ ] ログアウト → Clout Dashboard 遷移確認
+- [ ] created_by / updated_by が Clout user.id で保存されることを確認
+- [ ] 管理者判定が Clout email で正しく動作することを確認
+
+---
+
+## デザインシステム（ARCHITECTURE.md準拠、2026-02-11 ModelCRM統一完了）
+
+### CSS変数方式（ModelCRM統一）
+ライトテーマをデフォルトとし、`.dark` クラスでダークテーマに切替。
+`globals.css` の `@theme` ディレクティブでCSS変数を登録。
+
+**Tailwindクラスで参照**: `bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-muted`, `bg-accent` 等。
+
+**重要**: ハードコードカラー（`text-gray-*`, `bg-gray-*`, `border-gray-*`）は使用禁止。CSS変数ベースのクラスを使うこと。
 
 ### ブランド別アクセントカラー
 | ブランド | Tailwindクラス |
@@ -286,10 +250,27 @@ NEXT_PUBLIC_SSO_ENABLED=true
 | BE | `blue-400/500` |
 | AM | `purple-400/500` |
 
-### コンポーネント
-- shadcn/ui（UI基盤）
-- Recharts（グラフ・チャート）
+### shadcn/uiコンポーネント（`src/components/ui/`）
+| ファイル | 用途 | 備考 |
+|---------|------|------|
+| `button.tsx` | CVA版Button | variants: default/destructive/outline/secondary/ghost/link |
+| `card.tsx` | Card系 | Card, CardHeader, CardTitle, CardContent, CardFooter |
+| `badge.tsx` | Badge | variants: default/secondary/destructive/outline/success/warning |
+| `input.tsx` | Input | forwardRef |
+| `label.tsx` | Label | CVA |
+| `select-ui.tsx` | SelectUI | SearchableSelectと共存 |
+| `textarea.tsx` | Textarea | - |
+| `skeleton.tsx` | Skeleton | - |
+| `dialog-ui.tsx` | DialogUI系 | ConfirmDialogと共存 |
+| `table-ui.tsx` | TableUI系 | DataTableと共存 |
+| `tooltip-ui.tsx` | TooltipUI | `'use client'` |
+
+**注意**: 既存コンポーネント（`DataTable`, `SearchableSelect`, `ConfirmDialog`）は引き続き使用可能。新規UIは上記shadcn/uiコンポーネントを優先すること。
+
+### その他ライブラリ
+- Recharts（グラフ・チャート）— CSS変数で色を参照
 - Lucide React（アイコン）
+- class-variance-authority + clsx + tailwind-merge — `cn()` ユーティリティ（`src/lib/utils.ts`）
 
 ---
 
@@ -318,8 +299,9 @@ s@clout.co.jp
 
 ## 技術スタック
 
-- **フレームワーク**: Next.js 14 (App Router)
-- **スタイリング**: Tailwind CSS
+- **フレームワーク**: Next.js 16 (App Router, Turbopack)
+- **スタイリング**: Tailwind CSS v4 (`@theme` CSS変数方式)
+- **UIコンポーネント**: shadcn/ui (CVA + forwardRef + cn())
 - **データベース**: Supabase
 - **状態管理**: React Query (@tanstack/react-query)
 - **テーブル**: TanStack Table (@tanstack/react-table)
@@ -365,13 +347,17 @@ s@clout.co.jp
 ### UIコンポーネント
 | ファイル | 説明 |
 |---------|------|
+| `/src/components/ErrorBoundary.tsx` | アプリ全体のクラッシュ保護（Phase 12） |
 | `/src/components/ui/DataTable.tsx` | 汎用データテーブル（ソート・ページネーション） |
+| `/src/components/ui/EmptyState.tsx` | 空状態表示コンポーネント（Phase 12） |
 | `/src/components/ui/AccessibleComponents.tsx` | ARIA対応UIコンポーネント（Button, Input, Select, Modal, Alert） |
 
 ### ユーティリティ
 | ファイル | 説明 |
 |---------|------|
 | `/src/lib/constants.ts` | 定数定義（ステータス、ランク、カラー） |
+| `/src/lib/scoring.ts` | スコア計算一元化（Phase 11） |
+| `/src/lib/api-guard.ts` | API CSRF保護（Phase 12） |
 | `/src/lib/error-handler.ts` | エラーハンドリングユーティリティ |
 | `/src/lib/validation.ts` | フォームバリデーションユーティリティ |
 | `/src/lib/post-status.ts` | 投稿ステータス計算ユーティリティ |
@@ -445,28 +431,27 @@ https://gifting-app-seven.vercel.app
 
 ---
 
-## SSO移行手順（ADR-006）
+## SSO移行状況（ADR-006）
 
-Clout Dashboardで一度ログインすれば全アプリにアクセス可能にするため、認証をClout Dashboardに統合します。
+Clout Dashboardで一度ログインすれば全アプリにアクセス可能にする。
 
 ### 実装状況
-- [x] `/src/lib/clout-auth.ts` 作成済み
-- [x] `/src/middleware.ts` SSO対応済み
-- [x] JWT検証ロジック実装済み
-- [ ] Clerk設定（ユーザー作業）
-- [ ] 環境変数設定（ユーザー作業）
-- [ ] SSO有効化（`NEXT_PUBLIC_SSO_ENABLED=true`）
+- [x] `/src/lib/clout-auth.ts` 作成済み（SSO ヘルパー関数群）
+- [x] `/src/middleware.ts` SSO 認証強制済み（常時有効、ガードなし）
+- [x] `?code=...` 受け取り → Dashboard exchange → `clout_token` cookie 保存（proxy.ts）
+- [x] JWT 検証ロジック実装済み（Clout API /api/auth/verify）
+- [x] ヘッダー注入済み（x-clout-user-id, x-clout-user-email, x-clout-user-name）
+- [x] **クライアント側の SSO 移行**（useAuth, useAdminAuth, ForceRelogin, Sidebar）
+- [x] `/auth` は redirect-only（旧ログインUI撤去、Clout Dashboardへ誘導）
+- [ ] **user.id 参照先の切り替え**（Supabase ID → Clout ID）
+- [ ] **DB FK 制約見直し**（created_by/updated_by）
 
-### 有効化手順
+### アーキテクチャ問題
+`NEXT_PUBLIC_SSO_ENABLED` は `clout-auth.ts` に定義されているが、
+**middleware.ts では参照されておらず、SSO は常時強制**。
+クライアント側が Supabase Auth に依存しているため、認証が2系統矛盾している。
 
-1. Clerkアカウント設定完了後
-2. Vercel環境変数追加:
-   ```
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxx
-   CLERK_SECRET_KEY=sk_live_xxx
-   NEXT_PUBLIC_SSO_ENABLED=true
-   ```
-3. 再デプロイ
+→ 詳細: `PLAN-SSO-MIGRATION.md`
 
 ---
 
@@ -474,6 +459,9 @@ Clout Dashboardで一度ログインすれば全アプリにアクセス可能�
 
 | 日付 | 変更内容 |
 |------|---------|
+| 2026-02-05 | SSOトークン受け取り対応（middlewareで`?token`→cookie） |
+| 2026-02-04 | Phase12: 総合診断・改善（ErrorBoundary, EmptyState, CSRF保護, useAuth強化, BrandContextローディングUI, Middlewareリトライ, ページネーション改善） |
+| 2026-02-04 | Phase11: 型安全性向上（as any全削除, scoring.ts一元化, reports型定義追加） |
 | 2026-02-04 | Phase10: バリデーション強化、セキュリティ改善、型安全性修正、useMemo最適化、過去相場機能 |
 | 2026-02-04 | コード品質改善（console.log削除、型定義統合、constants.ts、error-handler.ts、アクセシビリティ、合意額自動入力） |
 | 2026-02-04 | React Query統合（campaigns/influencers/dashboard）、useQueries.tsフィールド修正、import/page.tsxコンポーネント分割 |
@@ -493,3 +481,9 @@ Clout Dashboardで一度ログインすれば全アプリにアクセス可能�
 | 2026-02-02 | 強制ログアウト機能実装 |
 | 2026-02-02 | 管理者権限機能実装 |
 | 2026-02-02 | UX改善・自動化機能実装 |
+
+---
+
+## 作業ログ
+
+詳細な作業ログは `/Users/shokei/GGCRM/gifting-app/WORK_LOG.md` に分離。

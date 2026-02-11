@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Influencer, InfluencerFormData } from '@/types';
 import { X, Loader2 } from 'lucide-react';
 import { useBrand } from '@/contexts/BrandContext';
@@ -45,32 +44,49 @@ export default function InfluencerModal({
     try {
       if (influencer) {
         // 更新
-        const { error } = await supabase
-          .from('influencers')
-          .update({
+        const response = await fetch(`/api/influencers/${influencer.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             insta_name: formData.insta_name || null,
             insta_url: formData.insta_url || null,
             tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
             // brandは変更しない（ブランド間移動不可）
-          })
-          .eq('id', influencer.id);
-
-        if (error) throw error;
+          }),
+          cache: 'no-store',
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          const msg = data && typeof data.error === 'string'
+            ? data.error
+            : `更新に失敗しました (${response.status})`;
+          const reason = data && typeof data.reason === 'string' ? data.reason : '';
+          throw new Error(reason ? `${msg} (${reason})` : msg);
+        }
         showToast('success', 'インフルエンサーを更新しました');
       } else {
         // 新規作成（現在のブランドに紐付け）
-        const { error } = await supabase.from('influencers').insert([
-          {
+        const response = await fetch('/api/influencers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             insta_name: formData.insta_name || null,
             insta_url: formData.insta_url || null,
             tiktok_name: formData.tiktok_name || null,
             tiktok_url: formData.tiktok_url || null,
             brand: currentBrand,
-          },
-        ]);
-
-        if (error) throw error;
+          }),
+          cache: 'no-store',
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          const msg = data && typeof data.error === 'string'
+            ? data.error
+            : `登録に失敗しました (${response.status})`;
+          const reason = data && typeof data.reason === 'string' ? data.reason : '';
+          throw new Error(reason ? `${msg} (${reason})` : msg);
+        }
         showToast('success', 'インフルエンサーを登録しました');
       }
 
@@ -92,28 +108,28 @@ export default function InfluencerModal({
             <h2 className="text-xl font-bold">
               {influencer ? 'インフルエンサー編集' : '新規インフルエンサー'}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               ブランド: <span className="font-semibold text-gray-800">{currentBrand}</span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-muted rounded-lg"
           >
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+          <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
             Instagram名またはTikTok名のどちらかを入力してください
           </p>
 
           <div className="border-b pb-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Instagram</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">Instagram</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Instagram名
                 </label>
                 <input
@@ -128,7 +144,7 @@ export default function InfluencerModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Instagram URL
                 </label>
                 <input
@@ -145,10 +161,10 @@ export default function InfluencerModal({
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-3">TikTok</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">TikTok</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   TikTok名
                 </label>
                 <input
@@ -163,7 +179,7 @@ export default function InfluencerModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   TikTok URL
                 </label>
                 <input
@@ -180,7 +196,7 @@ export default function InfluencerModal({
           </div>
 
           {error && (
-            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg text-sm border border-gray-200">
+            <div className="bg-muted text-gray-800 p-3 rounded-lg text-sm border border-border">
               {error}
             </div>
           )}

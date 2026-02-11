@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useBrand, BRANDS, Brand } from '@/contexts/BrandContext';
+import { useBrand, Brand } from '@/contexts/BrandContext';
 import { ArrowRight } from 'lucide-react';
 
 // ブランド情報
@@ -33,7 +33,7 @@ const BRAND_INFO: Record<Brand, {
 
 export default function BrandSelectPage() {
   const router = useRouter();
-  const { setCurrentBrand } = useBrand();
+  const { setCurrentBrand, brands } = useBrand();
 
   const handleSelectBrand = (brand: Brand) => {
     setCurrentBrand(brand);
@@ -44,8 +44,8 @@ export default function BrandSelectPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center p-6">
       {/* 背景装飾 */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gray-200/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gray-200/30 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-muted/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-muted/30 rounded-full blur-3xl" />
       </div>
 
       {/* コンテンツ */}
@@ -54,20 +54,25 @@ export default function BrandSelectPage() {
         <div className="text-center mb-16 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-gray-100 mb-6">
             <div className="w-2 h-2 bg-gray-800 rounded-full animate-pulse" />
-            <span className="text-sm text-gray-600 font-medium">Gifting Manager</span>
+            <span className="text-sm text-muted-foreground font-medium">Gifting Manager</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
             ブランドを選択
           </h1>
-          <p className="text-gray-500 text-lg">
+          <p className="text-muted-foreground text-lg">
             管理するブランドを選んでください
           </p>
         </div>
 
         {/* ブランド選択カード */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {BRANDS.map((brand, index) => {
-            const info = BRAND_INFO[brand];
+          {brands.map((brand, index) => {
+            const info = BRAND_INFO[brand] || {
+              name: brand,
+              fullName: brand,
+              description: 'ブランド',
+              tagline: '',
+            };
             return (
               <button
                 key={brand}
@@ -76,7 +81,7 @@ export default function BrandSelectPage() {
                          border border-gray-100 shadow-sm
                          transition-all duration-500 ease-out
                          hover:shadow-2xl hover:shadow-gray-200/50
-                         hover:border-gray-300 hover:-translate-y-2
+                         hover:border-border hover:-translate-y-2
                          active:translate-y-0 active:shadow-lg
                          animate-slide-up"
                 style={{ animationDelay: `${index * 100}ms` }}
@@ -84,7 +89,7 @@ export default function BrandSelectPage() {
                 {/* ブランド名バッジ */}
                 <div className="mb-8">
                   <span className="inline-flex items-center justify-center w-16 h-16
-                                 bg-gray-50 rounded-2xl text-2xl font-bold text-gray-800
+                                 bg-muted rounded-2xl text-2xl font-bold text-gray-800
                                  group-hover:bg-gray-800 group-hover:text-white
                                  transition-all duration-300 ease-out
                                  group-hover:scale-110 group-hover:rotate-3">
@@ -94,27 +99,27 @@ export default function BrandSelectPage() {
 
                 {/* ブランド情報 */}
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+                  <h2 className="text-2xl font-semibold text-foreground tracking-tight">
                     {info.fullName}
                   </h2>
-                  <p className="text-gray-500 text-sm font-medium">
+                  <p className="text-muted-foreground text-sm font-medium">
                     {info.description}
                   </p>
-                  <p className="text-gray-400 text-xs">
+                  <p className="text-muted-foreground text-xs">
                     {info.tagline}
                   </p>
                 </div>
 
                 {/* アクション */}
                 <div className="mt-8 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-400 group-hover:text-gray-600 transition-colors">
+                  <span className="text-sm font-medium text-muted-foreground group-hover:text-muted-foreground transition-colors">
                     選択して開始
                   </span>
-                  <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center
                                 group-hover:bg-gray-800 transition-all duration-300">
                     <ArrowRight
                       size={18}
-                      className="text-gray-400 group-hover:text-white
+                      className="text-muted-foreground group-hover:text-white
                                transform group-hover:translate-x-0.5 transition-all"
                     />
                   </div>
@@ -129,7 +134,7 @@ export default function BrandSelectPage() {
         </div>
 
         {/* フッター */}
-        <p className="mt-16 text-center text-sm text-gray-400 animate-fade-in" style={{ animationDelay: '400ms' }}>
+        <p className="mt-16 text-center text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '400ms' }}>
           後からサイドバーで切り替えることもできます
         </p>
       </div>

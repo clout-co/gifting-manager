@@ -8,13 +8,77 @@ import {
   type InfluencerRank,
 } from '@/lib/scoring';
 
+const IS_E2E =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_E2E === 'true';
+
+const E2E_NOW = new Date('2026-02-06T00:00:00.000Z').toISOString();
+
+const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
+  TL: [
+    {
+      id: 'e2e-influencer-tl',
+      insta_name: 'e2e_insta',
+      insta_url: null,
+      tiktok_name: null,
+      tiktok_url: null,
+      brand: 'TL',
+      created_at: E2E_NOW,
+      updated_at: E2E_NOW,
+    },
+  ],
+  BE: [
+    {
+      id: 'e2e-influencer-be',
+      insta_name: 'e2e_insta_be',
+      insta_url: null,
+      tiktok_name: null,
+      tiktok_url: null,
+      brand: 'BE',
+      created_at: E2E_NOW,
+      updated_at: E2E_NOW,
+    },
+  ],
+  AM: [
+    {
+      id: 'e2e-influencer-am',
+      insta_name: 'e2e_insta_am',
+      insta_url: null,
+      tiktok_name: null,
+      tiktok_url: null,
+      brand: 'AM',
+      created_at: E2E_NOW,
+      updated_at: E2E_NOW,
+    },
+  ],
+};
+
+async function fetchApiJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      data && typeof data.error === 'string'
+        ? data.error
+        : `API request failed (${response.status})`;
+    const reason = data && typeof data.reason === 'string' ? data.reason : '';
+    throw new Error(reason ? `${message} (${reason})` : message);
+  }
+
+  return data as T;
+}
+
 // Query Keys
 export const queryKeys = {
   campaigns: (brand: string) => ['campaigns', brand] as const,
   campaign: (id: string) => ['campaign', id] as const,
   influencers: (brand: string) => ['influencers', brand] as const,
   influencer: (id: string) => ['influencer', id] as const,
-  staffs: () => ['staffs'] as const,
+  staffs: (brand: string) => ['staffs', brand] as const,
   dashboardStats: (brand: string) => ['dashboardStats', brand] as const,
 };
 
@@ -26,18 +90,21 @@ export function useCampaigns() {
   return useQuery({
     queryKey: queryKeys.campaigns(currentBrand),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select(`
-          *,
-          influencer:influencers(id, insta_name, tiktok_name, insta_url, tiktok_url),
-          staff:staffs(id, name)
-        `)
-        .eq('brand', currentBrand)
-        .order('created_at', { ascending: false });
+      if (IS_E2E) {
+        return [] as (Campaign & {
+          influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          staff: { id: string; name: string } | null;
+        })[];
+      }
 
-      if (error) throw error;
-      return data as (Campaign & {
+      const data = await fetchApiJson<{
+        campaigns: (Campaign & {
+          influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          staff: { id: string; name: string } | null;
+        })[]
+      }>(`/api/campaigns?brand=${encodeURIComponent(currentBrand)}`)
+
+      return (data.campaigns || []) as (Campaign & {
         influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
         staff: { id: string; name: string } | null;
       })[];
@@ -47,21 +114,14 @@ export function useCampaigns() {
 }
 
 export function useCampaign(id: string) {
+  const { currentBrand } = useBrand();
   return useQuery({
     queryKey: queryKeys.campaign(id),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select(`
-          *,
-          influencer:influencers(*),
-          staff:staffs(*)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      return data;
+      const data = await fetchApiJson<{ campaign: Campaign | null }>(
+        `/api/campaigns/${encodeURIComponent(id)}?brand=${encodeURIComponent(currentBrand)}`
+      )
+      return data.campaign;
     },
     enabled: !!id,
   });
@@ -99,6 +159,7 @@ export function useUpdateCampaign() {
         .from('campaigns')
         .update(updates)
         .eq('id', id)
+        .eq('brand', currentBrand)
         .select()
         .single();
 
@@ -119,7 +180,11 @@ export function useDeleteCampaign() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('campaigns').delete().eq('id', id);
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', id)
+        .eq('brand', currentBrand);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -137,14 +202,14 @@ export function useInfluencers() {
   return useQuery({
     queryKey: queryKeys.influencers(currentBrand),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('influencers')
-        .select('*')
-        .eq('brand', currentBrand)
-        .order('created_at', { ascending: false });
+      if (IS_E2E) {
+        return (E2E_INFLUENCERS_BY_BRAND[currentBrand] || E2E_INFLUENCERS_BY_BRAND.TL || []) as Influencer[];
+      }
 
-      if (error) throw error;
-      return data as Influencer[];
+      const data = await fetchApiJson<{ influencers: Influencer[] }>(
+        `/api/influencers?brand=${encodeURIComponent(currentBrand)}`
+      )
+      return data.influencers || [];
     },
     staleTime: 5 * 60 * 1000, // 5分（インフルエンサーはあまり変更されない）
   });
@@ -159,15 +224,16 @@ export function useInfluencersWithScores() {
     queryFn: async () => {
       // インフルエンサーと案件を取得
       const [influencersRes, campaignsRes] = await Promise.all([
-        supabase.from('influencers').select('*').eq('brand', currentBrand).order('created_at', { ascending: false }),
-        supabase.from('campaigns').select('*').eq('brand', currentBrand),
+        fetchApiJson<{ influencers: Influencer[] }>(
+          `/api/influencers?brand=${encodeURIComponent(currentBrand)}`
+        ),
+        fetchApiJson<{ campaigns: Campaign[] }>(
+          `/api/campaigns?brand=${encodeURIComponent(currentBrand)}`
+        ),
       ]);
 
-      if (influencersRes.error) throw influencersRes.error;
-      if (campaignsRes.error) throw campaignsRes.error;
-
-      const influencersData = influencersRes.data || [];
-      const campaignsData = campaignsRes.data || [];
+      const influencersData = influencersRes.influencers || [];
+      const campaignsData = campaignsRes.campaigns || [];
 
       // インフルエンサーごとにスコア計算
       return influencersData.map(inf => {
@@ -218,17 +284,14 @@ export function useInfluencersWithScores() {
 }
 
 export function useInfluencer(id: string) {
+  const { currentBrand } = useBrand();
   return useQuery({
     queryKey: queryKeys.influencer(id),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('influencers')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      return data as Influencer;
+      const data = await fetchApiJson<{ influencer: Influencer }>(
+        `/api/influencers/${encodeURIComponent(id)}?brand=${encodeURIComponent(currentBrand)}`
+      )
+      return data.influencer;
     },
     enabled: !!id,
   });
@@ -265,6 +328,7 @@ export function useUpdateInfluencer() {
         .from('influencers')
         .update(updates)
         .eq('id', id)
+        .eq('brand', currentBrand)
         .select()
         .single();
 
@@ -280,20 +344,75 @@ export function useUpdateInfluencer() {
 
 // ==================== Staffs ====================
 
-export function useStaffs() {
-  return useQuery({
-    queryKey: queryKeys.staffs(),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staffs')
-        .select('*')
-        .order('name', { ascending: true });
+const CLOUT_API_URL = process.env.NEXT_PUBLIC_CLOUT_API_URL || 'https://dashboard.clout.co.jp'
 
-      if (error) throw error;
-      return data as Staff[];
+/**
+ * 社員一覧を取得（Clout Dashboard API連携）
+ * ADR-006: SSO認証基盤統合に伴い、社員データはClout Dashboardから取得
+ */
+export function useStaffs() {
+  const { currentBrand } = useBrand();
+
+  return useQuery({
+    queryKey: queryKeys.staffs(currentBrand),
+    queryFn: async () => {
+      try {
+        // same-origin proxy: /api/master/staff -> Clout Dashboard
+        const response = await fetch(`/api/master/staff?active=true&brand=${encodeURIComponent(currentBrand)}`)
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok) {
+          const errorText =
+            data && typeof data?.error === 'string'
+              ? data.error
+              : `Failed to fetch staff (${response.status})`
+          const reasonText =
+            data && typeof data?.reason === 'string'
+              ? data.reason
+              : ''
+          throw new Error(reasonText ? `${errorText} (${reasonText})` : errorText)
+        }
+
+        // Clout APIのレスポンスをGGCRM形式に変換
+        const staffs: Staff[] = (data.staff || []).map((s: {
+          id: string
+          email: string
+          name: string
+          department?: string
+          position?: string
+          isAdmin?: boolean
+        }) => ({
+          id: s.id,
+          user_id: null,
+          name: s.name,
+          email: s.email,
+          team: (s.isAdmin ? 'ADMIN' : (currentBrand.toUpperCase() as Staff['team'])),
+          department: s.department || null,
+          position: s.position || null,
+          is_active: true,
+          is_admin: s.isAdmin || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+
+        return staffs
+      } catch (error) {
+        console.error('Failed to fetch staff from Clout API, falling back to local:', error)
+
+        // フォールバック: ローカルのstaffsテーブルから取得
+        const { data, error: dbError } = await supabase
+          .from('staffs')
+          .select('*')
+          .order('name', { ascending: true })
+
+        if (dbError) throw dbError
+        // ブランド内だけを返す（fallback時もクロスブランド選択を防ぐ）
+        const rows = (data as unknown as Staff[]) || []
+        return rows.filter((s) => s.is_admin || String((s as any).team || '').toUpperCase() === currentBrand.toUpperCase())
+      }
     },
     staleTime: 10 * 60 * 1000, // 10分（スタッフはほとんど変更されない）
-  });
+  })
 }
 
 // ==================== Dashboard Stats ====================
@@ -348,9 +467,112 @@ export function useDashboardStats() {
   });
 }
 
+export type DashboardKpis = {
+  totalCampaigns: number
+  totalInfluencers: number
+  totalSpent: number
+  totalLikes: number
+  totalComments: number
+  pendingCount: number
+  agreedCount: number
+  costPerLike: number
+}
+
+export type DashboardFullStats = {
+  totalCampaigns: number
+  totalInfluencers: number
+  totalSpent: number
+  totalLikes: number
+  totalComments: number
+  statusBreakdown: { name: string; value: number; color: string }[]
+  brandStats: { brand: string; count: number; amount: number; likes: number }[]
+  monthlyStats: { month: string; campaigns: number; amount: number; likes: number }[]
+  influencerRanking: {
+    display_name: string
+    total_likes: number
+    total_comments: number
+    total_campaigns: number
+    total_amount: number
+    cost_per_like: number
+    score: number
+    rank: string
+  }[]
+  itemStats: { item_code: string; count: number; likes: number; comments: number; amount: number }[]
+}
+
+function getStartDateFromRange(dateRange: string): Date | null {
+  if (dateRange === 'all') return null
+
+  const now = new Date()
+  switch (dateRange) {
+    case '7d':
+      return new Date(now.setDate(now.getDate() - 7))
+    case '30d':
+      return new Date(now.setDate(now.getDate() - 30))
+    case '90d':
+      return new Date(now.setDate(now.getDate() - 90))
+    case '1y':
+      return new Date(now.setFullYear(now.getFullYear() - 1))
+    default:
+      return null
+  }
+}
+
+// KPIのみ（初回ロード高速化用）
+export function useDashboardKpis(selectedItem: string, dateRange: string) {
+  const { currentBrand } = useBrand()
+
+  return useQuery({
+    queryKey: ['dashboardKpis', currentBrand, selectedItem, dateRange],
+    queryFn: async (): Promise<DashboardKpis> => {
+      let query = supabase
+        .from('campaigns')
+        .select('status, agreed_amount, likes, comments, influencer_id, item_code, created_at')
+        .eq('brand', currentBrand)
+
+      if (selectedItem !== 'all') {
+        query = query.eq('item_code', selectedItem)
+      }
+
+      const startDate = getStartDateFromRange(dateRange)
+      if (startDate) {
+        query = query.gte('created_at', startDate.toISOString())
+      }
+
+      const { data: campaigns, error } = await query
+      if (error) throw error
+
+      const rows = (campaigns as any[]) || []
+
+      const totalSpent = rows.reduce((sum, c) => sum + (c.agreed_amount || 0), 0)
+      const totalLikes = rows.reduce((sum, c) => sum + (c.likes || 0), 0)
+      const totalComments = rows.reduce((sum, c) => sum + (c.comments || 0), 0)
+      const pendingCount = rows.filter((c) => c.status === 'pending').length
+      const agreedCount = rows.filter((c) => c.status === 'agree').length
+      const totalInfluencers = new Set(rows.map((c) => c.influencer_id).filter(Boolean)).size
+
+      return {
+        totalCampaigns: rows.length,
+        totalInfluencers,
+        totalSpent,
+        totalLikes,
+        totalComments,
+        pendingCount,
+        agreedCount,
+        costPerLike: totalLikes > 0 ? totalSpent / totalLikes : 0,
+      }
+    },
+    staleTime: 1 * 60 * 1000,
+  })
+}
+
 // ==================== Dashboard Full Stats ====================
 
-export function useDashboardFullStats(selectedItem: string, dateRange: string) {
+export function useDashboardFullStats(
+  selectedItem: string,
+  dateRange: string,
+  options?: { enabled?: boolean }
+) {
   const { currentBrand } = useBrand();
 
   return useQuery({
@@ -359,32 +581,29 @@ export function useDashboardFullStats(selectedItem: string, dateRange: string) {
       // 案件を取得（インフルエンサー情報付き）
       let query = supabase
         .from('campaigns')
-        .select('*, influencer:influencers(*)')
+        .select(`
+          brand,
+          status,
+          agreed_amount,
+          likes,
+          comments,
+          consideration_comment,
+          influencer_id,
+          item_code,
+          post_date,
+          created_at,
+          influencer:influencers(id, insta_name, tiktok_name)
+        `)
         .eq('brand', currentBrand);
 
       if (selectedItem !== 'all') {
         query = query.eq('item_code', selectedItem);
       }
       if (dateRange !== 'all') {
-        const now = new Date();
-        let startDate: Date;
-        switch (dateRange) {
-          case '7d':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-          case '30d':
-            startDate = new Date(now.setDate(now.getDate() - 30));
-            break;
-          case '90d':
-            startDate = new Date(now.setDate(now.getDate() - 90));
-            break;
-          case '1y':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-          default:
-            startDate = new Date(0);
+        const startDate = getStartDateFromRange(dateRange);
+        if (startDate) {
+          query = query.gte('created_at', startDate.toISOString());
         }
-        query = query.gte('created_at', startDate.toISOString());
       }
 
       const { data: campaigns, error } = await query;
@@ -437,9 +656,22 @@ export function useDashboardFullStats(selectedItem: string, dateRange: string) {
         total_consideration_comments: number;
       }>();
       campaigns.forEach((c) => {
-        if (c.influencer) {
-          const key = c.influencer.id;
-          const displayName = c.influencer.insta_name || c.influencer.tiktok_name || '不明';
+        const raw = (c as any).influencer as
+          | { id?: unknown; insta_name?: unknown; tiktok_name?: unknown }
+          | Array<{ id?: unknown; insta_name?: unknown; tiktok_name?: unknown }>
+          | null
+          | undefined;
+
+        // Supabase join shape may be object or array depending on schema inference.
+        const influencer = Array.isArray(raw) ? raw[0] : raw;
+
+        if (influencer) {
+          const key = String((influencer as any).id || '');
+          if (!key) return;
+          const displayName =
+            String((influencer as any).insta_name || '') ||
+            String((influencer as any).tiktok_name || '') ||
+            '不明';
           const existing = influencerMap.get(key) || {
             display_name: displayName,
             total_likes: 0,
@@ -530,8 +762,9 @@ export function useDashboardFullStats(selectedItem: string, dateRange: string) {
           .map(([item_code, data]) => ({ item_code, ...data }))
           .sort((a, b) => b.likes - a.likes)
           .slice(0, 10),
-      };
+      } satisfies DashboardFullStats;
     },
+    enabled: options?.enabled ?? true,
     staleTime: 1 * 60 * 1000,
   });
 }
@@ -571,6 +804,7 @@ export function useInfluencerPastStats(influencerId: string | null) {
   return useQuery({
     queryKey: ['influencerPastStats', currentBrand, influencerId],
     queryFn: async () => {
+      if (IS_E2E) return null;
       if (!influencerId) return null;
 
       const { data, error } = await supabase

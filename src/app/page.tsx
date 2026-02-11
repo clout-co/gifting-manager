@@ -2,23 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
-      } else {
-        router.push('/auth');
-      }
-    };
-
-    checkAuth();
+    // 認証は middleware.ts が保証する。トップは /dashboard に寄せる。
+    router.push('/dashboard');
   }, [router]);
 
   return (

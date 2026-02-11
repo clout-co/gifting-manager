@@ -1,20 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chatWithAI } from '@/lib/claude';
 import { createClient } from '@supabase/supabase-js';
-import { validateOrigin } from '@/lib/api-guard';
+import { getAllowedBrands, validateOrigin } from '@/lib/api-guard';
 
-// Supabaseクライアント（サーバーサイド用）
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabase() {
+  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const key = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  if (!url || !key) {
+    throw new Error('Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
+  return createClient(url, key);
+}
 
 export async function POST(request: NextRequest) {
   const originError = validateOrigin(request);
   if (originError) return originError;
 
   try {
+    const supabase = getSupabase();
+    const allowedBrands = getAllowedBrands(request);
+    if (allowedBrands.length === 0) {
+      return NextResponse.json(
+        { error: '許可ブランドが取得できません' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
+    const brand = typeof body.brand === 'string' ? body.brand.toUpperCase() : null;
+    if (brand && !allowedBrands.includes(brand)) {
+      return NextResponse.json(
+        { error: '許可されていないブランドです' },
+        { status: 403 }
+      );
+    }
 
     if (!body.message) {
       return NextResponse.json(
@@ -24,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // データベースから現在のコンテキストを取得
-    let context = {
+    const context = {
       totalCampaigns: 0,
       totalSpent: 0,
       totalLikes: 0,
@@ -33,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // キャンペーンデータを取得
-      const { data: campaigns } = await supabase
+      let campaignQuery = supabase
         .from('campaigns')
         .select(`
           id,
@@ -42,6 +61,14 @@ export async function POST(request: NextRequest) {
           influencer:influencers(insta_name, tiktok_name)
         `)
         .limit(500);
+
+      if (brand) {
+        campaignQuery = campaignQuery.eq('brand', brand);
+      } else {
+        campaignQuery = campaignQuery.in('brand', allowedBrands);
+      }
+
+      const { data: campaigns } = await campaignQuery;
 
       if (campaigns && campaigns.length > 0) {
         context.totalCampaigns = campaigns.length;

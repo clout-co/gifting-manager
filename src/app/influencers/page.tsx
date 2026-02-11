@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Influencer, InfluencerWithScore } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,8 +61,17 @@ export default function InfluencersPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('influencers').delete().eq('id', id);
-      if (error) throw error;
+      const response = await fetch(`/api/influencers/${id}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const msg = data && typeof data.error === 'string'
+          ? data.error
+          : `削除に失敗しました (${response.status})`;
+        throw new Error(msg);
+      }
 
       // React Queryのキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
@@ -134,17 +142,17 @@ export default function InfluencersPage() {
       case 'A': return 'from-gray-700 to-gray-600 text-white';
       case 'B': return 'from-gray-500 to-gray-400 text-white';
       case 'C': return 'from-gray-400 to-gray-300 text-gray-800';
-      default: return 'from-gray-300 to-gray-200 text-gray-700';
+      default: return 'from-gray-300 to-gray-200 text-foreground';
     }
   };
 
   const getRankBgColor = (rank: string) => {
     switch (rank) {
-      case 'S': return 'bg-gray-50 border-gray-400';
-      case 'A': return 'bg-gray-50 border-gray-300';
-      case 'B': return 'bg-white border-gray-200';
-      case 'C': return 'bg-white border-gray-200';
-      default: return 'bg-white border-gray-200';
+      case 'S': return 'bg-muted border-gray-400';
+      case 'A': return 'bg-muted border-border';
+      case 'B': return 'bg-white border-border';
+      case 'C': return 'bg-white border-border';
+      default: return 'bg-white border-border';
     }
   };
 
@@ -174,8 +182,8 @@ export default function InfluencersPage() {
               <Users className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">インフルエンサー管理</h1>
-              <p className="text-gray-500 mt-0.5">登録済み: {influencers.length}名 | スコアリング対応</p>
+              <h1 className="text-2xl font-bold text-foreground">インフルエンサー管理</h1>
+              <p className="text-muted-foreground mt-0.5">登録済み: {influencers.length}名 | スコアリング対応</p>
             </div>
           </div>
           <button
@@ -195,7 +203,7 @@ export default function InfluencersPage() {
                 <Crown className="text-white" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Sランク</p>
+                <p className="text-xs text-muted-foreground">Sランク</p>
                 <p className="text-xl font-bold text-gray-800">
                   {influencers.filter(i => i.rank === 'S').length}名
                 </p>
@@ -208,8 +216,8 @@ export default function InfluencersPage() {
                 <Award className="text-white" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Aランク</p>
-                <p className="text-xl font-bold text-gray-700">
+                <p className="text-xs text-muted-foreground">Aランク</p>
+                <p className="text-xl font-bold text-foreground">
                   {influencers.filter(i => i.rank === 'A').length}名
                 </p>
               </div>
@@ -217,12 +225,12 @@ export default function InfluencersPage() {
           </div>
           <div className="stat-card">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-500 rounded-lg">
+              <div className="p-2 bg-muted0 rounded-lg">
                 <Heart className="text-white" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500">総いいね</p>
-                <p className="text-xl font-bold text-gray-700">
+                <p className="text-xs text-muted-foreground">総いいね</p>
+                <p className="text-xl font-bold text-foreground">
                   {formatNumber(influencers.reduce((sum, i) => sum + i.totalLikes, 0))}
                 </p>
               </div>
@@ -234,8 +242,8 @@ export default function InfluencersPage() {
                 <DollarSign className="text-white" size={20} />
               </div>
               <div>
-                <p className="text-xs text-gray-500">平均いいね単価</p>
-                <p className="text-xl font-bold text-gray-700">
+                <p className="text-xs text-muted-foreground">平均いいね単価</p>
+                <p className="text-xl font-bold text-foreground">
                   {formatCurrency(
                     influencers.reduce((sum, i) => sum + i.totalSpent, 0) /
                     Math.max(1, influencers.reduce((sum, i) => sum + i.totalLikes, 0))
@@ -249,7 +257,7 @@ export default function InfluencersPage() {
         {/* フィルター＆ソート */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
               placeholder="インフルエンサーを検索..."
@@ -324,10 +332,10 @@ export default function InfluencersPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Instagram size={16} className="text-gray-600" />
-                        <span className="font-bold text-gray-900">@{influencer.insta_name || influencer.tiktok_name}</span>
+                        <Instagram size={16} className="text-muted-foreground" />
+                        <span className="font-bold text-foreground">@{influencer.insta_name || influencer.tiktok_name}</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         スコア: {influencer.score}/100
                       </p>
                     </div>
@@ -335,15 +343,15 @@ export default function InfluencersPage() {
                   {index < 3 && (
                     <div className="flex items-center gap-1">
                       {index === 0 && <Crown className="text-gray-800" size={20} />}
-                      {index === 1 && <Medal className="text-gray-500" size={20} />}
-                      {index === 2 && <Medal className="text-gray-400" size={20} />}
+                      {index === 1 && <Medal className="text-muted-foreground" size={20} />}
+                      {index === 2 && <Medal className="text-muted-foreground" size={20} />}
                     </div>
                   )}
                 </div>
 
                 {/* スコアバー */}
                 <div className="mb-4">
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className={`h-full bg-gradient-to-r ${
                         influencer.rank === 'S' ? 'from-gray-800 to-gray-700' :
@@ -359,20 +367,20 @@ export default function InfluencersPage() {
                 {/* 統計 */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-gray-500">案件数</p>
-                    <p className="font-bold text-gray-900">{influencer.totalCampaigns}件</p>
+                    <p className="text-xs text-muted-foreground">案件数</p>
+                    <p className="font-bold text-foreground">{influencer.totalCampaigns}件</p>
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-gray-500">総いいね</p>
+                    <p className="text-xs text-muted-foreground">総いいね</p>
                     <p className="font-bold text-gray-800">{formatNumber(influencer.totalLikes)}</p>
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-gray-500">総支出</p>
-                    <p className="font-bold text-gray-900">{formatCurrency(influencer.totalSpent)}</p>
+                    <p className="text-xs text-muted-foreground">総支出</p>
+                    <p className="font-bold text-foreground">{formatCurrency(influencer.totalSpent)}</p>
                   </div>
                   <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-gray-500">いいね単価</p>
-                    <p className={`font-bold ${influencer.costPerLike < 100 ? 'text-gray-800' : 'text-gray-600'}`}>
+                    <p className="text-xs text-muted-foreground">いいね単価</p>
+                    <p className={`font-bold ${influencer.costPerLike < 100 ? 'text-gray-800' : 'text-muted-foreground'}`}>
                       {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
                     </p>
                   </div>
@@ -392,13 +400,13 @@ export default function InfluencersPage() {
                   )}
                   <button
                     onClick={() => handleEdit(influencer)}
-                    className="p-2 text-gray-600 hover:bg-white rounded-lg transition-colors"
+                    className="p-2 text-muted-foreground hover:bg-white rounded-lg transition-colors"
                   >
                     <Edit2 size={18} />
                   </button>
                   <button
                     onClick={() => handleDelete(influencer.id)}
-                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -433,13 +441,13 @@ export default function InfluencersPage() {
                       </td>
                       <td className="table-cell font-medium">
                         <div className="flex items-center gap-2">
-                          <Instagram size={16} className="text-gray-600" />
+                          <Instagram size={16} className="text-muted-foreground" />
                           @{influencer.insta_name || influencer.tiktok_name}
                         </div>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden w-16">
+                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden w-16">
                             <div
                               className="h-full bg-primary-500 rounded-full"
                               style={{ width: `${influencer.score}%` }}
@@ -456,8 +464,8 @@ export default function InfluencersPage() {
                       <td className="table-cell">
                         <span className={`px-2 py-1 rounded-full text-sm ${
                           influencer.costPerLike < 50 ? 'bg-gray-800 text-white' :
-                          influencer.costPerLike < 100 ? 'bg-gray-200 text-gray-700' :
-                          'bg-gray-100 text-gray-600'
+                          influencer.costPerLike < 100 ? 'bg-muted text-foreground' :
+                          'bg-muted text-muted-foreground'
                         }`}>
                           {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
                         </span>
@@ -466,13 +474,13 @@ export default function InfluencersPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleEdit(influencer)}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(influencer.id)}
-                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
                           >
                             <Trash2 size={16} />
                           </button>

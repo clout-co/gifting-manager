@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, RefreshCw, Home, XCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home, XCircle, LogIn, Copy } from 'lucide-react';
 import Link from 'next/link';
 
 interface ErrorDisplayProps {
@@ -18,6 +18,38 @@ export default function ErrorDisplay({
   showHomeLink = false,
   variant = 'card',
 }: ErrorDisplayProps) {
+  const classify = (msg: string): 'auth' | 'permission' | 'inactive' | 'unknown' => {
+    const s = String(msg || '');
+    const lower = s.toLowerCase();
+
+    if (lower.includes('inactive_user')) return 'inactive';
+
+    const looksAuth =
+      lower.includes('auth_failed') ||
+      lower.includes('not authenticated') ||
+      lower.includes('invalid_or_expired_token') ||
+      lower.includes('token') ||
+      lower.includes('401') ||
+      s.includes('認証') ||
+      s.includes('ログイン');
+    if (looksAuth) return 'auth';
+
+    const looksPermission =
+      lower.includes('forbidden') ||
+      lower.includes('no_app_permission') ||
+      lower.includes('permission') ||
+      lower.includes('unauthorized') ||
+      lower.includes('403') ||
+      s.includes('権限') ||
+      s.includes('アクセス権') ||
+      s.includes('許可');
+    if (looksPermission) return 'permission';
+
+    return 'unknown';
+  };
+
+  const kind = classify(message);
+
   // インライン表示（フォーム内などの小さなエラー）
   if (variant === 'inline') {
     return (
@@ -27,6 +59,19 @@ export default function ErrorDisplay({
       </div>
     );
   }
+
+  const copyPermissionRequest = async () => {
+    const text =
+      `【権限/認証エラー】\\n` +
+      `URL: ${typeof window !== 'undefined' ? window.location.href : ''}\\n` +
+      `メッセージ: ${message}\\n` +
+      `対応: Clout Dashboardでユーザーの app 権限 / ブランドチーム付与を確認`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+  };
 
   // カード表示（セクション内のエラー）
   if (variant === 'card') {
@@ -39,7 +84,7 @@ export default function ErrorDisplay({
           <div className="flex-1">
             <h3 className="font-bold text-red-900">{title}</h3>
             <p className="text-red-700 mt-1 text-sm">{message}</p>
-            {(onRetry || showHomeLink) && (
+            {(onRetry || showHomeLink || kind === 'auth' || kind === 'permission' || kind === 'inactive') && (
               <div className="flex gap-2 mt-4">
                 {onRetry && (
                   <button
@@ -50,10 +95,28 @@ export default function ErrorDisplay({
                     再試行
                   </button>
                 )}
+                {kind === 'auth' && (
+                  <Link
+                    href="/auth"
+                    className="flex items-center gap-2 px-4 py-2 bg-white text-foreground border border-border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                  >
+                    <LogIn size={16} />
+                    再ログイン
+                  </Link>
+                )}
+                {(kind === 'permission' || kind === 'inactive') && (
+                  <button
+                    onClick={copyPermissionRequest}
+                    className="flex items-center gap-2 px-4 py-2 bg-white text-foreground border border-border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                  >
+                    <Copy size={16} />
+                    依頼文コピー
+                  </button>
+                )}
                 {showHomeLink && (
                   <Link
                     href="/dashboard"
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-white text-foreground border border-border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                   >
                     <Home size={16} />
                     ダッシュボードへ
@@ -74,8 +137,8 @@ export default function ErrorDisplay({
         <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-6">
           <AlertCircle className="text-red-600" size={40} />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
-        <p className="text-gray-600 mb-6">{message}</p>
+        <h2 className="text-2xl font-bold text-foreground mb-2">{title}</h2>
+        <p className="text-muted-foreground mb-6">{message}</p>
         <div className="flex gap-3 justify-center">
           {onRetry && (
             <button
@@ -84,6 +147,21 @@ export default function ErrorDisplay({
             >
               <RefreshCw size={18} />
               再試行
+            </button>
+          )}
+          {kind === 'auth' && (
+            <Link href="/auth" className="btn-secondary flex items-center gap-2">
+              <LogIn size={18} />
+              再ログイン
+            </Link>
+          )}
+          {(kind === 'permission' || kind === 'inactive') && (
+            <button
+              onClick={copyPermissionRequest}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Copy size={18} />
+              依頼文コピー
             </button>
           )}
           {showHomeLink && (
@@ -113,13 +191,13 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   return (
     <div className="text-center py-12">
       {icon && (
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
           {icon}
         </div>
       )}
-      <h3 className="text-lg font-medium text-gray-900 mb-1">{title}</h3>
+      <h3 className="text-lg font-medium text-foreground mb-1">{title}</h3>
       {description && (
-        <p className="text-gray-500 text-sm mb-4">{description}</p>
+        <p className="text-muted-foreground text-sm mb-4">{description}</p>
       )}
       {action && (
         <button onClick={action.onClick} className="btn-primary">

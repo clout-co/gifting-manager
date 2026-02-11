@@ -184,7 +184,7 @@ export default function StaffsPage() {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="animate-spin text-gray-400" size={32} />
+          <Loader2 className="animate-spin text-muted-foreground" size={32} />
         </div>
       </MainLayout>
     );
@@ -198,7 +198,7 @@ export default function StaffsPage() {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="animate-spin text-gray-400" size={32} />
+          <Loader2 className="animate-spin text-muted-foreground" size={32} />
         </div>
       </MainLayout>
     );
@@ -214,8 +214,8 @@ export default function StaffsPage() {
               <Users className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">社員管理</h1>
-              <p className="text-sm text-gray-500 flex items-center gap-1">
+              <h1 className="text-2xl font-bold text-foreground">社員管理</h1>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Shield size={12} />
                 管理者専用ページ
               </p>
@@ -223,7 +223,7 @@ export default function StaffsPage() {
           </div>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-gray-800 transition-colors"
           >
             <Plus size={18} />
             社員を追加
@@ -231,47 +231,47 @@ export default function StaffsPage() {
         </div>
 
         {/* 社員一覧 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">名前</th>
-                <th className="text-center px-6 py-3 text-sm font-medium text-gray-600">チーム</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">部署</th>
-                <th className="text-center px-6 py-3 text-sm font-medium text-gray-600">案件数</th>
-                <th className="text-center px-6 py-3 text-sm font-medium text-gray-600">合意率</th>
-                <th className="text-center px-6 py-3 text-sm font-medium text-gray-600">いいね単価</th>
-                <th className="text-center px-6 py-3 text-sm font-medium text-gray-600">操作</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-muted-foreground">名前</th>
+                <th className="text-center px-6 py-3 text-sm font-medium text-muted-foreground">チーム</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-muted-foreground">部署</th>
+                <th className="text-center px-6 py-3 text-sm font-medium text-muted-foreground">案件数</th>
+                <th className="text-center px-6 py-3 text-sm font-medium text-muted-foreground">合意率</th>
+                <th className="text-center px-6 py-3 text-sm font-medium text-muted-foreground">いいね単価</th>
+                <th className="text-center px-6 py-3 text-sm font-medium text-muted-foreground">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {staffs.filter(s => s.is_active).map((staff) => {
                 const stats = staffStats.get(staff.id);
                 return (
-                  <tr key={staff.id} className="hover:bg-gray-50">
+                  <tr key={staff.id} className="hover:bg-muted">
                     <td className="px-6 py-4">
                       <div>
-                        <div className="font-medium text-gray-900">{staff.name}</div>
+                        <div className="font-medium text-foreground">{staff.name}</div>
                         {staff.email && (
-                          <div className="text-sm text-gray-500">{staff.email}</div>
+                          <div className="text-sm text-muted-foreground">{staff.email}</div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         staff.team === 'ADMIN' ? 'bg-gray-800 text-white' :
-                        'bg-gray-100 text-gray-700'
+                        'bg-muted text-foreground'
                       }`}>
                         {staff.team}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{staff.department || '-'}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{staff.department || '-'}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Target size={14} className="text-gray-400" />
+                        <Target size={14} className="text-muted-foreground" />
                         <span className="font-medium">{stats?.total_campaigns || 0}</span>
                         {stats && stats.agreed_campaigns > 0 && (
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-muted-foreground text-sm">
                             ({stats.agreed_campaigns}件合意)
                           </span>
                         )}
@@ -279,9 +279,9 @@ export default function StaffsPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <TrendingUp size={14} className="text-gray-400" />
+                        <TrendingUp size={14} className="text-muted-foreground" />
                         <span className={`font-medium ${
-                          (stats?.agreement_rate || 0) >= 50 ? 'text-green-600' : 'text-gray-600'
+                          (stats?.agreement_rate || 0) >= 50 ? 'text-green-600' : 'text-muted-foreground'
                         }`}>
                           {stats?.agreement_rate.toFixed(1) || '0.0'}%
                         </span>
@@ -289,7 +289,7 @@ export default function StaffsPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <DollarSign size={14} className="text-gray-400" />
+                        <DollarSign size={14} className="text-muted-foreground" />
                         <span className="font-medium">
                           ¥{stats?.cost_per_like.toFixed(0) || '0'}
                         </span>
@@ -299,13 +299,13 @@ export default function StaffsPage() {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => openEditModal(staff)}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          className="p-2 text-muted-foreground hover:text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button
                           onClick={() => handleDelete(staff)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -316,7 +316,7 @@ export default function StaffsPage() {
               })}
               {staffs.filter(s => s.is_active).length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
                     社員が登録されていません
                   </td>
                 </tr>
@@ -330,12 +330,12 @@ export default function StaffsPage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-lg font-bold text-foreground">
                   {editingStaff ? '社員を編集' : '社員を追加'}
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="p-2 text-muted-foreground hover:text-muted-foreground hover:bg-muted rounded-lg"
                 >
                   <X size={20} />
                 </button>
@@ -343,39 +343,39 @@ export default function StaffsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     名前 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
                     placeholder="山田 太郎"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     メールアドレス
                   </label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
                     placeholder="yamada@clout.co.jp"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     所属チーム <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.team}
                     onChange={(e) => setFormData({ ...formData, team: e.target.value as TeamType })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
                   >
                     <option value="TL">TL (That&apos;s life)</option>
                     <option value="BE">BE (Belvet)</option>
@@ -385,27 +385,27 @@ export default function StaffsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     部署
                   </label>
                   <input
                     type="text"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
                     placeholder="マーケティング部"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     役職
                   </label>
                   <input
                     type="text"
                     value={formData.position}
                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400"
                     placeholder="マネージャー"
                   />
                 </div>
@@ -414,14 +414,14 @@ export default function StaffsPage() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
                 >
                   {saving ? (
                     <Loader2 className="animate-spin mx-auto" size={20} />

@@ -122,15 +122,15 @@ function ConfirmDialog({
               {icons[type]}
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-              <p className="mt-2 text-sm text-gray-600">{message}</p>
+              <h3 className="text-lg font-bold text-foreground">{title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{message}</p>
             </div>
             <button
               onClick={onCancel}
               disabled={loading}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-muted rounded-lg transition-colors"
             >
-              <X size={20} className="text-gray-400" />
+              <X size={20} className="text-muted-foreground" />
             </button>
           </div>
 
@@ -138,7 +138,7 @@ function ConfirmDialog({
             <button
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1 px-4 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted transition-colors"
             >
               {cancelText}
             </button>

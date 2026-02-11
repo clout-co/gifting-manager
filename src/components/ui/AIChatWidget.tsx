@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useBrand } from '@/contexts/BrandContext';
 import { MessageSquare, X, Send, Loader2, Sparkles, Minimize2 } from 'lucide-react';
 
 interface ChatMessage {
@@ -9,8 +10,9 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export default function AIChatWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function AIChatWidget({ initialOpen = false }: { initialOpen?: boolean }) {
+  const { currentBrand } = useBrand();
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -51,6 +53,7 @@ export default function AIChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: input,
+          brand: currentBrand,
         }),
       });
 
@@ -98,7 +101,7 @@ export default function AIChatWidget() {
 
   return (
     <div
-      className={`fixed bottom-24 lg:bottom-6 right-6 z-50 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+      className={`fixed bottom-24 lg:bottom-6 right-6 z-50 bg-white dark:bg-primary rounded-2xl shadow-2xl border border-border dark:border-gray-700 transition-all duration-300 ${
         isMinimized ? 'w-72 h-14' : 'w-80 sm:w-96 h-[500px] max-h-[70vh]'
       }`}
     >
@@ -137,7 +140,7 @@ export default function AIChatWidget() {
                   className={`max-w-[85%] px-4 py-2.5 rounded-2xl ${
                     message.role === 'user'
                       ? 'bg-gray-800 text-white rounded-br-md'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
+                      : 'bg-muted dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-md'
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -146,8 +149,8 @@ export default function AIChatWidget() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md">
-                  <Loader2 className="animate-spin text-gray-600" size={20} />
+                <div className="bg-muted dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-md">
+                  <Loader2 className="animate-spin text-muted-foreground" size={20} />
                 </div>
               </div>
             )}
@@ -162,13 +165,13 @@ export default function AIChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="質問を入力..."
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:text-white"
+                className="flex-1 px-4 py-2.5 bg-muted dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 dark:text-white"
                 disabled={loading}
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="p-2.5 bg-gray-800 text-white rounded-xl hover:bg-gray-900 transition-colors disabled:opacity-50"
+                className="p-2.5 bg-gray-800 text-white rounded-xl hover:bg-primary transition-colors disabled:opacity-50"
               >
                 <Send size={18} />
               </button>

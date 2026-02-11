@@ -22,7 +22,7 @@ export default function ColumnMappingSettings({
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+        <h3 className="font-bold text-foreground flex items-center gap-2">
           <Settings size={20} className="text-primary-500" />
           カラムマッピング設定
         </h3>
@@ -34,14 +34,14 @@ export default function ColumnMappingSettings({
         </button>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-muted-foreground mb-4">
         自動検出されたマッピングを確認・修正してください。<span className="text-red-500">*</span>は必須項目です。
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(fieldLabels).map(([field, label]) => (
           <div key={field} className={`${field === 'insta_name' && !columnMapping[field] ? 'ring-2 ring-red-300 rounded-lg p-2' : ''}`}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               {label}
             </label>
             <select

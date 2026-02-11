@@ -1,36 +1,34 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
-/* ModelCRM統一デザイン - ダークテーマベース */
-:root {
-  /* メインカラー（ModelCRM準拠） */
-  --color-background: oklch(0.145 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.205 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.22 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.985 0 0);
-  --color-primary-foreground: oklch(0.205 0 0);
-  --color-secondary: oklch(0.30 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.30 0 0);
-  --color-muted-foreground: oklch(0.708 0 0);
-  --color-accent: oklch(0.30 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
-  --color-destructive: oklch(0.396 0.141 25.723);
-  --color-destructive-foreground: oklch(0.637 0.237 25.331);
-  --color-border: oklch(0.32 0 0);
-  --color-input: oklch(0.32 0 0);
-  --color-ring: oklch(0.439 0 0);
+/* ModelCRM統一デザイン - ライトテーマベース（@theme でTailwind v4 に登録） */
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.577 0.245 27.325);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
 
   /* チャートカラー */
-  --color-chart-1: oklch(0.488 0.243 264.376);
-  --color-chart-2: oklch(0.696 0.17 162.48);
-  --color-chart-3: oklch(0.769 0.188 70.08);
-  --color-chart-4: oklch(0.627 0.265 303.9);
-  --color-chart-5: oklch(0.645 0.246 16.439);
+  --color-chart-1: oklch(0.646 0.222 41.116);
+  --color-chart-2: oklch(0.6 0.118 184.704);
+  --color-chart-3: oklch(0.398 0.07 227.392);
+  --color-chart-4: oklch(0.828 0.189 84.429);
+  --color-chart-5: oklch(0.769 0.188 70.08);
 
   /* 半径 */
   --radius-sm: 0.25rem;
@@ -39,12 +37,32 @@
   --radius-xl: 0.75rem;
 }
 
-body {
-  background-color: oklch(0.145 0 0);
-  color: oklch(0.985 0 0);
-  min-height: 100vh;
-  font-feature-settings: 'palt';
-  letter-spacing: 0.02em;
+/* ダークテーマ */
+.dark {
+  --color-background: oklch(0.145 0 0);
+  --color-foreground: oklch(0.985 0 0);
+  --color-card: oklch(0.205 0 0);
+  --color-card-foreground: oklch(0.985 0 0);
+  --color-popover: oklch(0.205 0 0);
+  --color-popover-foreground: oklch(0.985 0 0);
+  --color-primary: oklch(0.922 0 0);
+  --color-primary-foreground: oklch(0.145 0 0);
+  --color-secondary: oklch(0.25 0 0);
+  --color-secondary-foreground: oklch(0.985 0 0);
+  --color-muted: oklch(0.25 0 0);
+  --color-muted-foreground: oklch(0.708 0 0);
+  --color-accent: oklch(0.25 0 0);
+  --color-accent-foreground: oklch(0.985 0 0);
+  --color-destructive: oklch(0.396 0.141 25.723);
+  --color-destructive-foreground: oklch(0.637 0.237 25.331);
+  --color-border: oklch(0.30 0 0);
+  --color-input: oklch(0.30 0 0);
+  --color-ring: oklch(0.439 0 0);
+  --color-chart-1: oklch(0.488 0.243 264.376);
+  --color-chart-2: oklch(0.696 0.17 162.48);
+  --color-chart-3: oklch(0.769 0.188 70.08);
+  --color-chart-4: oklch(0.627 0.265 303.9);
+  --color-chart-5: oklch(0.645 0.246 16.439);
 }
 
 /* スムーズスクロール */
@@ -53,7 +71,12 @@ html {
   overscroll-behavior-y: contain;
 }
 
-/* カスタムスクロールバー（ダークテーマ用） */
+body {
+  font-feature-settings: 'palt';
+  letter-spacing: 0.02em;
+}
+
+/* カスタムスクロールバー */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -64,70 +87,68 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.40 0 0);
+  background: var(--color-border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.50 0 0);
+  background: var(--color-muted-foreground);
 }
 
 /* Selection */
 ::selection {
-  background: rgba(255, 255, 255, 0.2);
+  background: oklch(0.205 0 0 / 0.15);
+}
+.dark ::selection {
+  background: oklch(0.985 0 0 / 0.2);
 }
 
 @layer base {
   * {
-    border-color: oklch(0.32 0 0);
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
   }
 
   /* フォーカスリングのカスタマイズ */
   *:focus-visible {
-    @apply outline-none ring-2 ring-white/30 ring-offset-2 ring-offset-[oklch(0.145_0_0)];
+    @apply outline-none ring-2 ring-ring/50 ring-offset-2 ring-offset-background;
   }
 }
 
 @layer components {
-  /* ボタン - プライマリ（白系） */
+  /* ボタン - プライマリ */
   .btn-primary {
-    @apply relative overflow-hidden bg-white text-gray-900 px-5 py-2.5 rounded-xl
+    @apply relative overflow-hidden bg-primary text-primary-foreground px-5 py-2.5 rounded-xl
            font-medium transition-all duration-300 ease-out
-           hover:bg-gray-100 hover:shadow-lg hover:shadow-white/10
+           hover:bg-primary/90 hover:shadow-lg
            active:scale-[0.98] transform;
-  }
-
-  .btn-primary::after {
-    content: '';
-    @apply absolute inset-0 bg-black/5 opacity-0 transition-opacity duration-300;
-  }
-
-  .btn-primary:hover::after {
-    @apply opacity-100;
   }
 
   /* ボタン - セカンダリ */
   .btn-secondary {
-    @apply relative bg-[oklch(0.30_0_0)] text-white px-5 py-2.5 rounded-xl
-           border border-[oklch(0.40_0_0)] font-medium
+    @apply relative bg-secondary text-secondary-foreground px-5 py-2.5 rounded-xl
+           border border-border font-medium
            transition-all duration-300 ease-out
-           hover:bg-[oklch(0.35_0_0)] hover:border-[oklch(0.45_0_0)] hover:shadow-md
+           hover:bg-secondary/80 hover:shadow-md
            active:scale-[0.98] transform;
   }
 
   /* ボタン - ゴースト */
   .btn-ghost {
-    @apply text-gray-300 px-4 py-2 rounded-xl
+    @apply text-muted-foreground px-4 py-2 rounded-xl
            transition-all duration-300 ease-out
-           hover:bg-white/10 hover:text-white
+           hover:bg-accent hover:text-accent-foreground
            active:scale-[0.98] transform;
   }
 
   /* ボタン - デンジャー */
   .btn-danger {
-    @apply bg-red-600/80 text-white px-5 py-2.5 rounded-xl
+    @apply bg-destructive text-white px-5 py-2.5 rounded-xl
            font-medium transition-all duration-300 ease-out
-           hover:bg-red-600 hover:shadow-lg hover:shadow-red-600/20
+           hover:bg-destructive/90 hover:shadow-lg
            active:scale-[0.98] transform;
   }
 
@@ -147,120 +168,132 @@ html {
 
   /* 入力フィールド */
   .input-field {
-    @apply w-full px-4 py-3 border border-[oklch(0.35_0_0)] rounded-xl
-           bg-[oklch(0.18_0_0)] text-white placeholder:text-gray-500
+    @apply w-full px-4 py-3 border border-input rounded-xl
+           bg-background text-foreground placeholder:text-muted-foreground
            transition-all duration-300 ease-out
-           hover:border-[oklch(0.45_0_0)]
-           focus:outline-none focus:border-[oklch(0.50_0_0)] focus:ring-4 focus:ring-white/5;
+           hover:border-ring
+           focus:outline-none focus:border-ring focus:ring-4 focus:ring-ring/10;
   }
 
   /* カード - ベース */
   .card {
-    @apply bg-[oklch(0.205_0_0)] rounded-2xl p-6
-           border border-[oklch(0.30_0_0)] shadow-lg shadow-black/20
+    @apply bg-card text-card-foreground rounded-2xl p-6
+           border border-border shadow-sm
            transition-all duration-300 ease-out;
   }
 
   /* カード - ホバー付き */
   .card-hover {
-    @apply card cursor-pointer
-           hover:shadow-xl hover:shadow-black/30
-           hover:border-[oklch(0.40_0_0)] hover:-translate-y-0.5;
+    @apply bg-card text-card-foreground rounded-2xl p-6
+           border border-border shadow-sm
+           transition-all duration-300 ease-out cursor-pointer
+           hover:shadow-md
+           hover:border-ring hover:-translate-y-0.5;
   }
 
   /* カード - インタラクティブ */
   .card-interactive {
-    @apply card cursor-pointer
-           hover:shadow-2xl hover:shadow-black/40
-           hover:border-[oklch(0.45_0_0)] hover:-translate-y-1
-           active:translate-y-0 active:shadow-lg;
+    @apply bg-card text-card-foreground rounded-2xl p-6
+           border border-border shadow-sm
+           transition-all duration-300 ease-out cursor-pointer
+           hover:shadow-lg
+           hover:border-ring hover:-translate-y-1
+           active:translate-y-0 active:shadow-sm;
   }
 
   /* 統計カード */
   .stat-card {
-    @apply bg-[oklch(0.205_0_0)] rounded-2xl p-5
-           border border-[oklch(0.30_0_0)] shadow-lg shadow-black/20
+    @apply bg-card text-card-foreground rounded-2xl p-5
+           border border-border shadow-sm
            transition-all duration-300 ease-out
-           hover:shadow-xl hover:border-[oklch(0.35_0_0)];
+           hover:shadow-md hover:border-ring;
   }
 
   /* グラスモーフィズム */
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10
-           shadow-lg shadow-black/20;
+    @apply bg-card/80 backdrop-blur-xl border border-border shadow-sm;
   }
 
   /* テーブルヘッダー */
   .table-header {
     @apply text-left text-xs font-semibold
-           text-gray-400 uppercase tracking-wider
-           bg-[oklch(0.18_0_0)] backdrop-blur-sm;
+           text-muted-foreground uppercase tracking-wider
+           bg-muted backdrop-blur-sm;
   }
 
   /* テーブルセル */
   .table-cell {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-300;
+    @apply px-6 py-4 whitespace-nowrap text-sm text-foreground;
   }
 
   /* テーブル行 */
   .table-row {
-    @apply border-b border-[oklch(0.25_0_0)]
+    @apply border-b border-border
            transition-colors duration-200
-           hover:bg-white/5;
+           hover:bg-muted/50;
   }
 
   /* ステータスバッジ - 合意 */
   .status-agree {
     @apply inline-flex items-center gap-1.5
-           bg-emerald-500/20 text-emerald-400 border border-emerald-500/30
+           bg-emerald-500/10 text-emerald-600 border border-emerald-500/20
            px-3 py-1.5 rounded-full text-xs font-semibold;
+  }
+  .dark .status-agree {
+    @apply bg-emerald-500/20 text-emerald-400 border-emerald-500/30;
   }
 
   /* ステータスバッジ - 不合意 */
   .status-disagree {
     @apply inline-flex items-center gap-1.5
-           bg-red-500/20 text-red-400 border border-red-500/30
+           bg-red-500/10 text-red-600 border border-red-500/20
            px-3 py-1.5 rounded-full text-xs font-semibold;
+  }
+  .dark .status-disagree {
+    @apply bg-red-500/20 text-red-400 border-red-500/30;
   }
 
   /* ステータスバッジ - 保留 */
   .status-pending {
     @apply inline-flex items-center gap-1.5
-           bg-yellow-500/20 text-yellow-400 border border-yellow-500/30
+           bg-yellow-500/10 text-yellow-600 border border-yellow-500/20
            px-3 py-1.5 rounded-full text-xs font-semibold;
+  }
+  .dark .status-pending {
+    @apply bg-yellow-500/20 text-yellow-400 border-yellow-500/30;
   }
 
   /* ステータスバッジ - キャンセル */
   .status-cancelled {
     @apply inline-flex items-center gap-1.5
-           bg-gray-500/20 text-gray-400 border border-gray-500/30
+           bg-muted text-muted-foreground border border-border
            px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   /* ステータスバッジ - 無視 */
   .status-ignored {
     @apply inline-flex items-center gap-1.5
-           bg-gray-600/20 text-gray-500 border border-gray-600/30
+           bg-muted text-muted-foreground border border-border
            px-3 py-1.5 rounded-full text-xs font-semibold;
   }
 
   /* ディバイダー */
   .divider {
-    @apply border-t border-[oklch(0.25_0_0)] my-6;
+    @apply border-t border-border my-6;
   }
 
   /* セクションタイトル */
   .section-title {
-    @apply text-lg font-semibold text-white mb-4
+    @apply text-lg font-semibold text-foreground mb-4
            flex items-center gap-2;
   }
 
   /* アバター */
   .avatar {
-    @apply w-10 h-10 rounded-full bg-[oklch(0.30_0_0)]
+    @apply w-10 h-10 rounded-full bg-muted
            flex items-center justify-center
-           text-gray-300 font-medium text-sm
-           border-2 border-[oklch(0.40_0_0)] shadow-sm;
+           text-muted-foreground font-medium text-sm
+           border-2 border-border shadow-sm;
   }
 
   /* チップ/タグ */
@@ -268,15 +301,15 @@ html {
     @apply inline-flex items-center gap-1
            px-2.5 py-1 rounded-lg
            text-xs font-medium
-           bg-white/10 text-gray-300
+           bg-muted text-muted-foreground
            transition-colors duration-200
-           hover:bg-white/20;
+           hover:bg-accent hover:text-accent-foreground;
   }
 
   /* ツールチップ */
   .tooltip {
     @apply absolute z-50 px-3 py-2 text-xs
-           bg-[oklch(0.25_0_0)] text-white rounded-lg border border-[oklch(0.35_0_0)]
+           bg-popover text-popover-foreground rounded-lg border border-border
            shadow-lg opacity-0 invisible
            transition-all duration-200
            group-hover:opacity-100 group-hover:visible;
@@ -284,43 +317,41 @@ html {
 
   /* プログレスバー */
   .progress-bar {
-    @apply h-2 rounded-full bg-[oklch(0.25_0_0)] overflow-hidden;
+    @apply h-2 rounded-full bg-muted overflow-hidden;
   }
 
   .progress-bar-fill {
-    @apply h-full rounded-full bg-white
+    @apply h-full rounded-full bg-primary
            transition-all duration-500 ease-out;
   }
 
   /* ローディングスケルトン */
   .skeleton {
-    @apply bg-gradient-to-r from-[oklch(0.25_0_0)] via-[oklch(0.30_0_0)] to-[oklch(0.25_0_0)]
-           bg-[length:200%_100%] animate-[shimmer_2s_infinite]
-           rounded-lg;
+    @apply bg-muted animate-pulse rounded-lg;
   }
 
   /* アイコンボタン */
   .icon-btn {
-    @apply p-2 rounded-xl text-gray-400
+    @apply p-2 rounded-xl text-muted-foreground
            transition-all duration-200
-           hover:bg-white/10 hover:text-white
+           hover:bg-accent hover:text-accent-foreground
            active:scale-95;
   }
 
   /* 数値ハイライト */
   .number-highlight {
-    @apply font-semibold tabular-nums tracking-tight text-white;
+    @apply font-semibold tabular-nums tracking-tight text-foreground;
   }
 
   /* サイドバーリンク */
   .sidebar-link {
     @apply flex items-center gap-3 px-4 py-3 rounded-xl
-           text-gray-400 transition-all duration-200
-           hover:bg-white/10 hover:text-white;
+           text-muted-foreground transition-all duration-200
+           hover:bg-accent hover:text-accent-foreground;
   }
 
   .sidebar-link-active {
-    @apply bg-white/10 text-white;
+    @apply bg-primary text-primary-foreground shadow-md;
   }
 }
 
@@ -403,19 +434,6 @@ html {
   animation: bounce-subtle 2s ease-in-out infinite;
 }
 
-/* 入力フィールドの文字色（ダークテーマ固定） */
-input,
-select,
-textarea {
-  color: white !important;
-  background-color: oklch(0.18 0 0) !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: oklch(0.50 0 0) !important;
-}
-
 /* Safe area for iOS devices */
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0);
@@ -458,144 +476,21 @@ textarea::placeholder {
 
 /* フォーカストラップ */
 .focus-trap:focus-within {
-  @apply ring-2 ring-white/20 ring-offset-2 ring-offset-[oklch(0.145_0_0)];
+  @apply ring-2 ring-ring/30 ring-offset-2 ring-offset-background;
 }
 
 /* Rechartsカスタマイズ */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: oklch(0.25 0 0);
+  stroke: var(--color-border);
 }
 
 .recharts-text {
-  fill: oklch(0.60 0 0);
+  fill: var(--color-muted-foreground);
 }
 
 .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: oklch(0.22 0 0) !important;
-  border: 1px solid oklch(0.35 0 0) !important;
+  background-color: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
   border-radius: 0.75rem !important;
-}
-
-/* ライトモード */
-html.light-mode {
-  --color-background: oklch(0.98 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.92 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.92 0 0);
-  --color-muted-foreground: oklch(0.45 0 0);
-  --color-accent: oklch(0.92 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --color-border: oklch(0.88 0 0);
-  --color-input: oklch(0.88 0 0);
-  --color-ring: oklch(0.70 0 0);
-}
-
-html.light-mode body {
-  background-color: oklch(0.97 0 0);
-  color: oklch(0.145 0 0);
-}
-
-html.light-mode ::-webkit-scrollbar-thumb {
-  background: oklch(0.75 0 0);
-}
-
-html.light-mode ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.65 0 0);
-}
-
-html.light-mode ::selection {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-@layer base {
-  html.light-mode * {
-    border-color: oklch(0.88 0 0);
-  }
-
-  html.light-mode *:focus-visible {
-    @apply ring-black/20 ring-offset-white;
-  }
-}
-
-/* ライトモード用コンポーネント */
-html.light-mode .card {
-  @apply bg-white border-gray-200 shadow-sm;
-}
-
-html.light-mode .stat-card {
-  @apply bg-white border-gray-200 shadow-sm;
-}
-
-html.light-mode .input-field {
-  @apply bg-white border-gray-300 text-gray-900 placeholder:text-gray-400;
-}
-
-html.light-mode input,
-html.light-mode select,
-html.light-mode textarea {
-  color: oklch(0.145 0 0) !important;
-  background-color: white !important;
-}
-
-html.light-mode input::placeholder,
-html.light-mode textarea::placeholder {
-  color: oklch(0.55 0 0) !important;
-}
-
-html.light-mode .btn-primary {
-  @apply bg-gray-900 text-white hover:bg-gray-800;
-}
-
-html.light-mode .btn-secondary {
-  @apply bg-gray-100 text-gray-900 border-gray-300 hover:bg-gray-200;
-}
-
-html.light-mode .btn-ghost {
-  @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
-}
-
-html.light-mode .table-header {
-  @apply bg-gray-50 text-gray-600;
-}
-
-html.light-mode .table-cell {
-  @apply text-gray-700;
-}
-
-html.light-mode .table-row {
-  @apply border-gray-200 hover:bg-gray-50;
-}
-
-html.light-mode .glass {
-  @apply bg-white/80 border-gray-200;
-}
-
-html.light-mode .sidebar-link {
-  @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
-}
-
-html.light-mode .sidebar-link-active {
-  @apply bg-gray-100 text-gray-900;
-}
-
-html.light-mode .recharts-cartesian-grid-horizontal line,
-html.light-mode .recharts-cartesian-grid-vertical line {
-  stroke: oklch(0.90 0 0);
-}
-
-html.light-mode .recharts-text {
-  fill: oklch(0.45 0 0);
-}
-
-html.light-mode .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: white !important;
-  border: 1px solid oklch(0.88 0 0) !important;
 }

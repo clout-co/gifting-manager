@@ -18,9 +18,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary: 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg shadow-primary-500/30 focus:ring-primary-500',
-      secondary: 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
+      secondary: 'bg-white border border-border text-foreground hover:bg-muted focus:ring-gray-500',
       danger: 'bg-red-500 hover:bg-red-600 text-white focus:ring-red-500',
-      ghost: 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+      ghost: 'text-muted-foreground hover:text-foreground hover:bg-muted focus:ring-gray-500',
     };
 
     const sizes = {
@@ -65,14 +65,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
+          <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
             {label}
             {props.required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {leftIcon}
             </div>
           )}
@@ -84,7 +84,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none
               ${leftIcon ? 'pl-10' : ''}
               ${rightIcon ? 'pr-10' : ''}
-              ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200'}
+              ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-border'}
               ${className}
             `}
             aria-invalid={error ? 'true' : 'false'}
@@ -92,13 +92,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {rightIcon}
             </div>
           )}
         </div>
         {hint && !error && (
-          <p id={hintId} className="text-xs text-gray-500">
+          <p id={hintId} className="text-xs text-muted-foreground">
             {hint}
           </p>
         )}
@@ -133,7 +133,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="space-y-1">
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-gray-700">
+          <label htmlFor={selectId} className="block text-sm font-medium text-foreground">
             {label}
             {props.required && <span className="text-red-500 ml-1">*</span>}
           </label>
@@ -144,7 +144,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           className={`
             w-full px-4 py-2.5 border rounded-xl transition-all
             focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none
-            ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200'}
+            ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-border'}
             ${className}
           `}
           aria-invalid={error ? 'true' : 'false'}
@@ -163,7 +163,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {hint && !error && (
-          <p id={hintId} className="text-xs text-gray-500">
+          <p id={hintId} className="text-xs text-muted-foreground">
             {hint}
           </p>
         )}
@@ -212,12 +212,12 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         role="document"
       >
         <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b z-10">
-          <h2 id="modal-title" className="text-xl font-bold text-gray-900">
+          <h2 id="modal-title" className="text-xl font-bold text-foreground">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-muted rounded-lg transition-colors"
             aria-label="閉じる"
           >
             <span aria-hidden="true">×</span>
@@ -296,13 +296,13 @@ export function LoadingState({ message = '読み込み中...', fullScreen }: Loa
   const content = (
     <div className="flex flex-col items-center justify-center" role="status" aria-live="polite">
       <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-      <p className="mt-3 text-gray-600">{message}</p>
+      <p className="mt-3 text-muted-foreground">{message}</p>
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         {content}
       </div>
     );
@@ -323,9 +323,9 @@ interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
     <div className="text-center py-12">
-      {icon && <div className="mx-auto mb-4 text-gray-400">{icon}</div>}
-      <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-      {description && <p className="mt-2 text-gray-500">{description}</p>}
+      {icon && <div className="mx-auto mb-4 text-muted-foreground">{icon}</div>}
+      <h3 className="text-lg font-medium text-foreground">{title}</h3>
+      {description && <p className="mt-2 text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

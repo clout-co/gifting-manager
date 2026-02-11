@@ -1,19 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { usePathname } from 'next/navigation';
+import { cloutLogout } from '@/lib/clout-auth';
 
 // セッションリセットのバージョン - この値を変更すると全員再ログインになる
 const SESSION_VERSION = '2026-02-02-v3';
 const SESSION_VERSION_KEY = 'gifting_session_version';
 
+const IS_E2E =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_E2E === 'true';
+
 export default function ForceRelogin({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    if (IS_E2E) {
+      setChecked(true);
+      return;
+    }
+
     const checkSessionVersion = async () => {
       // 認証ページは除外
       if (pathname === '/auth') {
@@ -28,15 +36,15 @@ export default function ForceRelogin({ children }: { children: React.ReactNode }
         // ブランド選択をクリア（BrandContextで使用しているキー）
         localStorage.removeItem('selectedBrand');
         localStorage.removeItem('brandSelected');
-
-        // Supabaseからログアウト
-        await supabase.auth.signOut();
+        // User-scoped caches (avoid stale permission/brand filters after forced relogin)
+        localStorage.removeItem('clout_allowed_brands_cache');
+        localStorage.removeItem('clout_allowed_brands_cache_expiry');
 
         // 新しいバージョンを保存
         localStorage.setItem(SESSION_VERSION_KEY, SESSION_VERSION);
 
-        // 認証ページへリダイレクト
-        router.push('/auth');
+        // Clout SSOログアウト（Clout Dashboardへリダイレクト）
+        cloutLogout();
         return;
       }
 
@@ -44,15 +52,15 @@ export default function ForceRelogin({ children }: { children: React.ReactNode }
     };
 
     checkSessionVersion();
-  }, [pathname, router]);
+  }, [pathname]);
 
   // チェック中は何も表示しない（ちらつき防止）
   if (!checked && pathname !== '/auth') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin mx-auto" />
-          <p className="mt-4 text-gray-500 text-sm">読み込み中...</p>
+          <div className="w-8 h-8 border-4 border-border border-t-gray-800 rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-muted-foreground text-sm">読み込み中...</p>
         </div>
       </div>
     );

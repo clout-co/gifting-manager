@@ -15,16 +15,16 @@ export default function AccessDenied({
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center border border-gray-100">
-        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <ShieldOff className="text-gray-400" size={40} />
+        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+          <ShieldOff className="text-muted-foreground" size={40} />
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">{title}</h1>
-        <p className="text-gray-500 mb-8">{message}</p>
+        <h1 className="text-2xl font-bold text-foreground mb-3">{title}</h1>
+        <p className="text-muted-foreground mb-8">{message}</p>
 
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl hover:bg-gray-800 transition-colors"
         >
           <ArrowLeft size={18} />
           ダッシュボードに戻る

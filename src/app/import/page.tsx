@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ImportRow } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,7 +24,6 @@ import {
   Globe,
   Plane,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 // ヘッダーマッピングの候補（複数パターンに対応）
 // 注意: 完全一致を優先するため、より具体的なパターンを先に配置
@@ -109,6 +107,79 @@ export default function ImportPage() {
     errors: string[];
   }[]>([]);
 
+  // インポート進捗の自動保存（F5でカラムマッピングを復帰）
+  const STORAGE_KEY = `ggcrm_import_${currentBrand}`;
+
+  const saveProgress = useCallback(() => {
+    if (Object.keys(columnMapping).length === 0) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        columnMapping,
+        detectedHeaders,
+        showMapping,
+        skipDuplicates,
+        defaultInternationalShipping,
+        showInternationalSettings,
+        fileName: file?.name || null,
+        savedAt: Date.now(),
+      }));
+    } catch {
+      // sessionStorage full or unavailable
+    }
+  }, [STORAGE_KEY, columnMapping, detectedHeaders, showMapping, skipDuplicates, defaultInternationalShipping, showInternationalSettings, file]);
+
+  // カラムマッピングが変更されたら自動保存
+  useEffect(() => {
+    if (Object.keys(columnMapping).length > 0) {
+      saveProgress();
+    }
+  }, [columnMapping, saveProgress]);
+
+  // マウント時に前回の設定を復帰提案
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
+  const [savedFileName, setSavedFileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // 1時間以内の保存データのみ復帰対象
+        if (parsed.savedAt && Date.now() - parsed.savedAt < 60 * 60 * 1000) {
+          setHasSavedProgress(true);
+          setSavedFileName(parsed.fileName || null);
+        } else {
+          sessionStorage.removeItem(STORAGE_KEY);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [STORAGE_KEY]);
+
+  const restoreProgress = useCallback(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (parsed.columnMapping) setColumnMapping(parsed.columnMapping);
+      if (parsed.detectedHeaders) setDetectedHeaders(parsed.detectedHeaders);
+      if (parsed.showMapping !== undefined) setShowMapping(parsed.showMapping);
+      if (parsed.skipDuplicates !== undefined) setSkipDuplicates(parsed.skipDuplicates);
+      if (parsed.defaultInternationalShipping) setDefaultInternationalShipping(parsed.defaultInternationalShipping);
+      if (parsed.showInternationalSettings !== undefined) setShowInternationalSettings(parsed.showInternationalSettings);
+      setHasSavedProgress(false);
+      showToast('success', 'カラムマッピング設定を復帰しました。ファイルを再選択してください。');
+    } catch {
+      // ignore
+    }
+  }, [STORAGE_KEY, showToast]);
+
+  const dismissSavedProgress = useCallback(() => {
+    sessionStorage.removeItem(STORAGE_KEY);
+    setHasSavedProgress(false);
+  }, [STORAGE_KEY]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -165,8 +236,10 @@ export default function ImportPage() {
   const readExcelFileRaw = (file: File): Promise<{ headers: string[]; data: ExcelCellValue[][] }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          // Lazy-load xlsx to keep initial page load fast.
+          const XLSX = await import('xlsx');
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellText: false });
           const sheetName = workbook.SheetNames[0];
@@ -408,7 +481,7 @@ export default function ImportPage() {
   const checkDuplicates = async (data: ImportRow[]) => {
     setCheckingDuplicates(true);
     const inFileDuplicates: { row1: number; row2: number; name: string }[] = [];
-    const inDbDuplicates: { row: number; name: string; existingCampaigns: number }[] = [];
+    let inDbDuplicates: { row: number; name: string; existingCampaigns: number }[] = [];
 
     // 1. ファイル内の重複チェック（同じインフルエンサー名 + 同じ品番）
     const seen = new Map<string, number>();
@@ -425,46 +498,28 @@ export default function ImportPage() {
       }
     });
 
-    // 2. データベースとの重複チェック
+    // 2. データベースとの重複チェック（BFF API経由）
     try {
-      // ユニークなインフルエンサー名を抽出
-      const uniqueNames = Array.from(new Set(data.map(row => row.insta_name || row.tiktok_name).filter(Boolean)));
+      const rows = data.map((row) => ({
+        insta_name: row.insta_name || '',
+        tiktok_name: row.tiktok_name || '',
+        item_code: row.item_code || '',
+      }));
 
-      for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        const name = row.insta_name || row.tiktok_name;
-        if (!name) continue;
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check-duplicates',
+          brand: currentBrand,
+          rows,
+        }),
+        cache: 'no-store',
+      });
 
-        // インフルエンサーを検索（ブランド内で検索、brandカラムがない場合はフォールバック）
-        let influencerRes = row.insta_name
-          ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).eq('brand', currentBrand).single()
-          : await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).eq('brand', currentBrand).single();
-
-        // brandカラムがない場合のフォールバック
-        if (influencerRes.error && influencerRes.error.message.includes('brand')) {
-          influencerRes = row.insta_name
-            ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).single()
-            : await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).single();
-        }
-        const influencer = influencerRes.data;
-
-        if (influencer) {
-          // 同じブランド、同じ品番の既存案件をチェック
-          const { count } = await supabase
-            .from('campaigns')
-            .select('id', { count: 'exact', head: true })
-            .eq('influencer_id', influencer.id)
-            .eq('brand', currentBrand)
-            .eq('item_code', row.item_code || '');
-
-          if (count && count > 0) {
-            inDbDuplicates.push({
-              row: i + 1,
-              name: name,
-              existingCampaigns: count,
-            });
-          }
-        }
+      if (res.ok) {
+        const json = await res.json();
+        inDbDuplicates = json.duplicates || [];
       }
     } catch {
       // 重複チェックに失敗しても続行
@@ -481,6 +536,11 @@ export default function ImportPage() {
     data.forEach((row, index) => {
       const rowErrors: string[] = [];
       const name = row.insta_name || row.tiktok_name || '不明';
+
+      // 品番チェック（原価は Product Master に追従するため、品番が無いと保存できない）
+      if (!row.item_code || !String(row.item_code).trim()) {
+        rowErrors.push('品番が未入力');
+      }
 
       // 枚数チェック
       if (!row.item_quantity || row.item_quantity <= 0) {
@@ -558,84 +618,76 @@ export default function ImportPage() {
       }
 
       try {
-        // インフルエンサーを検索または作成
-        // Instagram名またはTikTok名で検索（ブランド内で検索、brandカラムがない場合はフォールバック）
-        let influencerSearchRes = row.insta_name
-          ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).eq('brand', currentBrand).single()
-          : row.tiktok_name
-          ? await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).eq('brand', currentBrand).single()
-          : { data: null, error: null };
+        // インフルエンサーを検索または作成（BFF API経由）
+        const findRes = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'find-or-create-influencer',
+            brand: currentBrand,
+            insta_name: row.insta_name || null,
+            insta_url: row.insta_url || null,
+            tiktok_name: row.tiktok_name || null,
+            tiktok_url: row.tiktok_url || null,
+          }),
+          cache: 'no-store',
+        });
 
-        // brandカラムがない場合のフォールバック
-        if (influencerSearchRes.error && influencerSearchRes.error.message.includes('brand')) {
-          influencerSearchRes = row.insta_name
-            ? await supabase.from('influencers').select('id').eq('insta_name', row.insta_name).single()
-            : row.tiktok_name
-            ? await supabase.from('influencers').select('id').eq('tiktok_name', row.tiktok_name).single()
-            : { data: null, error: null };
+        const findData = await findRes.json().catch(() => null);
+        if (!findRes.ok || !findData?.influencer?.id) {
+          const msg = findData?.error || `インフルエンサー検索/作成エラー (${findRes.status})`;
+          throw new Error(msg);
         }
 
-        let influencer = influencerSearchRes.data;
-
-        if (!influencer) {
-          const { data: newInfluencer, error: createError } = await supabase
-            .from('influencers')
-            .insert([
-              {
-                insta_name: row.insta_name || null,
-                insta_url: row.insta_url || null,
-                tiktok_name: row.tiktok_name || null,
-                tiktok_url: row.tiktok_url || null,
-                brand: currentBrand, // 現在のブランドに紐付け
-              },
-            ])
-            .select()
-            .single();
-
-          if (createError) {
-            throw new Error(`インフルエンサー作成エラー: ${createError.message}`);
-          }
-          influencer = newInfluencer;
-        }
+        const influencer = findData.influencer;
 
         // 海外発送設定を適用（BEブランドの場合）
         const isInternational = currentBrand === 'BE' && defaultInternationalShipping.enabled;
 
         // 案件を作成
-        const { error: campaignError } = await supabase
-          .from('campaigns')
-          .insert([
-            {
-              influencer_id: influencer!.id,
-              brand: currentBrand, // 常に現在選択中のブランドを使用
-              item_code: row.item_code || null,
-              item_quantity: row.item_quantity || 1,
-              sale_date: row.sale_date || null,
-              desired_post_date: row.desired_post_date || null,
-              agreed_date: row.agreed_date || null,
-              offered_amount: row.offered_amount || 0,
-              agreed_amount: row.agreed_amount || 0,
-              status: row.status || 'pending',
-              post_status: row.post_status || null,
-              post_date: row.post_date || null,
-              post_url: row.post_url || null,
-              likes: row.likes || 0,
-              comments: row.comments || 0,
-              consideration_comment: row.consideration_comment || 0,
-              engagement_date: row.engagement_date || null,
-              number_of_times: row.number_of_times || 1,
-              product_cost: row.product_cost || 800,
-              // 海外発送設定（通貨は不要）
-              is_international_shipping: isInternational,
-              shipping_country: isInternational ? (row.shipping_country || defaultInternationalShipping.country) : null,
-              international_shipping_cost: isInternational ? (row.international_shipping_cost || defaultInternationalShipping.cost) : null,
-              notes: row.notes || null,
-              created_by: user?.id,
-            },
-          ]);
+        const response = await fetch('/api/campaigns', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            influencer_id: influencer.id,
+            brand: currentBrand,
+            item_code: row.item_code || null,
+            item_quantity: row.item_quantity || 1,
+            sale_date: row.sale_date || null,
+            desired_post_date: row.desired_post_date || null,
+            desired_post_start: row.desired_post_start || null,
+            desired_post_end: row.desired_post_end || null,
+            agreed_date: row.agreed_date || null,
+            offered_amount: row.offered_amount || 0,
+            agreed_amount: row.agreed_amount || 0,
+            status: row.status || 'pending',
+            post_date: row.post_date || null,
+            post_url: row.post_url || null,
+            likes: row.likes || 0,
+            comments: row.comments || 0,
+            consideration_comment: row.consideration_comment || 0,
+            engagement_date: row.engagement_date || null,
+            number_of_times: row.number_of_times || 1,
+            // NOTE: product_cost is enforced server-side to match Product Master.
+            product_cost: row.product_cost || 0,
+            shipping_cost: 800,
+            is_international_shipping: isInternational,
+            shipping_country: isInternational ? (row.shipping_country || defaultInternationalShipping.country) : null,
+            international_shipping_cost: isInternational ? (row.international_shipping_cost || defaultInternationalShipping.cost) : null,
+            notes: row.notes || null,
+          }),
+          cache: 'no-store',
+        });
 
-        if (campaignError) {
-          throw new Error(`案件作成エラー: ${campaignError.message}`);
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          const msg = data && typeof data.error === 'string'
+            ? data.error
+            : `案件作成エラー (${response.status})`;
+          const reason = data && typeof data.reason === 'string' ? data.reason : '';
+          throw new Error(reason ? `${msg} (${reason})` : msg);
         }
 
         success++;
@@ -652,6 +704,9 @@ export default function ImportPage() {
 
     setResult({ success, failed, skipped, errors });
     setImporting(false);
+
+    // インポート完了後は保存データをクリア
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
 
     if (success > 0 && failed === 0) {
       const skipMsg = skipped > 0 ? `（${skipped}件スキップ）` : '';
@@ -739,8 +794,8 @@ export default function ImportPage() {
               <Upload className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">データインポート</h1>
-              <p className="text-gray-500 mt-0.5">Excel/CSVファイルから自動でデータを取り込み</p>
+              <h1 className="text-2xl font-bold text-foreground">データインポート</h1>
+              <p className="text-muted-foreground mt-0.5">Excel/CSVファイルから自動でデータを取り込み</p>
             </div>
           </div>
           <button
@@ -770,11 +825,46 @@ export default function ImportPage() {
           </div>
         </div>
 
+        {/* 前回の設定復帰バナー */}
+        {hasSavedProgress && !file && (
+          <div className="card border-l-4 border-l-blue-500 bg-blue-50">
+            <div className="flex items-center justify-between gap-4 p-4">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="text-blue-600 shrink-0" size={20} />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    前回のカラムマッピング設定があります
+                  </p>
+                  {savedFileName && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ファイル: {savedFileName}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={restoreProgress}
+                  className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  復帰する
+                </button>
+                <button
+                  onClick={dismissSavedProgress}
+                  className="px-3 py-1.5 text-xs font-medium bg-muted text-foreground rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  破棄
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* アップロードエリア */}
         <div className="card">
           <div
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-              file ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
+              file ? 'border-primary-300 bg-primary-50' : 'border-border hover:border-primary-400'
             }`}
           >
             <input
@@ -791,14 +881,14 @@ export default function ImportPage() {
                 <div className="flex items-center justify-center gap-3">
                   <FileSpreadsheet className="text-primary-600" size={48} />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">{file.name}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-foreground">{file.name}</p>
+                    <p className="text-sm text-muted-foreground">
                       {(file.size / 1024).toFixed(1)} KB | {allData.length}件のデータ
                     </p>
                   </div>
                   <button
                     onClick={handleClear}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
+                    className="p-2 hover:bg-muted rounded-lg"
                   >
                     <X size={20} />
                   </button>
@@ -806,15 +896,15 @@ export default function ImportPage() {
               </div>
             ) : (
               <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="mx-auto text-gray-400" size={48} />
-                <p className="mt-4 text-lg font-medium text-gray-700">
+                <Upload className="mx-auto text-muted-foreground" size={48} />
+                <p className="mt-4 text-lg font-medium text-foreground">
                   ファイルをドラッグ&ドロップ
                 </p>
-                <p className="text-gray-500">または</p>
+                <p className="text-muted-foreground">または</p>
                 <span className="mt-2 inline-block btn-primary">
                   ファイルを選択
                 </span>
-                <p className="mt-4 text-sm text-gray-400">
+                <p className="mt-4 text-sm text-muted-foreground">
                   対応形式: .xlsx, .xls, .csv
                 </p>
               </label>
@@ -1008,7 +1098,7 @@ export default function ImportPage() {
         {file && showMapping && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="font-bold text-foreground flex items-center gap-2">
                 <Settings size={20} className="text-primary-500" />
                 カラムマッピング設定
               </h3>
@@ -1020,14 +1110,14 @@ export default function ImportPage() {
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               自動検出されたマッピングを確認・修正してください。<span className="text-red-500">*</span>は必須項目です。
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(fieldLabels).map(([field, label]) => (
                 <div key={field} className={`${field === 'insta_name' && !columnMapping[field] ? 'ring-2 ring-red-300 rounded-lg p-2' : ''}`}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {label}
                   </label>
                   <select
@@ -1061,7 +1151,7 @@ export default function ImportPage() {
         {previewData.length > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900">
+              <h3 className="font-bold text-foreground">
                 プレビュー（{previewData.length}/{allData.length}件表示）
               </h3>
               {file && !showMapping && (
@@ -1090,7 +1180,7 @@ export default function ImportPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {previewData.map((row, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
+                    <tr key={index} className="hover:bg-muted">
                       <td className="px-3 py-2 font-medium">@{row.insta_name || row.tiktok_name || '不明'}</td>
                       <td className="px-3 py-2">{row.brand || '-'}</td>
                       <td className="px-3 py-2">{row.item_code || '-'}</td>
@@ -1104,7 +1194,7 @@ export default function ImportPage() {
                         <span className={`px-2 py-0.5 rounded-full text-xs ${
                           row.status === 'agree' ? 'bg-green-100 text-green-700' :
                           row.status === 'disagree' ? 'bg-red-100 text-red-700' :
-                          row.status === 'cancelled' ? 'bg-gray-100 text-gray-700' :
+                          row.status === 'cancelled' ? 'bg-muted text-foreground' :
                           'bg-amber-100 text-amber-700'
                         }`}>
                           {row.status === 'agree' ? '合意' :
@@ -1168,13 +1258,13 @@ export default function ImportPage() {
         {/* 結果 */}
         {result && (
           <div className="card">
-            <h3 className="font-bold text-gray-900 mb-4">インポート結果</h3>
+            <h3 className="font-bold text-foreground mb-4">インポート結果</h3>
 
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
                 <Check className="text-green-600" size={24} />
                 <div>
-                  <p className="text-sm text-gray-500">成功</p>
+                  <p className="text-sm text-muted-foreground">成功</p>
                   <p className="text-2xl font-bold text-green-600">
                     {result.success}件
                   </p>
@@ -1183,7 +1273,7 @@ export default function ImportPage() {
               <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl">
                 <AlertCircle className="text-red-600" size={24} />
                 <div>
-                  <p className="text-sm text-gray-500">失敗</p>
+                  <p className="text-sm text-muted-foreground">失敗</p>
                   <p className="text-2xl font-bold text-red-600">
                     {result.failed}件
                   </p>
@@ -1193,7 +1283,7 @@ export default function ImportPage() {
                 <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl">
                   <AlertTriangle className="text-amber-600" size={24} />
                   <div>
-                    <p className="text-sm text-gray-500">スキップ（重複）</p>
+                    <p className="text-sm text-muted-foreground">スキップ（重複）</p>
                     <p className="text-2xl font-bold text-amber-600">
                       {result.skipped}件
                     </p>

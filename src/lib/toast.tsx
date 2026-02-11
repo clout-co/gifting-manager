@@ -71,24 +71,24 @@ function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   // グレースケールで統一されたスタイル
   const icons = {
-    success: <CheckCircle className="text-gray-700" size={20} />,
-    error: <XCircle className="text-gray-600" size={20} />,
-    warning: <AlertTriangle className="text-gray-500" size={20} />,
-    info: <Info className="text-gray-500" size={20} />,
+    success: <CheckCircle className="text-foreground" size={20} />,
+    error: <XCircle className="text-muted-foreground" size={20} />,
+    warning: <AlertTriangle className="text-muted-foreground" size={20} />,
+    info: <Info className="text-muted-foreground" size={20} />,
   };
 
   const backgrounds = {
     success: 'bg-gray-800 border-gray-700',
-    error: 'bg-gray-100 border-gray-300',
-    warning: 'bg-gray-50 border-gray-200',
-    info: 'bg-white border-gray-200',
+    error: 'bg-muted border-border',
+    warning: 'bg-muted border-border',
+    info: 'bg-white border-border',
   };
 
   const textColors = {
     success: 'text-white',
     error: 'text-gray-800',
-    warning: 'text-gray-700',
-    info: 'text-gray-700',
+    warning: 'text-foreground',
+    info: 'text-foreground',
   };
 
   return (
@@ -103,7 +103,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
         onClick={onClose}
         className="p-1 hover:bg-white/50 rounded-lg transition-colors"
       >
-        <X size={16} className="text-gray-500" />
+        <X size={16} className="text-muted-foreground" />
       </button>
     </div>
   );
@@ -111,8 +111,44 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
 // エラーメッセージを日本語に変換するユーティリティ
 export function translateError(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
+  const extractMessage = (err: unknown): string => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    if (err && typeof err === 'object') {
+      const anyErr = err as Record<string, unknown>;
+      if (typeof anyErr.message === 'string') return anyErr.message;
+      if (typeof anyErr.error === 'string') {
+        const reason = typeof anyErr.reason === 'string' ? anyErr.reason : '';
+        return reason ? `${anyErr.error} (${reason})` : anyErr.error;
+      }
+    }
+    return '';
+  };
+
+  const messageRaw = extractMessage(error);
+  const message = messageRaw.toLowerCase();
+
+  if (messageRaw) {
+
+    // Clout SSO / proxy errors
+    if (
+      message.includes('auth_failed') ||
+      message.includes('invalid_or_expired_token') ||
+      message.includes('not authenticated') ||
+      // Some upstreams only surface generic "token" errors (e.g., invalid JWT).
+      message.includes('invalid token') ||
+      message.includes('expired token') ||
+      message.includes('jwt') ||
+      message.includes('token')
+    ) {
+      return '認証が切れています（再ログインしてください）';
+    }
+    if (message.includes('inactive_user')) {
+      return 'アカウントが無効です（管理者に連絡してください）';
+    }
+    if (message.includes('no_app_permission')) {
+      return 'このアプリの権限がありません（管理者に連絡してください）';
+    }
 
     // Supabase Auth エラー
     if (message.includes('invalid login credentials')) {
@@ -154,11 +190,7 @@ export function translateError(error: unknown): string {
     }
 
     // その他
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
+    return messageRaw;
   }
 
   return 'エラーが発生しました';

@@ -1,8 +1,9 @@
-const CACHE_NAME = 'gifting-manager-v1';
+// NOTE:
+// - SSO運用ではHTMLページをキャッシュすると認証状態/リダイレクトが壊れる。
+// - 特に `/auth` がキャッシュされると、旧ログイン画面が残骸として出続ける。
+// -> 静的アセットのみキャッシュし、ページ（document）はキャッシュしない。
+const CACHE_NAME = 'gifting-manager-v2-20260206';
 const urlsToCache = [
-  '/',
-  '/dashboard',
-  '/auth',
   '/manifest.json',
 ];
 
@@ -40,10 +41,33 @@ self.addEventListener('activate', (event) => {
 
 // ネットワークリクエストの処理
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
   // API リクエストはキャッシュしない
   if (event.request.url.includes('/api/') ||
       event.request.url.includes('supabase.co') ||
       event.request.method !== 'GET') {
+    return;
+  }
+
+  // 認証系ページは絶対にキャッシュしない
+  if (url.pathname === '/auth' || url.pathname.startsWith('/auth/')) {
+    return;
+  }
+
+  // HTML（ページ遷移）はキャッシュしない（SSOのリダイレクト/権限が壊れるため）
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    return;
+  }
+
+  // 静的アセットのみキャッシュ対象にする
+  const isStaticAsset =
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.json' ||
+    /\.(png|jpg|jpeg|gif|webp|svg|ico|css|js|map|woff2?)$/i.test(url.pathname);
+
+  if (!isStaticAsset) {
     return;
   }
 

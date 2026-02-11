@@ -81,7 +81,7 @@ export function getPostStatusColor(status: string): { bg: string; text: string }
     return { bg: 'bg-amber-100', text: 'text-amber-700' };
   }
   if (status.includes('以内')) {
-    return { bg: 'bg-gray-100', text: 'text-gray-700' };
+    return { bg: 'bg-muted', text: 'text-foreground' };
   }
-  return { bg: 'bg-gray-100', text: 'text-gray-500' };
+  return { bg: 'bg-muted', text: 'text-muted-foreground' };
 }

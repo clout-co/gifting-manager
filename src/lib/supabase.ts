@@ -1,33 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-// Environment variable validation
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+const supabaseAnonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+const hasEnv = Boolean(supabaseUrl && supabaseAnonKey)
 
-if (!supabaseUrl) {
-  throw new Error(
-    'Missing environment variable: NEXT_PUBLIC_SUPABASE_URL\n' +
-    'Please set this in your .env.local file'
-  );
+if (!hasEnv) {
+  // Preview env parity: do not crash at module-eval time. Fail only when used.
+  console.warn('Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-if (!supabaseAnonKey) {
+function missingEnvFetch(): Promise<Response> {
   throw new Error(
-    'Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY\n' +
-    'Please set this in your .env.local file'
-  );
+    'Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY). ' +
+    'Set them for Vercel Preview/Production, or in .env.local for local dev.'
+  )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const clientOptions: Parameters<typeof createClient>[2] = hasEnv
+  ? undefined
+  : {
+      global: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetch: missingEnvFetch as any,
+      },
+    }
+
+export const supabase = createClient(
+  hasEnv ? supabaseUrl : 'https://example.supabase.co',
+  hasEnv ? supabaseAnonKey : 'invalid-anon-key',
+  clientOptions
+)
 
 // サーバーサイド用
 export const createServerClient = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+  const key = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
 
   if (!url || !key) {
-    throw new Error('Missing Supabase environment variables');
+    throw new Error('Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
-  return createClient(url, key);
+  return createClient(url, key)
 };

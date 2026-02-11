@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
@@ -10,6 +11,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import LoadingSpinner, { TableSkeleton } from '@/components/ui/LoadingSpinner';
 import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import EmptyState from '@/components/ui/EmptyState';
+import dynamic from 'next/dynamic';
 import {
   Plus,
   Search,
@@ -29,10 +31,23 @@ import {
   MapPin,
   FileText,
 } from 'lucide-react';
-import CampaignModal from '@/components/forms/CampaignModal';
 import { useBrand } from '@/contexts/BrandContext';
 import { useCampaigns, useInfluencers, useDeleteCampaign } from '@/hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
+
+const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center gap-3 text-foreground">
+          <Loader2 className="animate-spin" size={18} />
+          <span className="text-sm">フォームを読み込み中...</span>
+        </div>
+      </div>
+    </div>
+  ),
+});
 
 export default function CampaignsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -40,6 +55,9 @@ export default function CampaignsPage() {
   const { confirm } = useConfirm();
   const { currentBrand } = useBrand();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // React Query hooks
   const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch } = useCampaigns();
@@ -51,10 +69,47 @@ export default function CampaignsPage() {
   const loading = campaignsLoading;
   const error = campaignsError ? translateError(campaignsError) : null;
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Initialize filters from URL params
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') || 'all');
+
+  // Sync filter state to URL (debounced for search)
+  const updateUrlParams = useCallback((q: string, status: string) => {
+    const params = new URLSearchParams();
+    if (q.trim()) params.set('q', q.trim());
+    if (status && status !== 'all') params.set('status', status);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router]);
+
+  // Debounce search term URL update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateUrlParams(searchTerm, statusFilter);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter, updateUrlParams]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+
+  const [opsFilters, setOpsFilters] = useState({
+    missingItemCode: false,
+    missingCost: false,
+    missingPostUrl: false,
+    missingEngagement: false,
+  });
+
+  // クイック編集（よく触る項目だけ）
+  const [quickEditId, setQuickEditId] = useState<string | null>(null);
+  const [quickEditDraft, setQuickEditDraft] = useState<{
+    status: Campaign['status'];
+    post_url: string;
+    post_date: string;
+    likes: string;
+    comments: string;
+    engagement_date: string;
+  } | null>(null);
+  const [quickSaving, setQuickSaving] = useState(false);
 
   // 一括編集用の状態
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -99,6 +154,99 @@ export default function CampaignsPage() {
     setEditingCampaign(null);
   };
 
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  const openQuickEdit = (campaign: Campaign) => {
+    setQuickEditId(campaign.id);
+    setQuickEditDraft({
+      status: campaign.status,
+      post_url: campaign.post_url || '',
+      post_date: campaign.post_date || '',
+      likes: String(campaign.likes ?? ''),
+      comments: String(campaign.comments ?? ''),
+      engagement_date: campaign.engagement_date || '',
+    });
+  };
+
+  const closeQuickEdit = () => {
+    setQuickEditId(null);
+    setQuickEditDraft(null);
+    setQuickSaving(false);
+  };
+
+  const saveQuickEdit = async (campaign: Campaign) => {
+    if (!quickEditDraft) return;
+    if (quickSaving) return;
+
+    setQuickSaving(true);
+    try {
+      const likes = parseInt(quickEditDraft.likes, 10);
+      const comments = parseInt(quickEditDraft.comments, 10);
+      const nextLikes = Number.isFinite(likes) ? likes : 0;
+      const nextComments = Number.isFinite(comments) ? comments : 0;
+
+      let nextStatus = quickEditDraft.status;
+      if (nextLikes > 0 && nextStatus === 'pending') {
+        nextStatus = 'agree';
+      }
+
+      const trimmedUrl = (quickEditDraft.post_url || '').trim();
+      let nextPostDate = quickEditDraft.post_date || '';
+      if (trimmedUrl && !nextPostDate) {
+        nextPostDate = getTodayDate();
+      }
+
+      let nextEngagementDate = quickEditDraft.engagement_date || '';
+      if ((nextLikes > 0 || nextComments > 0) && !nextEngagementDate) {
+        nextEngagementDate = getTodayDate();
+      }
+
+      const updates = {
+        status: nextStatus,
+        post_url: trimmedUrl ? trimmedUrl : null,
+        post_date: trimmedUrl ? (nextPostDate || null) : null,
+        likes: nextLikes,
+        comments: nextComments,
+        engagement_date: (nextLikes > 0 || nextComments > 0) ? (nextEngagementDate || null) : null,
+      } satisfies Partial<Campaign>;
+
+      const noChanges =
+        updates.status === campaign.status &&
+        (updates.post_url || '') === (campaign.post_url || '') &&
+        (updates.post_date || '') === (campaign.post_date || '') &&
+        (updates.likes ?? 0) === (campaign.likes ?? 0) &&
+        (updates.comments ?? 0) === (campaign.comments ?? 0) &&
+        (updates.engagement_date || '') === (campaign.engagement_date || '');
+
+      if (noChanges) {
+        showToast('info', '変更がありません');
+        closeQuickEdit();
+        return;
+      }
+
+      const { error } = await supabase
+        .from('campaigns')
+        .update(updates)
+        .eq('id', campaign.id)
+        .eq('brand', currentBrand);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardFullStats', currentBrand] });
+
+      showToast('success', '更新しました');
+      closeQuickEdit();
+    } catch (err) {
+      showToast('error', translateError(err));
+      setQuickSaving(false);
+    }
+  };
+
   const handleSave = () => {
     // React Queryのキャッシュを無効化して自動的に再取得
     queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
@@ -135,15 +283,18 @@ export default function CampaignsPage() {
     setBulkUpdating(true);
 
     try {
-      const updates: Record<string, unknown> = {
-        updated_by: user?.id,
-      };
+      const updates: Record<string, unknown> = {};
 
       if (bulkEditData.status) {
         updates.status = bulkEditData.status;
       }
       if (bulkEditData.agreed_amount) {
         updates.agreed_amount = parseFloat(bulkEditData.agreed_amount);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        showToast('error', '更新内容を選択してください');
+        return;
       }
 
       const { error } = await supabase
@@ -201,14 +352,64 @@ export default function CampaignsPage() {
     }
   };
 
-  const filteredCampaigns = campaigns.filter((c) => {
-    const influencerName = c.influencer?.insta_name || c.influencer?.tiktok_name || '';
-    const matchesSearch =
-      influencerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.item_code?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const baseFilteredCampaigns = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return campaigns.filter((c) => {
+      const influencerName = c.influencer?.insta_name || c.influencer?.tiktok_name || '';
+      const itemCode = c.item_code || '';
+      const matchesSearch =
+        !term ||
+        influencerName.toLowerCase().includes(term) ||
+        itemCode.toLowerCase().includes(term);
+      const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [campaigns, searchTerm, statusFilter]);
+
+  const opsCounts = useMemo(() => {
+    const list = baseFilteredCampaigns;
+    const isBlank = (v: unknown) => !String(v || '').trim();
+    const countMissingItemCode = list.filter((c) => isBlank(c.item_code)).length;
+    const countMissingCost = list.filter((c) => Number(c.product_cost || 0) <= 0).length;
+    const countMissingPostUrl = list.filter((c) => isBlank(c.post_url)).length;
+    const countMissingEngagement = list.filter((c) => {
+      const hasPost = !isBlank(c.post_url);
+      const likes = Number(c.likes || 0);
+      const comments = Number(c.comments || 0);
+      return hasPost && likes <= 0 && comments <= 0;
+    }).length;
+    return {
+      missingItemCode: countMissingItemCode,
+      missingCost: countMissingCost,
+      missingPostUrl: countMissingPostUrl,
+      missingEngagement: countMissingEngagement,
+    };
+  }, [baseFilteredCampaigns]);
+
+  const filteredCampaigns = useMemo(() => {
+    const isBlank = (v: unknown) => !String(v || '').trim();
+    let list = baseFilteredCampaigns;
+
+    if (opsFilters.missingItemCode) {
+      list = list.filter((c) => isBlank(c.item_code));
+    }
+    if (opsFilters.missingCost) {
+      list = list.filter((c) => Number(c.product_cost || 0) <= 0);
+    }
+    if (opsFilters.missingPostUrl) {
+      list = list.filter((c) => isBlank(c.post_url));
+    }
+    if (opsFilters.missingEngagement) {
+      list = list.filter((c) => {
+        const hasPost = !isBlank(c.post_url);
+        const likes = Number(c.likes || 0);
+        const comments = Number(c.comments || 0);
+        return hasPost && likes <= 0 && comments <= 0;
+      });
+    }
+
+    return list;
+  }, [baseFilteredCampaigns, opsFilters]);
 
   const getStatusClass = (status: string) => {
     switch (status) {
@@ -255,6 +456,8 @@ export default function CampaignsPage() {
       currency: 'JPY',
     }).format(amount);
   };
+
+  const tableCols = currentBrand === 'BE' ? 14 : 13;
 
   // 統計計算
   const stats = {
@@ -314,8 +517,8 @@ export default function CampaignsPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">ギフティング案件管理</h1>
-              <p className="text-gray-500 mt-0.5">案件数: {campaigns.length}件</p>
+              <h1 className="text-2xl font-bold text-foreground">ギフティング案件管理</h1>
+              <p className="text-muted-foreground mt-0.5">案件数: {campaigns.length}件</p>
             </div>
           </div>
           <button
@@ -330,40 +533,40 @@ export default function CampaignsPage() {
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="stat-card">
-            <p className="text-xs text-gray-500">表示中</p>
-            <p className="text-xl font-bold text-gray-900">{stats.total}件</p>
+            <p className="text-xs text-muted-foreground">表示中</p>
+            <p className="text-xl font-bold text-foreground">{stats.total}件</p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">合意済み</p>
+            <p className="text-xs text-muted-foreground">合意済み</p>
             <p className="text-xl font-bold text-gray-800">{stats.agree}件</p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">保留中</p>
-            <p className="text-xl font-bold text-gray-500">{stats.pending}件</p>
+            <p className="text-xs text-muted-foreground">保留中</p>
+            <p className="text-xl font-bold text-muted-foreground">{stats.pending}件</p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">総支出</p>
-            <p className="text-lg font-bold text-gray-900">{formatAmount(stats.totalSpent)}</p>
+            <p className="text-xs text-muted-foreground">総支出</p>
+            <p className="text-lg font-bold text-foreground">{formatAmount(stats.totalSpent)}</p>
           </div>
           <div className="stat-card">
-            <p className="text-xs text-gray-500">総いいね</p>
-            <p className="text-xl font-bold text-gray-700">{stats.totalLikes.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">総いいね</p>
+            <p className="text-xl font-bold text-foreground">{stats.totalLikes.toLocaleString()}</p>
           </div>
         </div>
 
         {/* BE専用: 国別海外発送分析 */}
         {currentBrand === 'BE' && internationalStats && internationalStats.total > 0 && (
-          <div className="card bg-gray-50 border-gray-200">
+          <div className="card bg-muted border-border">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-gray-200 rounded-lg">
-                <Globe className="text-gray-600" size={20} />
+              <div className="p-2 bg-muted rounded-lg">
+                <Globe className="text-muted-foreground" size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
                   <Plane size={16} />
                   海外発送分析（BE専用）
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   海外発送案件: {internationalStats.total}件 / 総送料: ¥{internationalStats.totalShippingCost.toLocaleString()}
                 </p>
               </div>
@@ -373,24 +576,24 @@ export default function CampaignsPage() {
               {internationalStats.byCountry.map(({ country, count, cost, likes }) => (
                 <div
                   key={country}
-                  className="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-lg p-3 border border-border hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <MapPin size={14} className="text-gray-500" />
-                    <span className="font-medium text-gray-900 text-sm truncate">{country}</span>
+                    <MapPin size={14} className="text-muted-foreground" />
+                    <span className="font-medium text-foreground text-sm truncate">{country}</span>
                   </div>
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">案件数</span>
+                      <span className="text-muted-foreground">案件数</span>
                       <span className="font-bold text-gray-800">{count}件</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">送料計</span>
-                      <span className="font-medium text-gray-700">¥{cost.toLocaleString()}</span>
+                      <span className="text-muted-foreground">送料計</span>
+                      <span className="font-medium text-foreground">¥{cost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">いいね</span>
-                      <span className="font-medium text-gray-600">{likes.toLocaleString()}</span>
+                      <span className="text-muted-foreground">いいね</span>
+                      <span className="font-medium text-muted-foreground">{likes.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -402,7 +605,7 @@ export default function CampaignsPage() {
         {/* フィルター */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
               placeholder="検索（インフルエンサー、品番、ブランド）..."
@@ -414,7 +617,7 @@ export default function CampaignsPage() {
 
           <div className="flex gap-2 flex-wrap">
             <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -430,12 +633,62 @@ export default function CampaignsPage() {
           </div>
         </div>
 
+        {/* オペレーション用クイックフィルタ */}
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { key: 'missingItemCode', label: '品番未入力', count: opsCounts.missingItemCode },
+              { key: 'missingCost', label: '原価未登録', count: opsCounts.missingCost },
+              { key: 'missingPostUrl', label: '投稿URL未', count: opsCounts.missingPostUrl },
+              { key: 'missingEngagement', label: 'エンゲ未', count: opsCounts.missingEngagement },
+            ] as const
+          ).map(({ key, label, count }) => {
+            const active = opsFilters[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  setOpsFilters((prev) => ({ ...prev, [key]: !prev[key] }))
+                }
+                className={`px-3 py-2 rounded-full border text-sm flex items-center gap-2 transition-colors ${
+                  active
+                    ? 'bg-primary text-white border-gray-900'
+                    : 'bg-white text-foreground border-border hover:bg-muted'
+                }`}
+              >
+                <span>{label}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  active ? 'bg-white/15 text-white' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          {Object.values(opsFilters).some(Boolean) ? (
+            <button
+              type="button"
+              className="px-3 py-2 rounded-full border text-sm bg-white text-muted-foreground border-border hover:bg-muted transition-colors"
+              onClick={() => setOpsFilters({
+                missingItemCode: false,
+                missingCost: false,
+                missingPostUrl: false,
+                missingEngagement: false,
+              })}
+            >
+              クリア
+            </button>
+          ) : null}
+        </div>
+
         {/* 一括操作バー */}
         {selectedIds.size > 0 && (
-          <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 flex items-center justify-between animate-slide-up">
+          <div className="bg-muted border border-border rounded-xl p-4 flex items-center justify-between animate-slide-up">
             <div className="flex items-center gap-3">
-              <CheckSquare className="text-gray-700" size={20} />
-              <span className="font-medium text-gray-900">
+              <CheckSquare className="text-foreground" size={20} />
+              <span className="font-medium text-foreground">
                 {selectedIds.size}件選択中
               </span>
             </div>
@@ -449,16 +702,16 @@ export default function CampaignsPage() {
               </button>
               <button
                 onClick={handleBulkDelete}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors flex items-center gap-2"
               >
                 <Trash2 size={16} />
                 一括削除
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
-                <X size={18} className="text-gray-600" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
           </div>
@@ -472,18 +725,18 @@ export default function CampaignsPage() {
                 <h2 className="text-xl font-bold">一括編集</h2>
                 <button
                   onClick={() => setIsBulkEditOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-muted rounded-lg"
                 >
                   <X size={20} />
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {selectedIds.size}件の案件を一括で更新します。変更したい項目のみ入力してください。
                 </p>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     ステータス
                   </label>
                   <select
@@ -500,7 +753,7 @@ export default function CampaignsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     合意額
                   </label>
                   <input
@@ -563,12 +816,12 @@ export default function CampaignsPage() {
                     <th className="table-header px-4 py-3 w-10">
                       <button
                         onClick={toggleSelectAll}
-                        className="p-1 hover:bg-gray-100 rounded"
+                        className="p-1 hover:bg-muted rounded"
                       >
                         {selectedIds.size === filteredCampaigns.length ? (
-                          <CheckSquare size={18} className="text-gray-700" />
+                          <CheckSquare size={18} className="text-foreground" />
                         ) : (
-                          <Square size={18} className="text-gray-400" />
+                          <Square size={18} className="text-muted-foreground" />
                         )}
                       </button>
                     </th>
@@ -578,7 +831,7 @@ export default function CampaignsPage() {
                     {currentBrand === 'BE' && (
                       <th className="table-header px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <Plane size={14} className="text-gray-500" />
+                          <Plane size={14} className="text-muted-foreground" />
                           発送先
                         </div>
                       </th>
@@ -596,113 +849,265 @@ export default function CampaignsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredCampaigns.map((campaign) => (
-                    <tr
-                      key={campaign.id}
-                      className={`table-row ${selectedIds.has(campaign.id) ? 'bg-gray-100' : ''}`}
-                    >
-                      <td className="table-cell">
-                        <button
-                          onClick={() => toggleSelect(campaign.id)}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          {selectedIds.has(campaign.id) ? (
-                            <CheckSquare size={18} className="text-gray-700" />
-                          ) : (
-                            <Square size={18} className="text-gray-400" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="table-cell">{campaign.brand || '-'}</td>
-                      <td className="table-cell font-medium">
-                        @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
-                      </td>
-                      <td className="table-cell">{campaign.item_code || '-'}</td>
-                      {currentBrand === 'BE' && (
+                    <Fragment key={campaign.id}>
+                      <tr
+                        className={`table-row ${selectedIds.has(campaign.id) ? 'bg-muted' : ''}`}
+                      >
                         <td className="table-cell">
-                          {campaign.is_international_shipping ? (
-                            <div className="flex items-center gap-1">
-                              <MapPin size={12} className="text-gray-500" />
-                              <span className="text-gray-700 text-xs font-medium">
-                                {campaign.shipping_country || '未設定'}
-                              </span>
-                            </div>
+                          <button
+                            onClick={() => toggleSelect(campaign.id)}
+                            className="p-1 hover:bg-muted rounded"
+                          >
+                            {selectedIds.has(campaign.id) ? (
+                              <CheckSquare size={18} className="text-foreground" />
+                            ) : (
+                              <Square size={18} className="text-muted-foreground" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="table-cell">{campaign.brand || '-'}</td>
+                        <td className="table-cell font-medium">
+                          @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
+                        </td>
+                        <td className="table-cell">{campaign.item_code || '-'}</td>
+                        {currentBrand === 'BE' && (
+                          <td className="table-cell">
+                            {campaign.is_international_shipping ? (
+                              <div className="flex items-center gap-1">
+                                <MapPin size={12} className="text-muted-foreground" />
+                                <span className="text-foreground text-xs font-medium">
+                                  {campaign.shipping_country || '未設定'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">国内</span>
+                            )}
+                          </td>
+                        )}
+                        <td className="table-cell">
+                          {formatAmount(campaign.offered_amount)}
+                        </td>
+                        <td className="table-cell font-medium">
+                          {formatAmount(campaign.agreed_amount)}
+                        </td>
+                        <td className="table-cell">
+                          <span className={getStatusClass(campaign.status)}>
+                            {getStatusLabel(campaign.status)}
+                          </span>
+                        </td>
+                        <td className="table-cell text-muted-foreground">
+                          {formatDate(campaign.post_date)}
+                        </td>
+                        <td className="table-cell">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1 text-foreground">
+                              <Heart size={14} />
+                              {campaign.likes?.toLocaleString() || 0}
+                            </span>
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <MessageCircle size={14} />
+                              {campaign.comments?.toLocaleString() || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="table-cell">
+                          {campaign.post_url ? (
+                            <a
+                              href={campaign.post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-white hover:underline flex items-center gap-1"
+                            >
+                              表示
+                              <ExternalLink size={14} />
+                            </a>
                           ) : (
-                            <span className="text-gray-400 text-xs">国内</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </td>
-                      )}
-                      <td className="table-cell">
-                        {formatAmount(campaign.offered_amount)}
-                      </td>
-                      <td className="table-cell font-medium">
-                        {formatAmount(campaign.agreed_amount)}
-                      </td>
-                      <td className="table-cell">
-                        <span className={getStatusClass(campaign.status)}>
-                          {getStatusLabel(campaign.status)}
-                        </span>
-                      </td>
-                      <td className="table-cell text-gray-500">
-                        {formatDate(campaign.post_date)}
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1 text-gray-700">
-                            <Heart size={14} />
-                            {campaign.likes?.toLocaleString() || 0}
-                          </span>
-                          <span className="flex items-center gap-1 text-gray-500">
-                            <MessageCircle size={14} />
-                            {campaign.comments?.toLocaleString() || 0}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        {campaign.post_url ? (
-                          <a
-                            href={campaign.post_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-300 hover:text-white hover:underline flex items-center gap-1"
-                          >
-                            表示
-                            <ExternalLink size={14} />
-                          </a>
-                        ) : (
-                          <span className="text-gray-500">-</span>
-                        )}
-                      </td>
-                      <td className="table-cell">
-                        {campaign.staff ? (
-                          <span className="text-xs text-gray-300 font-medium">
-                            {campaign.staff.name}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">未設定</span>
-                        )}
-                      </td>
-                      <td className="table-cell">
-                        <div className="text-xs text-gray-500">
-                          {formatDate(campaign.updated_at || campaign.created_at)}
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleEdit(campaign)}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(campaign.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        <td className="table-cell">
+                          {campaign.staff ? (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {campaign.staff.name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">未設定</span>
+                          )}
+                        </td>
+                        <td className="table-cell">
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(campaign.updated_at || campaign.created_at)}
+                          </div>
+                        </td>
+                        <td className="table-cell">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                if (quickEditId === campaign.id) {
+                                  closeQuickEdit();
+                                } else {
+                                  openQuickEdit(campaign);
+                                }
+                              }}
+                              className={`p-2 rounded-lg transition-colors ${
+                                quickEditId === campaign.id
+                                  ? 'bg-muted text-foreground'
+                                  : 'text-muted-foreground hover:bg-muted'
+                              }`}
+                              title="クイック編集"
+                            >
+                              <Settings2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(campaign)}
+                              className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
+                              title="詳細編集"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(campaign.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="削除"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {quickEditId === campaign.id && quickEditDraft ? (
+                        <tr className="bg-muted">
+                          <td className="px-6 py-4" colSpan={tableCols}>
+                            <div className="flex flex-col gap-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-medium text-foreground">クイック編集</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    ステータス / 投稿URL / いいね / コメント
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={closeQuickEdit}
+                                >
+                                  閉じる
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">ステータス</label>
+                                  <select
+                                    value={quickEditDraft.status}
+                                    onChange={(e) =>
+                                      setQuickEditDraft((prev) => prev ? ({ ...prev, status: e.target.value as Campaign['status'] }) : prev)
+                                    }
+                                    className="input-field text-sm"
+                                  >
+                                    <option value="pending">保留</option>
+                                    <option value="agree">合意</option>
+                                    <option value="disagree">不合意</option>
+                                    <option value="cancelled">キャンセル</option>
+                                    <option value="ignored">無視</option>
+                                  </select>
+                                  <p className="text-[11px] text-muted-foreground mt-1">※いいね入力で保留→合意に自動更新</p>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">投稿URL</label>
+                                  <input
+                                    type="url"
+                                    value={quickEditDraft.post_url}
+                                    onChange={(e) =>
+                                      setQuickEditDraft((prev) => prev ? ({ ...prev, post_url: e.target.value }) : prev)
+                                    }
+                                    className="input-field text-sm"
+                                    placeholder="https://..."
+                                  />
+                                  <p className="text-[11px] text-muted-foreground mt-1">※URL入力時、投稿日が未設定なら当日を自動設定</p>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">いいね</label>
+                                  <input
+                                    type="number"
+                                    value={quickEditDraft.likes}
+                                    onChange={(e) =>
+                                      setQuickEditDraft((prev) => {
+                                        if (!prev) return prev;
+                                        const nextLikes = e.target.value;
+                                        const num = parseInt(nextLikes, 10) || 0;
+                                        const next: typeof prev = { ...prev, likes: nextLikes };
+                                        if (num > 0 && prev.status === 'pending') next.status = 'agree';
+                                        if (num > 0 && !prev.engagement_date) next.engagement_date = getTodayDate();
+                                        return next;
+                                      })
+                                    }
+                                    className="input-field text-sm"
+                                    min={0}
+                                  />
+                                  <p className="text-[11px] text-muted-foreground mt-1">※入力日が未設定なら当日を自動設定</p>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-muted-foreground mb-1">コメント</label>
+                                  <input
+                                    type="number"
+                                    value={quickEditDraft.comments}
+                                    onChange={(e) =>
+                                      setQuickEditDraft((prev) => {
+                                        if (!prev) return prev;
+                                        const nextComments = e.target.value;
+                                        const num = parseInt(nextComments, 10) || 0;
+                                        const next: typeof prev = { ...prev, comments: nextComments };
+                                        if (num > 0 && !prev.engagement_date) next.engagement_date = getTodayDate();
+                                        return next;
+                                      })
+                                    }
+                                    className="input-field text-sm"
+                                    min={0}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="text-xs text-muted-foreground">
+                                    入力日: <span className="font-medium text-foreground">{quickEditDraft.engagement_date || '未設定'}</span>
+                                  </div>
+                                  {quickEditDraft.post_url ? (
+                                    <div className="text-xs text-muted-foreground">
+                                      投稿日: <span className="font-medium text-foreground">{quickEditDraft.post_date || '自動設定(当日)'}</span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={closeQuickEdit}
+                                    disabled={quickSaving}
+                                  >
+                                    キャンセル
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-primary flex items-center gap-2"
+                                    onClick={() => saveQuickEdit(campaign)}
+                                    disabled={quickSaving}
+                                  >
+                                    {quickSaving ? <Loader2 size={18} className="animate-spin" /> : null}
+                                    保存
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

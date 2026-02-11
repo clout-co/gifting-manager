@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrand } from '@/contexts/BrandContext';
@@ -100,43 +99,40 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetchFilters = async () => {
-      const { data } = await supabase
-        .from('campaigns')
-        .select('item_code')
-        .eq('brand', currentBrand);
-      if (data) {
-        setItems(Array.from(new Set(data.map(c => c.item_code).filter(Boolean))) as string[]);
+      try {
+        const res = await fetch(`/api/reports/data?brand=${currentBrand}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          const campaigns = json.campaigns || [];
+          setItems(Array.from(new Set(campaigns.map((c: any) => c.item_code).filter(Boolean))) as string[]);
+        }
+      } catch {
+        // Failed to fetch
       }
     };
     fetchFilters();
   }, [currentBrand]);
 
   const fetchReportData = async (): Promise<ReportData> => {
-    let query = supabase
-      .from('campaigns')
-      .select('*, influencer:influencers(*)')
-      .eq('brand', currentBrand); // 常に現在のブランドでフィルター
+    // BFF API経由でデータを取得（service_roleでRLSバイパス）
+    const params = new URLSearchParams({ brand: currentBrand });
+    if (config.dateFrom) params.set('dateFrom', config.dateFrom);
+    if (config.dateTo) params.set('dateTo', config.dateTo);
+    if (config.items.length > 0) params.set('items', config.items.join(','));
 
-    if (config.dateFrom) {
-      query = query.gte('created_at', config.dateFrom);
-    }
-    if (config.dateTo) {
-      query = query.lte('created_at', config.dateTo + 'T23:59:59');
-    }
-    if (config.items.length > 0) {
-      query = query.in('item_code', config.items);
-    }
+    let campaignList: CampaignWithInfluencer[] = [];
+    let influencerList: { id: string; insta_name: string | null; tiktok_name: string | null }[] = [];
 
-    const { data: campaigns } = await query;
-    // brandカラムが存在しない場合のフォールバック
-    let influencersRes = await supabase.from('influencers').select('*').eq('brand', currentBrand);
-    if (influencersRes.error && influencersRes.error.message.includes('brand')) {
-      influencersRes = await supabase.from('influencers').select('*');
+    try {
+      const res = await fetch(`/api/reports/data?${params.toString()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        campaignList = json.campaigns || [];
+        influencerList = json.influencers || [];
+      }
+    } catch {
+      // Failed to fetch
     }
-    const influencers = influencersRes.data;
-
-    const campaignList = campaigns || [];
-    const influencerList = influencers || [];
 
     // サマリー計算
     const totalSpent = campaignList.reduce((sum, c) => sum + (c.agreed_amount || 0), 0);
@@ -368,8 +364,8 @@ export default function ReportsPage() {
             <FileText className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">レポート生成</h1>
-            <p className="text-gray-500 mt-0.5">カスタムレポートの作成とダウンロード</p>
+            <h1 className="text-2xl font-bold text-foreground">レポート生成</h1>
+            <p className="text-muted-foreground mt-0.5">カスタムレポートの作成とダウンロード</p>
           </div>
         </div>
 
@@ -378,7 +374,7 @@ export default function ReportsPage() {
           <div className="lg:col-span-1 space-y-6">
             {/* レポートタイプ選択 */}
             <div className="card">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                 <FileText size={18} className="text-primary-500" />
                 レポートタイプ
               </h3>
@@ -390,14 +386,14 @@ export default function ReportsPage() {
                     className={`w-full p-3 rounded-xl text-left transition-all duration-300 ${
                       config.type === type.id
                         ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
-                        : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                        : 'bg-muted hover:bg-muted text-foreground'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <type.icon size={18} />
                       <div>
                         <p className="font-medium">{type.name}</p>
-                        <p className={`text-xs ${config.type === type.id ? 'text-white/70' : 'text-gray-500'}`}>
+                        <p className={`text-xs ${config.type === type.id ? 'text-white/70' : 'text-muted-foreground'}`}>
                           {type.desc}
                         </p>
                       </div>
@@ -409,13 +405,13 @@ export default function ReportsPage() {
 
             {/* 期間設定 */}
             <div className="card">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                 <Calendar size={18} className="text-primary-500" />
                 期間設定
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">開始日</label>
                   <input
                     type="date"
                     value={config.dateFrom}
@@ -424,7 +420,7 @@ export default function ReportsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">終了日</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">終了日</label>
                   <input
                     type="date"
                     value={config.dateTo}
@@ -437,13 +433,13 @@ export default function ReportsPage() {
 
             {/* フィルター */}
             <div className="card">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                 <Filter size={18} className="text-primary-500" />
                 フィルター
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">商品</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">商品</label>
                   <select
                     multiple
                     value={config.items}
@@ -485,13 +481,13 @@ export default function ReportsPage() {
           {/* プレビューパネル */}
           <div className="lg:col-span-2">
             <div className="card min-h-[600px]">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                 <Eye size={18} className="text-primary-500" />
                 レポートプレビュー
               </h3>
 
               {!previewData ? (
-                <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+                <div className="flex flex-col items-center justify-center h-96 text-muted-foreground">
                   <FileText size={64} className="mb-4 opacity-30" />
                   <p>「プレビュー」をクリックしてレポートを生成</p>
                 </div>
@@ -501,25 +497,25 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
                       <p className="text-xs text-blue-600 font-medium">総案件数</p>
-                      <p className="text-2xl font-bold text-gray-900">{previewData.summary.totalCampaigns}</p>
+                      <p className="text-2xl font-bold text-foreground">{previewData.summary.totalCampaigns}</p>
                     </div>
                     <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
                       <p className="text-xs text-green-600 font-medium">総支出</p>
-                      <p className="text-xl font-bold text-gray-900">{formatCurrency(previewData.summary.totalSpent)}</p>
+                      <p className="text-xl font-bold text-foreground">{formatCurrency(previewData.summary.totalSpent)}</p>
                     </div>
                     <div className="p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl">
                       <p className="text-xs text-pink-600 font-medium">総いいね</p>
-                      <p className="text-2xl font-bold text-gray-900">{formatNumber(previewData.summary.totalLikes)}</p>
+                      <p className="text-2xl font-bold text-foreground">{formatNumber(previewData.summary.totalLikes)}</p>
                     </div>
                     <div className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl">
                       <p className="text-xs text-purple-600 font-medium">いいね単価</p>
-                      <p className="text-xl font-bold text-gray-900">{formatCurrency(previewData.summary.avgCostPerLike)}</p>
+                      <p className="text-xl font-bold text-foreground">{formatCurrency(previewData.summary.avgCostPerLike)}</p>
                     </div>
                   </div>
 
                   {/* トップインフルエンサー */}
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
                       <Users size={16} className="text-purple-500" />
                       トップインフルエンサー
                     </h4>
@@ -527,10 +523,10 @@ export default function ReportsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-gray-100">
-                            <th className="text-left py-2 px-3 text-gray-500 font-medium">インスタ名</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">案件数</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">支出</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">いいね</th>
+                            <th className="text-left py-2 px-3 text-muted-foreground font-medium">インスタ名</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">案件数</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">支出</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">いいね</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -549,7 +545,7 @@ export default function ReportsPage() {
 
                   {/* トップブランド */}
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
                       <Gift size={16} className="text-pink-500" />
                       トップブランド
                     </h4>
@@ -557,10 +553,10 @@ export default function ReportsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-gray-100">
-                            <th className="text-left py-2 px-3 text-gray-500 font-medium">ブランド</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">案件数</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">支出</th>
-                            <th className="text-right py-2 px-3 text-gray-500 font-medium">いいね</th>
+                            <th className="text-left py-2 px-3 text-muted-foreground font-medium">ブランド</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">案件数</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">支出</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">いいね</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -579,8 +575,8 @@ export default function ReportsPage() {
 
                   {/* 案件サンプル */}
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-3">案件データ（{previewData.campaigns.length}件）</h4>
-                    <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-xl">
+                    <h4 className="font-medium text-foreground mb-3">案件データ（{previewData.campaigns.length}件）</h4>
+                    <div className="text-sm text-muted-foreground bg-muted p-4 rounded-xl">
                       ダウンロードするCSVには全{previewData.campaigns.length}件の詳細データが含まれます
                     </div>
                   </div>

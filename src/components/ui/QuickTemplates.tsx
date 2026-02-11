@@ -70,7 +70,7 @@ export default function QuickTemplates({ onSelect, className = '' }: QuickTempla
       case 'zap':
         return <Zap className="text-blue-500" size={16} />;
       default:
-        return <FileText className="text-gray-500" size={16} />;
+        return <FileText className="text-muted-foreground" size={16} />;
     }
   };
 
@@ -79,7 +79,7 @@ export default function QuickTemplates({ onSelect, className = '' }: QuickTempla
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+        className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-gray-800 rounded-lg transition-colors"
       >
         <FileText size={16} />
         テンプレート
@@ -95,9 +95,9 @@ export default function QuickTemplates({ onSelect, className = '' }: QuickTempla
           />
 
           {/* ドロップダウン */}
-          <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20">
+          <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-border dark:border-gray-700 rounded-xl shadow-xl z-20">
             <div className="p-2">
-              <p className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <p className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-muted-foreground uppercase">
                 テンプレートから作成
               </p>
 
@@ -110,16 +110,16 @@ export default function QuickTemplates({ onSelect, className = '' }: QuickTempla
                       onSelect(template.data);
                       setIsOpen(false);
                     }}
-                    className="flex items-start gap-3 w-full p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                    className="flex items-start gap-3 w-full p-2 rounded-lg hover:bg-muted dark:hover:bg-gray-700 transition-colors text-left"
                   >
-                    <div className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <div className="p-1.5 bg-muted dark:bg-gray-700 rounded-lg">
                       {getIcon(template.icon)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                      <p className="font-medium text-foreground dark:text-white text-sm">
                         {template.name}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                         {template.description}
                       </p>
                       <p className="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
@@ -157,7 +157,7 @@ export function QuickAmountButtons({
           className={`px-3 py-1 text-xs rounded-lg border transition-all ${
             value === amount
               ? 'bg-primary-100 border-primary-300 text-primary-700 dark:bg-primary-900/30 dark:border-primary-700 dark:text-primary-300'
-              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700'
+              : 'bg-muted border-border text-muted-foreground hover:bg-muted dark:bg-gray-800 dark:border-gray-700 dark:text-muted-foreground dark:hover:bg-gray-700'
           }`}
         >
           ¥{amount.toLocaleString()}
@@ -196,7 +196,7 @@ export function QuickDateButtons({
           key={days}
           type="button"
           onClick={() => onChange(getDateString(days))}
-          className="px-3 py-1 text-xs rounded-lg border bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 transition-all"
+          className="px-3 py-1 text-xs rounded-lg border bg-muted border-border text-muted-foreground hover:bg-muted dark:bg-gray-800 dark:border-gray-700 dark:text-muted-foreground dark:hover:bg-gray-700 transition-all"
         >
           {label}
         </button>

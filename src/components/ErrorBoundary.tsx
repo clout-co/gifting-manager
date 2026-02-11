@@ -54,7 +54,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             <h2 className="text-xl font-bold text-white mb-2">
               エラーが発生しました
             </h2>
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-muted-foreground text-sm mb-6">
               予期しないエラーが発生しました。再試行するか、ダッシュボードに戻ってください。
             </p>
             {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -72,7 +72,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
               </button>
               <button
                 onClick={this.handleHome}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl hover:bg-gray-200 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl hover:bg-muted transition-colors"
               >
                 <Home size={16} />
                 ダッシュボード

@@ -223,20 +223,20 @@ export default function CalendarPage() {
               <CalendarIcon className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">カレンダー</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-0.5">投稿スケジュール・イベント管理</p>
+              <h1 className="text-2xl font-bold text-foreground dark:text-white">カレンダー</h1>
+              <p className="text-muted-foreground dark:text-muted-foreground mt-0.5">投稿スケジュール・イベント管理</p>
             </div>
           </div>
 
           {/* ビュー切り替え */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <div className="flex bg-muted dark:bg-gray-800 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('month')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   viewMode === 'month'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
-                    : 'text-gray-600 dark:text-gray-400'
+                    ? 'bg-white dark:bg-gray-700 text-foreground dark:text-white shadow'
+                    : 'text-muted-foreground dark:text-muted-foreground'
                 }`}
               >
                 <Grid3X3 size={16} className="inline mr-1" />
@@ -246,8 +246,8 @@ export default function CalendarPage() {
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
-                    : 'text-gray-600 dark:text-gray-400'
+                    ? 'bg-white dark:bg-gray-700 text-foreground dark:text-white shadow'
+                    : 'text-muted-foreground dark:text-muted-foreground'
                 }`}
               >
                 <List size={16} className="inline mr-1" />
@@ -263,17 +263,17 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={navigatePrev}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                className="p-2 hover:bg-muted dark:hover:bg-gray-800 rounded-lg"
               >
-                <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
+                <ChevronLeft size={20} className="text-muted-foreground dark:text-muted-foreground" />
               </button>
               <button
                 onClick={navigateNext}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                className="p-2 hover:bg-muted dark:hover:bg-gray-800 rounded-lg"
               >
-                <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
+                <ChevronRight size={20} className="text-muted-foreground dark:text-muted-foreground" />
               </button>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white ml-2">
+              <h2 className="text-xl font-bold text-foreground dark:text-white ml-2">
                 {format(currentDate, 'yyyy年 M月', { locale: ja })}
               </h2>
             </div>
@@ -300,7 +300,7 @@ export default function CalendarPage() {
                   <div
                     key={day}
                     className={`text-center text-sm font-medium py-2 ${
-                      i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'
+                      i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-muted-foreground dark:text-muted-foreground'
                     }`}
                   >
                     {day}
@@ -325,7 +325,7 @@ export default function CalendarPage() {
                           ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-primary-500'
                           : isTodayDate
                           ? 'bg-orange-50 dark:bg-orange-900/20'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                          : 'hover:bg-muted dark:hover:bg-gray-800'
                       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
                     >
                       <div className={`text-sm font-medium mb-1 ${
@@ -333,7 +333,7 @@ export default function CalendarPage() {
                           ? 'text-orange-600 dark:text-orange-400'
                           : isSelected
                           ? 'text-primary-600 dark:text-primary-400'
-                          : 'text-gray-900 dark:text-white'
+                          : 'text-foreground dark:text-white'
                       }`}>
                         {format(day, 'd')}
                       </div>
@@ -349,7 +349,7 @@ export default function CalendarPage() {
                           </div>
                         ))}
                         {dayEvents.length > 3 && (
-                          <div className="text-xs text-gray-500 px-1">
+                          <div className="text-xs text-muted-foreground px-1">
                             +{dayEvents.length - 3} more
                           </div>
                         )}
@@ -362,14 +362,14 @@ export default function CalendarPage() {
 
             {/* サイドバー - 選択した日のイベント */}
             <div className="lg:col-span-1 card">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="font-bold text-foreground dark:text-white mb-4">
                 {selectedDate
                   ? format(selectedDate, 'M月d日(E)', { locale: ja })
                   : '日付を選択'}
               </h3>
 
               {selectedDate && selectedDayEvents.length === 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground text-center py-8">
                   この日のイベントはありません
                 </p>
               )}
@@ -378,14 +378,14 @@ export default function CalendarPage() {
                 {selectedDayEvents.map(event => (
                   <div
                     key={event.id}
-                    className="p-3 rounded-lg border border-gray-200 dark:border-gray-700"
+                    className="p-3 rounded-lg border border-border dark:border-gray-700"
                     style={{ borderLeftColor: event.color, borderLeftWidth: '4px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       {getEventTypeIcon(event.type)}
-                      <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{event.type}</span>
+                      <span className="text-xs text-muted-foreground dark:text-muted-foreground capitalize">{event.type}</span>
                     </div>
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">{event.title}</p>
+                    <p className="font-medium text-foreground dark:text-white text-sm">{event.title}</p>
                     {event.campaign_id && (
                       <Link
                         href={`/campaigns?id=${event.campaign_id}`}
@@ -402,12 +402,12 @@ export default function CalendarPage() {
         ) : (
           /* リストビュー */
           <div className="card">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-4">
+            <h3 className="font-bold text-foreground dark:text-white mb-4">
               {format(currentDate, 'yyyy年M月', { locale: ja })}のイベント
             </h3>
 
             {monthEvents.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-12 text-muted-foreground dark:text-muted-foreground">
                 <CalendarIcon size={40} className="mx-auto mb-3 opacity-50" />
                 <p>この月のイベントはありません</p>
               </div>
@@ -416,26 +416,26 @@ export default function CalendarPage() {
                 {monthEvents.map(event => (
                   <div
                     key={event.id}
-                    className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="flex items-center gap-4 p-4 rounded-lg bg-muted dark:bg-gray-800 hover:bg-muted dark:hover:bg-gray-700 transition-colors"
                   >
                     <div
                       className="w-2 h-12 rounded-full flex-shrink-0"
                       style={{ backgroundColor: event.color }}
                     />
                     <div className="flex-shrink-0 w-20 text-center">
-                      <div className="text-lg font-bold text-gray-900 dark:text-white">
+                      <div className="text-lg font-bold text-foreground dark:text-white">
                         {format(event.start, 'd')}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-muted-foreground dark:text-muted-foreground">
                         {format(event.start, 'E', { locale: ja })}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {getEventTypeIcon(event.type)}
-                        <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{event.type}</span>
+                        <span className="text-xs text-muted-foreground dark:text-muted-foreground capitalize">{event.type}</span>
                       </div>
-                      <p className="font-medium text-gray-900 dark:text-white truncate">{event.title}</p>
+                      <p className="font-medium text-foreground dark:text-white truncate">{event.title}</p>
                     </div>
                     {event.campaign_id && (
                       <Link
@@ -454,23 +454,23 @@ export default function CalendarPage() {
 
         {/* 凡例 */}
         <div className="card">
-          <h4 className="font-medium text-gray-900 dark:text-white mb-3">凡例</h4>
+          <h4 className="font-medium text-foreground dark:text-white mb-3">凡例</h4>
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">投稿予定</span>
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">投稿予定</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">投稿完了</span>
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">投稿完了</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">セール</span>
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">セール</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">合意</span>
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">合意</span>
             </div>
           </div>
         </div>

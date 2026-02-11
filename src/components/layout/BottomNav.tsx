@@ -9,6 +9,7 @@ import {
   Gift,
   Upload,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface NavItem {
   href: string;
@@ -57,7 +58,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[oklch(0.165_0_0)] border-t border-white/10 z-40 lg:hidden safe-area-pb">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-40 lg:hidden safe-area-pb">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const active = isActive(item);
@@ -65,15 +66,15 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                active
-                  ? 'text-white'
-                  : 'text-gray-500'
-              }`}
+              className={cn(
+                'flex flex-col items-center justify-center flex-1 h-full transition-colors',
+                active ? 'text-foreground' : 'text-muted-foreground'
+              )}
             >
-              <div className={`p-1.5 rounded-lg transition-colors ${
-                active ? 'bg-white/15' : ''
-              }`}>
+              <div className={cn(
+                'p-1.5 rounded-lg transition-colors',
+                active && 'bg-primary/10'
+              )}>
                 {item.icon}
               </div>
               <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>

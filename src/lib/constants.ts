@@ -22,8 +22,8 @@ export const CAMPAIGN_STATUS_COLORS: Record<CampaignStatus, { bg: string; text: 
   pending: { bg: 'bg-amber-100', text: 'text-amber-700' },
   agree: { bg: 'bg-green-100', text: 'text-green-700' },
   disagree: { bg: 'bg-red-100', text: 'text-red-700' },
-  cancelled: { bg: 'bg-gray-100', text: 'text-gray-700' },
-  ignored: { bg: 'bg-gray-100', text: 'text-gray-500' },
+  cancelled: { bg: 'bg-muted', text: 'text-foreground' },
+  ignored: { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
 // ==================== ランク定義 ====================
@@ -48,8 +48,8 @@ export const RANK_COLORS: Record<InfluencerRank, { bg: string; text: string; gra
     gradient: 'from-blue-500 to-cyan-500',
   },
   C: {
-    bg: 'bg-gray-200',
-    text: 'text-gray-600',
+    bg: 'bg-muted',
+    text: 'text-muted-foreground',
   },
 };
 
@@ -100,13 +100,13 @@ export const CHART_PALETTE = [
 
 export const BUTTON_STYLES = {
   primary: 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-lg shadow-primary-500/30',
-  secondary: 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50',
+  secondary: 'bg-white border border-border text-foreground hover:bg-muted',
   danger: 'bg-red-500 hover:bg-red-600 text-white',
-  ghost: 'text-gray-500 hover:text-gray-700 hover:bg-gray-100',
+  ghost: 'text-muted-foreground hover:text-foreground hover:bg-muted',
 };
 
 export const INPUT_STYLES = {
-  base: 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all',
+  base: 'w-full px-4 py-2.5 border border-border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all',
   error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
 };
 

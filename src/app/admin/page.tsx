@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -97,8 +96,8 @@ export default function AdminPage() {
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
-            <Loader2 className="animate-spin mx-auto text-gray-500" size={48} />
-            <p className="mt-4 text-gray-500">権限を確認中...</p>
+            <Loader2 className="animate-spin mx-auto text-muted-foreground" size={48} />
+            <p className="mt-4 text-muted-foreground">権限を確認中...</p>
           </div>
         </div>
       </MainLayout>
@@ -112,18 +111,24 @@ export default function AdminPage() {
   const fetchAdminData = async () => {
     setLoading(true);
 
-    // 全データ取得
-    const [
-      { data: campaigns },
-      { data: influencers },
-      { data: users },
-    ] = await Promise.all([
-      supabase.from('campaigns').select('*, creator:user_profiles!campaigns_created_by_fkey(email, display_name), updater:user_profiles!campaigns_updated_by_fkey(email, display_name)'),
-      supabase.from('influencers').select('*'),
-      supabase.from('user_profiles').select('*'),
-    ]);
+    // BFF API経由でデータを取得（service_roleでRLSバイパス）
+    let campaigns: any[] = [];
+    let influencers: any[] = [];
+    let users: any[] = [];
 
-    if (campaigns && influencers && users) {
+    try {
+      const res = await fetch('/api/admin/stats', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        campaigns = json.campaigns || [];
+        influencers = json.influencers || [];
+        users = json.users || [];
+      }
+    } catch {
+      // Failed to fetch
+    }
+
+    if (campaigns.length > 0 || influencers.length > 0 || users.length > 0) {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -250,7 +255,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <Loader2 className="animate-spin mx-auto text-primary-500" size={48} />
-            <p className="mt-4 text-gray-500">データを読み込み中...</p>
+            <p className="mt-4 text-muted-foreground">データを読み込み中...</p>
           </div>
         </div>
       </MainLayout>
@@ -268,8 +273,8 @@ export default function AdminPage() {
                 <Shield className="text-white" size={24} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">管理者ダッシュボード</h1>
-                <p className="text-gray-500 mt-0.5">システム全体の監視と管理</p>
+                <h1 className="text-2xl font-bold text-foreground">管理者ダッシュボード</h1>
+                <p className="text-muted-foreground mt-0.5">システム全体の監視と管理</p>
               </div>
             </div>
           </div>
@@ -293,7 +298,7 @@ export default function AdminPage() {
           <div className="stat-card group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">登録ユーザー</p>
+                <p className="text-sm text-muted-foreground">登録ユーザー</p>
                 <p className="text-3xl font-bold mt-1">{systemStats?.total_users}</p>
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                   <UserPlus size={12} />
@@ -309,7 +314,7 @@ export default function AdminPage() {
           <div className="stat-card group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">総案件数</p>
+                <p className="text-sm text-muted-foreground">総案件数</p>
                 <p className="text-3xl font-bold mt-1">{systemStats?.total_campaigns}</p>
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                   <TrendingUp size={12} />
@@ -325,9 +330,9 @@ export default function AdminPage() {
           <div className="stat-card group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">インフルエンサー</p>
+                <p className="text-sm text-muted-foreground">インフルエンサー</p>
                 <p className="text-3xl font-bold mt-1">{systemStats?.total_influencers}</p>
-                <p className="text-xs text-gray-500 mt-1">登録済み</p>
+                <p className="text-xs text-muted-foreground mt-1">登録済み</p>
               </div>
               <div className="p-4 bg-gradient-to-br from-pink-100 to-pink-50 rounded-xl group-hover:scale-110 transition-transform">
                 <Users className="text-pink-600" size={28} />
@@ -338,9 +343,9 @@ export default function AdminPage() {
           <div className="stat-card group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">今月の案件</p>
+                <p className="text-sm text-muted-foreground">今月の案件</p>
                 <p className="text-3xl font-bold mt-1">{systemStats?.campaigns_this_month}</p>
-                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   <Calendar size={12} />
                   今週: {systemStats?.campaigns_this_week}
                 </p>
@@ -357,7 +362,7 @@ export default function AdminPage() {
           {/* 日別アクティビティ */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="font-bold text-foreground flex items-center gap-2">
                 <Activity className="text-primary-500" size={20} />
                 日別アクティビティ（過去14日）
               </h3>
@@ -391,7 +396,7 @@ export default function AdminPage() {
           {/* 最近のアクティビティ */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="font-bold text-foreground flex items-center gap-2">
                 <Clock className="text-primary-500" size={20} />
                 最近のアクティビティ
               </h3>
@@ -400,7 +405,7 @@ export default function AdminPage() {
               {recentActivities.map((activity, index) => (
                 <div
                   key={activity.id + index}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted/50 transition-colors"
                 >
                   <div className={`p-2 rounded-lg ${
                     activity.action === 'created'
@@ -410,14 +415,14 @@ export default function AdminPage() {
                     {activity.action === 'created' ? <UserPlus size={16} /> : <Edit3 size={16} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       @{activity.influencer}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {activity.user}が{activity.action === 'created' ? '作成' : '更新'}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     {formatDateTime(activity.timestamp)}
                   </span>
                 </div>
@@ -429,7 +434,7 @@ export default function AdminPage() {
         {/* ユーザーアクティビティテーブル */}
         <div className="card">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <h3 className="font-bold text-foreground flex items-center gap-2">
               <Users className="text-primary-500" size={20} />
               ユーザーアクティビティ
             </h3>
@@ -454,10 +459,10 @@ export default function AdminPage() {
                     <tr key={activity.user_id} className="table-row">
                       <td className="table-cell">
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             {activity.display_name || '未設定'}
                           </p>
-                          <p className="text-xs text-gray-500">{activity.email}</p>
+                          <p className="text-xs text-muted-foreground">{activity.email}</p>
                         </div>
                       </td>
                       <td className="table-cell">
@@ -470,10 +475,10 @@ export default function AdminPage() {
                           {activity.campaigns_updated}
                         </span>
                       </td>
-                      <td className="table-cell font-bold text-gray-900">
+                      <td className="table-cell font-bold text-foreground">
                         {activity.campaigns_created + activity.campaigns_updated}
                       </td>
-                      <td className="table-cell text-gray-500">
+                      <td className="table-cell text-muted-foreground">
                         {formatDateTime(activity.last_activity)}
                       </td>
                       <td className="table-cell">
@@ -483,7 +488,7 @@ export default function AdminPage() {
                             アクティブ
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1.5 text-gray-400">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
                             <span className="w-2 h-2 bg-gray-300 rounded-full" />
                             非アクティブ
                           </span>
@@ -504,25 +509,25 @@ export default function AdminPage() {
               <div className="p-2 bg-green-100 rounded-lg">
                 <CheckCircle className="text-green-600" size={20} />
               </div>
-              <h3 className="font-bold text-gray-900">システムステータス</h3>
+              <h3 className="font-bold text-foreground">システムステータス</h3>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">データベース</span>
+                <span className="text-muted-foreground">データベース</span>
                 <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   正常
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">認証システム</span>
+                <span className="text-muted-foreground">認証システム</span>
                 <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   正常
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">API</span>
+                <span className="text-muted-foreground">API</span>
                 <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   正常
@@ -536,20 +541,20 @@ export default function AdminPage() {
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Database className="text-blue-600" size={20} />
               </div>
-              <h3 className="font-bold text-gray-900">データ統計</h3>
+              <h3 className="font-bold text-foreground">データ統計</h3>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">推定ストレージ</span>
-                <span className="text-gray-900 font-medium">{systemStats?.storage_used}</span>
+                <span className="text-muted-foreground">推定ストレージ</span>
+                <span className="text-foreground font-medium">{systemStats?.storage_used}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">テーブル数</span>
-                <span className="text-gray-900 font-medium">3</span>
+                <span className="text-muted-foreground">テーブル数</span>
+                <span className="text-foreground font-medium">3</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">レコード数</span>
-                <span className="text-gray-900 font-medium">
+                <span className="text-muted-foreground">レコード数</span>
+                <span className="text-foreground font-medium">
                   {(systemStats?.total_campaigns || 0) + (systemStats?.total_influencers || 0) + (systemStats?.total_users || 0)}
                 </span>
               </div>
@@ -561,19 +566,19 @@ export default function AdminPage() {
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Shield className="text-purple-600" size={20} />
               </div>
-              <h3 className="font-bold text-gray-900">セキュリティ</h3>
+              <h3 className="font-bold text-foreground">セキュリティ</h3>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">ドメイン制限</span>
+                <span className="text-muted-foreground">ドメイン制限</span>
                 <span className="text-green-600 text-sm font-medium">有効</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">許可ドメイン</span>
-                <span className="text-gray-900 font-medium text-sm">@clout.co.jp</span>
+                <span className="text-muted-foreground">許可ドメイン</span>
+                <span className="text-foreground font-medium text-sm">@clout.co.jp</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">RLS</span>
+                <span className="text-muted-foreground">RLS</span>
                 <span className="text-green-600 text-sm font-medium">有効</span>
               </div>
             </div>

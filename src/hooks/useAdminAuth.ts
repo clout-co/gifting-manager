@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { ADMIN_EMAILS } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AdminAuthState {
   isAdmin: boolean;
@@ -11,42 +10,9 @@ interface AdminAuthState {
 }
 
 export function useAdminAuth(): AdminAuthState {
-  const [state, setState] = useState<AdminAuthState>({
-    isAdmin: false,
-    loading: true,
-    userEmail: null,
-  });
+  const { user, loading } = useAuth();
+  const userEmail = user?.email ?? null;
+  const isAdmin = userEmail ? ADMIN_EMAILS.includes(userEmail.toLowerCase()) : false;
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user?.email) {
-          const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
-          setState({
-            isAdmin,
-            loading: false,
-            userEmail: user.email,
-          });
-        } else {
-          setState({
-            isAdmin: false,
-            loading: false,
-            userEmail: null,
-          });
-        }
-      } catch (error) {
-        setState({
-          isAdmin: false,
-          loading: false,
-          userEmail: null,
-        });
-      }
-    };
-
-    checkAdminStatus();
-  }, []);
-
-  return state;
+  return { isAdmin, loading, userEmail };
 }

@@ -80,13 +80,13 @@ export function DataTable<TData, TValue>({
         <div className="relative max-w-sm">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             placeholder={searchPlaceholder}
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-[oklch(0.205_0_0)] border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30"
+            className="w-full pl-10 pr-4 py-2.5 bg-[oklch(0.205_0_0)] border border-white/10 rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:border-white/30"
           />
         </div>
       )}
@@ -101,7 +101,7 @@ export function DataTable<TData, TValue>({
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                     >
                       {header.isPlaceholder ? null : (
                         <div
@@ -122,7 +122,7 @@ export function DataTable<TData, TValue>({
                                 asc: <ChevronUp size={14} />,
                                 desc: <ChevronDown size={14} />,
                               }[header.column.getIsSorted() as string] ?? (
-                                <ChevronsUpDown size={14} className="text-gray-600" />
+                                <ChevronsUpDown size={14} className="text-muted-foreground" />
                               )}
                             </span>
                           )}
@@ -158,7 +158,7 @@ export function DataTable<TData, TValue>({
                     {row.getVisibleCells().map((cell) => (
                       <td
                         key={cell.id}
-                        className="px-4 py-3 text-sm text-gray-300"
+                        className="px-4 py-3 text-sm text-muted-foreground"
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -172,7 +172,7 @@ export function DataTable<TData, TValue>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-4 py-12 text-center text-gray-500"
+                    className="px-4 py-12 text-center text-muted-foreground"
                   >
                     データがありません
                   </td>
@@ -185,7 +185,7 @@ export function DataTable<TData, TValue>({
         {/* ページネーション */}
         {data.length > pageSize && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               {table.getFilteredRowModel().rows.length}件中{' '}
               {table.getState().pagination.pageIndex * pageSize + 1}-
               {Math.min(
@@ -198,32 +198,32 @@ export function DataTable<TData, TValue>({
               <button
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronsLeft size={18} />
               </button>
               <button
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft size={18} />
               </button>
-              <span className="px-3 text-sm text-gray-400">
+              <span className="px-3 text-sm text-muted-foreground">
                 {table.getState().pagination.pageIndex + 1} /{' '}
                 {table.getPageCount()}
               </span>
               <button
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
               <button
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronsRight size={18} />
               </button>
@@ -256,7 +256,7 @@ export function SortableHeader<TData>({
         asc: <ChevronUp size={14} />,
         desc: <ChevronDown size={14} />,
       }[column.getIsSorted() as string] ?? (
-        <ChevronsUpDown size={14} className="text-gray-600" />
+        <ChevronsUpDown size={14} className="text-muted-foreground" />
       )}
     </div>
   );
