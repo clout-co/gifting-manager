@@ -49,6 +49,22 @@ const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), 
   ),
 });
 
+const ENGAGEMENT_UNAVAILABLE_TAG = '非公開または削除済み';
+
+function extractTags(notes: string | null | undefined): string[] {
+  const source = String(notes || '');
+  const match = source.match(/\[TAGS:(.*?)\]/);
+  if (!match) return [];
+  return match[1]
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function hasUnavailableEngagementTag(notes: string | null | undefined): boolean {
+  return extractTags(notes).includes(ENGAGEMENT_UNAVAILABLE_TAG);
+}
+
 export default function CampaignsPage() {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
@@ -247,12 +263,32 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleSave = () => {
-    // React Queryのキャッシュを無効化して自動的に再取得
-    queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
-    queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
-    handleModalClose();
-    showToast('success', editingCampaign ? '案件を更新しました' : '案件を作成しました');
+  const handleSave = async (savedCampaign?: Campaign | null) => {
+    if (savedCampaign?.id) {
+      queryClient.setQueryData(['campaigns', currentBrand], (previous: unknown) => {
+        const list = Array.isArray(previous) ? (previous as Campaign[]) : [];
+        const index = list.findIndex((row) => row.id === savedCampaign.id);
+        if (index >= 0) {
+          const next = [...list];
+          next[index] = { ...next[index], ...savedCampaign };
+          return next;
+        }
+        return [savedCampaign, ...list];
+      });
+    }
+
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboardFullStats', currentBrand] }),
+      ]);
+      await refetch();
+    } catch {
+      // Save itself is already completed. Keep UX moving even if background refresh fails.
+    } finally {
+      handleModalClose();
+    }
   };
 
   // 選択系の処理
@@ -300,7 +336,8 @@ export default function CampaignsPage() {
       const { error } = await supabase
         .from('campaigns')
         .update(updates)
-        .in('id', Array.from(selectedIds));
+        .in('id', Array.from(selectedIds))
+        .eq('brand', currentBrand);
 
       if (error) throw error;
 
@@ -334,12 +371,16 @@ export default function CampaignsPage() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from('campaigns')
-        .delete()
-        .in('id', Array.from(selectedIds));
+      const response = await fetch('/api/campaigns', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), brand: currentBrand }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || `削除に失敗しました (${response.status})`);
+      }
 
       // React Queryのキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
@@ -374,9 +415,10 @@ export default function CampaignsPage() {
     const countMissingPostUrl = list.filter((c) => isBlank(c.post_url)).length;
     const countMissingEngagement = list.filter((c) => {
       const hasPost = !isBlank(c.post_url);
+      const isEngagementUnavailable = hasUnavailableEngagementTag(c.notes);
       const likes = Number(c.likes || 0);
       const comments = Number(c.comments || 0);
-      return hasPost && likes <= 0 && comments <= 0;
+      return hasPost && !isEngagementUnavailable && likes <= 0 && comments <= 0;
     }).length;
     return {
       missingItemCode: countMissingItemCode,
@@ -402,9 +444,10 @@ export default function CampaignsPage() {
     if (opsFilters.missingEngagement) {
       list = list.filter((c) => {
         const hasPost = !isBlank(c.post_url);
+        const isEngagementUnavailable = hasUnavailableEngagementTag(c.notes);
         const likes = Number(c.likes || 0);
         const comments = Number(c.comments || 0);
-        return hasPost && likes <= 0 && comments <= 0;
+        return hasPost && !isEngagementUnavailable && likes <= 0 && comments <= 0;
       });
     }
 
@@ -899,16 +942,22 @@ export default function CampaignsPage() {
                           {formatDate(campaign.post_date)}
                         </td>
                         <td className="table-cell">
-                          <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-1 text-foreground">
-                              <Heart size={14} />
-                              {campaign.likes?.toLocaleString() || 0}
+                          {hasUnavailableEngagementTag(campaign.notes) ? (
+                            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                              非公開または削除済み
                             </span>
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <MessageCircle size={14} />
-                              {campaign.comments?.toLocaleString() || 0}
-                            </span>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <span className="flex items-center gap-1 text-foreground">
+                                <Heart size={14} />
+                                {campaign.likes?.toLocaleString() || 0}
+                              </span>
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <MessageCircle size={14} />
+                                {campaign.comments?.toLocaleString() || 0}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="table-cell">
                           {campaign.post_url ? (

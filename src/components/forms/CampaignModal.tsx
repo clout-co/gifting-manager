@@ -20,7 +20,7 @@ interface CampaignModalProps {
   campaign: Campaign | null;
   influencers: Influencer[];
   onClose: () => void;
-  onSave: () => void;
+  onSave: (savedCampaign?: Campaign | null) => void | Promise<void>;
   onInfluencerAdded?: (newInfluencer: Influencer) => void; // 新規インフルエンサー追加時のコールバック
 }
 
@@ -128,6 +128,7 @@ export default function CampaignModal({
     sku: string | null;
     image_url: string | null;
     cost: number | null;
+    sale_date: string | null;
   };
 
   const toHalfWidth = (value: string) => {
@@ -143,6 +144,15 @@ export default function CampaignModal({
     normalizeProductCodeInput(value)
       .toUpperCase()
       .replace(/[^0-9A-Z]/g, '');
+
+  const normalizeMasterSaleDate = (value: unknown): string => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().slice(0, 10);
+  };
 
   const buildProductSearchQueries = (value: string): string[] => {
     const raw = normalizeProductCodeInput(value);
@@ -170,6 +180,7 @@ export default function CampaignModal({
     return queries;
   };
 
+  const [costWarningConfirmed, setCostWarningConfirmed] = useState(false);
   const [productOptions, setProductOptions] = useState<MasterProduct[]>([]);
   const [productOpen, setProductOpen] = useState(false);
   const [productLoading, setProductLoading] = useState(false);
@@ -281,6 +292,7 @@ export default function CampaignModal({
         const exact = exactMatches.length === 1 ? exactMatches[0] : null;
         if (exact) {
           const nextCost = typeof exact.cost === 'number' ? Math.round(exact.cost) : 0;
+          const nextSaleDate = normalizeMasterSaleDate(exact.sale_date);
           setResolvedProductCode(exact.product_code);
           setResolvedProductHasCost(typeof exact.cost === 'number');
           setResolvedProduct(exact);
@@ -291,13 +303,17 @@ export default function CampaignModal({
             const prevCode = String(prev.item_code || '');
             const prevCost = Number(prev.product_cost || 0);
             const nextCode = exact.product_code;
-            const shouldUpdate = prevCode !== nextCode || prevCost !== nextCost;
+            const shouldUpdate =
+              prevCode !== nextCode ||
+              prevCost !== nextCost ||
+              (Boolean(nextSaleDate) && prev.sale_date !== nextSaleDate);
             if (!shouldUpdate) return prev;
 
             return {
               ...prev,
               item_code: nextCode,
               product_cost: nextCost,
+              sale_date: nextSaleDate || prev.sale_date,
             };
           });
         }
@@ -319,6 +335,7 @@ export default function CampaignModal({
   }, [formData.item_code, currentBrand]);
 
   const selectProduct = (p: MasterProduct) => {
+    const nextSaleDate = normalizeMasterSaleDate(p.sale_date);
     setResolvedProductCode(p.product_code);
     setResolvedProductHasCost(typeof p.cost === 'number');
     setResolvedProduct(p);
@@ -327,6 +344,7 @@ export default function CampaignModal({
       item_code: p.product_code,
       // Product Master の原価を常に反映（変更不可にするため）
       product_cost: typeof p.cost === 'number' ? Math.round(p.cost) : 0,
+      sale_date: nextSaleDate || prev.sale_date,
     }));
     setProductOpen(false);
   };
@@ -444,6 +462,7 @@ export default function CampaignModal({
   const [comments, setComments] = useState<{ text: string; user: string; date: string }[]>([]);
 
   // タグの状態（notesからタグを抽出）
+  const ENGAGEMENT_UNAVAILABLE_TAG = '非公開または削除済み';
   const extractTags = (notes: string | null): string[] => {
     if (!notes) return [];
     const tagMatch = notes.match(/\[TAGS:(.*?)\]/);
@@ -454,6 +473,9 @@ export default function CampaignModal({
   };
 
   const [tags, setTags] = useState<string[]>(extractTags(campaign?.notes || null));
+  const [isEngagementUnavailable, setIsEngagementUnavailable] = useState<boolean>(
+    extractTags(campaign?.notes || null).includes(ENGAGEMENT_UNAVAILABLE_TAG)
+  );
 
   // テンプレート適用
   const handleTemplateSelect = (templateData: Partial<CampaignFormData>) => {
@@ -487,11 +509,12 @@ export default function CampaignModal({
         showToast('error', msg);
         return;
       }
-      // 原価が Product Master に未設定の場合は保存させない（運用で必ず整備する）
-      if (!resolvedProductHasCost) {
-        const msg = 'Product Masterに原価が未登録です（原価を設定してから再度登録してください）';
+      // 原価が Product Master に未設定の場合は警告（登録自体はブロックしない）
+      if (!resolvedProductHasCost && !costWarningConfirmed) {
+        setCostWarningConfirmed(true);
+        const msg = 'Product Masterに原価が未登録です。原価¥0で登録しますか？（もう一度「登録」を押すと確定します）';
         setError(msg);
-        showToast('error', msg);
+        showToast('warning', msg);
         return;
       }
     }
@@ -515,6 +538,7 @@ export default function CampaignModal({
         const selectedStaff = staffs.find((s) => s.id === formData.staff_id);
         if (selectedStaff) {
           // NOTE: staffs テーブルのスキーマ差分に強くするため、最小カラムのみ upsert する
+          // SECURITY: is_admin はクライアント側から設定しない（権限昇格防止）
           const { error: staffUpsertError } = await supabase
             .from('staffs')
             .upsert([{
@@ -525,7 +549,6 @@ export default function CampaignModal({
               department: selectedStaff.department || null,
               position: selectedStaff.position || null,
               is_active: true,
-              is_admin: Boolean(selectedStaff.is_admin),
             }], { onConflict: 'id' });
           if (staffUpsertError) {
             throw staffUpsertError;
@@ -539,9 +562,18 @@ export default function CampaignModal({
       // 既存のTAGSを削除
       updatedNotes = updatedNotes.replace(/\[TAGS:.*?\]\n?/g, '');
 
+      const tagsWithoutUnavailable = tags.filter((tag) => tag !== ENGAGEMENT_UNAVAILABLE_TAG);
+      const tagsForSave = Array.from(
+        new Set(
+          isEngagementUnavailable
+            ? [...tagsWithoutUnavailable, ENGAGEMENT_UNAVAILABLE_TAG]
+            : tagsWithoutUnavailable
+        )
+      );
+
       // タグを追加
-      if (tags.length > 0) {
-        updatedNotes = `[TAGS:${tags.join(',')}]\n${updatedNotes}`;
+      if (tagsForSave.length > 0) {
+        updatedNotes = `[TAGS:${tagsForSave.join(',')}]\n${updatedNotes}`;
       }
 
       if (newComment.trim()) {
@@ -575,10 +607,10 @@ export default function CampaignModal({
         post_status: autoPostStatus || null,
         post_date: formData.post_date || null,
         post_url: formData.post_url || null,
-        likes: formData.likes || 0,
-        comments: formData.comments || 0,
-        consideration_comment: formData.consideration_comment || 0,
-        engagement_date: formData.engagement_date || null,
+        likes: isEngagementUnavailable ? 0 : (formData.likes || 0),
+        comments: isEngagementUnavailable ? 0 : (formData.comments || 0),
+        consideration_comment: isEngagementUnavailable ? 0 : (formData.consideration_comment || 0),
+        engagement_date: isEngagementUnavailable ? null : (formData.engagement_date || null),
         number_of_times: numberOfTimes || 1,
         product_cost: formData.product_cost || 0,
         shipping_cost: 800, // 送料は800円固定
@@ -588,6 +620,8 @@ export default function CampaignModal({
         notes: updatedNotes || null,
         staff_id: formData.staff_id || null,
       };
+
+      let savedCampaign: Campaign | null = null;
 
       if (campaign) {
         const response = await fetch(`/api/campaigns/${campaign.id}`, {
@@ -614,6 +648,9 @@ export default function CampaignModal({
           const reason = data && typeof data.reason === 'string' ? data.reason : '';
           throw new Error(reason ? `${msg} (${reason})` : msg);
         }
+        savedCampaign = data && typeof data === 'object' && data.campaign
+          ? (data.campaign as Campaign)
+          : null;
       } else {
         const response = await fetch('/api/campaigns', {
           method: 'POST',
@@ -639,10 +676,13 @@ export default function CampaignModal({
           const reason = data && typeof data.reason === 'string' ? data.reason : '';
           throw new Error(reason ? `${msg} (${reason})` : msg);
         }
+        savedCampaign = data && typeof data === 'object' && data.campaign
+          ? (data.campaign as Campaign)
+          : null;
       }
 
       showToast('success', campaign ? '案件を更新しました' : '案件を登録しました');
-      onSave();
+      await onSave(savedCampaign);
     } catch (err: unknown) {
       const errorMessage = translateError(err);
       setError(errorMessage);
@@ -714,14 +754,16 @@ export default function CampaignModal({
       },
     });
 
-    items.push({
-      key: 'cost',
-      label: hasItemCode ? '原価が登録済み（Product Master）' : '原価は品番確定後に自動反映',
-      done: hasItemCode && isItemCostReady,
-      onClick: () => {
-        productSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      },
-    });
+    if (hasItemCode && isItemCodeResolved && !isItemCostReady) {
+      items.push({
+        key: 'cost',
+        label: '原価未登録（¥0で登録可・後から修正可）',
+        done: false,
+        onClick: () => {
+          productSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+      });
+    }
 
     items.push({
       key: 'sale_date',
@@ -768,7 +810,7 @@ export default function CampaignModal({
     !loading &&
     Boolean(formData.influencer_id) &&
     Boolean(formData.item_code?.trim()) &&
-    isItemCostReady &&
+    isItemCodeResolved &&
     isSaleDateReady &&
     isInternationalReady;
 
@@ -1132,6 +1174,7 @@ export default function CampaignModal({
                         setResolvedProductCode('');
                         setResolvedProductHasCost(false);
                         setResolvedProduct(null);
+                        setCostWarningConfirmed(false);
                         setFormData((prev) => ({ ...prev, item_code: normalized, product_cost: 0 }));
                         return;
                       }
@@ -1296,20 +1339,28 @@ export default function CampaignModal({
                   )}
 
                   {isItemCodeResolved && !isItemCostReady ? (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                      <div className="text-sm text-red-700">
-                        Product Master に原価（cost）が未登録のため、案件登録はできません。
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <div className="text-sm text-amber-800">
+                        Product Master に原価（cost）が未登録です。原価¥0で登録できますが、後からProduct Masterで原価を設定してください。
                       </div>
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
                           className="btn-secondary btn-sm flex items-center gap-2"
+                          onClick={() => openProductMaster()}
+                        >
+                          <ExternalLink size={16} />
+                          Product Masterで設定
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm flex items-center gap-2"
                           onClick={async () => {
                             const text =
-                              `【原価未登録】\\n` +
-                              `ブランド: ${currentBrand}\\n` +
-                              `品番: ${resolvedProductCode}\\n` +
-                              `Product Master に cost を登録してください（GGCRMの案件登録がブロックされています）`;
+                              `【原価未登録】\n` +
+                              `ブランド: ${currentBrand}\n` +
+                              `品番: ${resolvedProductCode}\n` +
+                              `Product Master に cost を登録してください`;
                             try {
                               await navigator.clipboard.writeText(text);
                               showToast('success', '依頼文をコピーしました');
@@ -1366,6 +1417,7 @@ export default function CampaignModal({
                   aria-label="セール日"
 	                  required
 	                />
+	                <p className="text-xs text-muted-foreground mt-1">※品番選択時にProduct Masterの販売日を自動反映</p>
 	              </div>
 
               <div>
@@ -1705,7 +1757,7 @@ export default function CampaignModal({
             </div>
           </div>
 
-          {/* エンゲージメント（合意後のみ入力可能・必須） */}
+          {/* エンゲージメント（任意） */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="font-medium text-foreground">エンゲージメント</h3>
@@ -1714,6 +1766,36 @@ export default function CampaignModal({
                   合意後に入力可能
                 </span>
               )}
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted px-3 py-2">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={isEngagementUnavailable}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsEngagementUnavailable(checked);
+                    setTags((prev) => {
+                      const withoutUnavailable = prev.filter((tag) => tag !== ENGAGEMENT_UNAVAILABLE_TAG);
+                      return checked
+                        ? [...withoutUnavailable, ENGAGEMENT_UNAVAILABLE_TAG]
+                        : withoutUnavailable;
+                    });
+                    if (checked) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        likes: 0,
+                        comments: 0,
+                        consideration_comment: 0,
+                        engagement_date: '',
+                      }));
+                    }
+                  }}
+                />
+                非公開または削除済み（エンゲージメント入力不要）
+              </label>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1727,8 +1809,9 @@ export default function CampaignModal({
                   onChange={(e) => handleEngagementChange('likes', parseInt(e.target.value) || 0)}
                   className="input-field"
                   min={0}
+                  disabled={isEngagementUnavailable}
                 />
-                {formData.status === 'pending' && (
+                {formData.status === 'pending' && !isEngagementUnavailable && (
                   <p className="text-xs text-muted-foreground mt-1">※入力するとステータスが「合意」に</p>
                 )}
               </div>
@@ -1743,6 +1826,7 @@ export default function CampaignModal({
                   onChange={(e) => handleEngagementChange('comments', parseInt(e.target.value) || 0)}
                   className="input-field"
                   min={0}
+                  disabled={isEngagementUnavailable}
                 />
               </div>
 
@@ -1756,6 +1840,7 @@ export default function CampaignModal({
                   onChange={(e) => handleEngagementChange('consideration_comment', parseInt(e.target.value) || 0)}
                   className="input-field"
                   min={0}
+                  disabled={isEngagementUnavailable}
                 />
               </div>
 
@@ -1770,8 +1855,9 @@ export default function CampaignModal({
                     setFormData({ ...formData, engagement_date: e.target.value })
                   }
                   className="input-field"
+                  disabled={isEngagementUnavailable}
                 />
-                {!formData.engagement_date && (formData.likes > 0 || formData.comments > 0 || formData.consideration_comment > 0) && (
+                {!isEngagementUnavailable && !formData.engagement_date && (formData.likes > 0 || formData.comments > 0 || formData.consideration_comment > 0) && (
                   <p className="text-xs text-green-600 mt-1">※自動設定されます</p>
                 )}
               </div>

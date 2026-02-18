@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { getAllowedBrands } from '@/lib/api-guard'
 
 export const dynamic = 'force-dynamic'
@@ -117,7 +117,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid endDate' }, { status: 400 })
   }
 
-  const supabase = createServerClient()
+  const { client: supabase } = createSupabaseForRequest({
+    request,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  })
 
   let query = supabase
     .from('campaigns')

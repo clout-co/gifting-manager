@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Campaign } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/contexts/BrandContext';
 import { useToast, translateError } from '@/lib/toast';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
@@ -29,7 +30,7 @@ import Link from 'next/link';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
-type ReportType = 'monthly' | 'weekly' | 'custom' | 'influencer' | 'roi';
+type ReportType = 'monthly' | 'weekly' | 'custom' | 'influencer';
 
 interface ReportConfig {
   type: ReportType;
@@ -44,6 +45,7 @@ interface ReportConfig {
 
 export default function ReportExportPage() {
   const { user, loading: authLoading } = useAuth();
+  const { currentBrand } = useBrand();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -67,6 +69,7 @@ export default function ReportExportPage() {
       const { data, error } = await supabase
         .from('campaigns')
         .select('*, influencer:influencers(*)')
+        .eq('brand', currentBrand)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -81,13 +84,13 @@ export default function ReportExportPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, currentBrand]);
 
   useEffect(() => {
-    if (user) {
+    if (user && currentBrand) {
       fetchData();
     }
-  }, [user, fetchData]);
+  }, [user, currentBrand, fetchData]);
 
   // 期間プリセット
   const setDatePreset = (preset: 'thisMonth' | 'lastMonth' | 'last3Months' | 'last6Months') => {
@@ -266,7 +269,7 @@ export default function ReportExportPage() {
   </div>
 
   <div class="section">
-    <h2>ROI サマリー</h2>
+    <h2>KPI サマリー</h2>
     <table>
       <tr>
         <td>平均いいね単価</td>
