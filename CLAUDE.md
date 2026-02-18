@@ -1,6 +1,33 @@
 # Gifting App (GGCRM) 開発進捗状況
 
-最終更新: 2026-02-11
+最終更新: 2026-02-17
+
+## 要件準拠サマリ（2026-02-17）
+
+### 現在の進捗状況
+- SSO一本化（Dashboard連携）と主要UX改善は実装済み。
+- Product Master連携（品番検索/原価反映）まで本番反映済み。
+- DB FK制約撤去完了（2026-02-17）。BFF化完了、RLSポリシー削除済み。
+- **UI刷新（2026-02-17）**: ダッシュボード・インフルエンサー一覧をシンプル化。PWAバナー削除。
+- **LLM/AI機能全削除（2026-02-17）**: Claude AI連携（チャット・分析・検索）を全削除。`@anthropic-ai/sdk`依存も除去。
+
+### 完了したタスク
+- `?code=` 交換 + `clout_token` 運用へ移行し、認証二重系統を解消。
+- 同ブランド担当者選択、品番検索、原価連動、保存条件チェックを実装。
+- 主要画面で遅延ロード・クイック編集・エラー復旧UIを実装。
+- DB FK制約撤去（campaigns.created_by/updated_by、user_profiles.id → TEXT化）。RLSポリシー `Enable update for own profile` 削除。
+- **ダッシュボード**: ヘッダー+フィルター統合でコンパクト化。「BI Dashboard」ヒーロー・「表示ユーザー」・分析フィルターの分離セクション → 1行ヘッダーに統合。
+- **インフルエンサー一覧**: ランク(S/A/B/C)・スコアバー・メダル・統計サマリーカードを削除。テーブルをデフォルト表示に変更し一覧性を重視。
+- **PWAバナー削除**: layout.tsxから `PWAProvider` を除去。
+- **LLM/AI機能全削除**: `lib/claude.ts`、`components/ui/AIChatWidget.tsx`、`components/ui/LazyAIChatWidget.tsx`、`app/api/ai/`（chat/search/analyze）、`app/ai-insights/`を削除。MainLayoutからフローティングチャットウィジェットを除去。`@anthropic-ai/sdk`パッケージと`CLAUDE_API_KEY`環境変数設定を除去。
+
+### 残りのタスク
+- 本番で権限ON/OFF時の業務フローE2E確認。
+- 観測性/監査ログの運用強化。
+
+### 次にやるべきこと
+1. 実ユーザーで案件登録→分析→権限変更の通しE2Eを実施する。
+2. E2E結果を `CLAUDE.md` 要約と `WORK_LOG.md` 詳細へ反映する。
 
 ### サービス基盤（2026-02-11 移行完了）
 - **Vercel**: Cloutチーム (`vercel.com/clout-10b5c7f9`) / プロジェクト名: `gifting-manager`

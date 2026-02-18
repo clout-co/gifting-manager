@@ -135,11 +135,9 @@ export function translateError(error: unknown): string {
       message.includes('auth_failed') ||
       message.includes('invalid_or_expired_token') ||
       message.includes('not authenticated') ||
-      // Some upstreams only surface generic "token" errors (e.g., invalid JWT).
       message.includes('invalid token') ||
       message.includes('expired token') ||
-      message.includes('jwt') ||
-      message.includes('token')
+      message.includes('jwt')
     ) {
       return '認証が切れています（再ログインしてください）';
     }

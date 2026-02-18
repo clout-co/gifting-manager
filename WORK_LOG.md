@@ -4,6 +4,94 @@
 
 ---
 
+## 作業進捗 (2026-02-17: ROI分析機能の撤去 + 作業ログ記入先の更新反映)
+
+現在の進捗状況:
+- GGCRMの「ROI分析」機能をUI導線とルート実装の両方から撤去。
+- 作業ログの記入先が `CLAUDE.md` から `WORK_LOG.md` に分離されている運用を確認し、本ログへ記入。
+
+完了したタスク:
+- [x] `/Users/shokei/GGCRM/gifting-app/src/components/layout/Sidebar.tsx`
+  - サイドバーの `ROI分析 (/analytics)` ナビ項目を削除
+- [x] `/Users/shokei/GGCRM/gifting-app/src/components/layout/BottomNav.tsx`
+  - モバイル下部ナビの `分析 (/analytics)` 項目を削除
+- [x] `/Users/shokei/GGCRM/gifting-app/src/app/reports/page.tsx`
+  - レポートタイプの `ROI分析` オプションを削除
+  - `brand` の説明文から ROI 文言を除去
+  - `ReportConfig` 型から `roi` を除去
+- [x] `/Users/shokei/GGCRM/gifting-app/src/app/analytics/`
+  - `page.tsx`, `AnalyticsCharts.tsx`, `types.ts`, `utils.ts` を削除（ROI分析ページ自体を撤去）
+
+残りのタスク:
+- [P1] `reports/export` 内の `ROI サマリー` 文言を、必要に応じて「コストサマリー」等へリネームして表記統一。
+- [P1] `ai-insights` のROI文言（説明テキスト）をプロダクト方針に合わせて整理するか判断。
+
+次にやるべきこと:
+1. 本番UIでサイドバー/モバイルナビに `ROI分析` が表示されないことを確認。
+2. 既存ユーザー導線（ダッシュボード→案件/インフルエンサー/インポート）が崩れていないか画面確認。
+3. 必要なら本番デプロイを実施して反映。
+
+## 作業進捗 (2026-02-17: TL/BE/AM ブランド配色の修正)
+
+現在の進捗状況:
+- ブランド配色の残存不一致を修正し、TL/BE/AM を指定色へ統一。
+  - TL: 深緑
+  - BE: グレー
+  - AM: 暗い赤
+
+完了したタスク:
+- [x] `/Users/shokei/GGCRM/gifting-app/src/lib/constants.ts`
+  - `BRAND_COLORS` を `TL=green / BE=gray / AM=red` 系へ変更
+- [x] `/Users/shokei/GGCRM/gifting-app/src/components/layout/Sidebar.tsx`
+  - サイドバーのブランドアクセント色を統一
+- [x] `/Users/shokei/GGCRM/gifting-app/src/components/layout/MainLayout.tsx`
+  - ヘッダーのブランドバッジ色を統一
+- [x] `/Users/shokei/GGCRM/gifting-app/src/app/brand-select/page.tsx`
+  - ブランド説明文（description/tagline）を削除
+  - ブランド選択カードを `TL=深緑 / BE=グレー / AM=暗赤` 配色へ統一
+
+検証結果:
+- `npm run lint` 実行（error 0 / warning 88、既存warningのみ）
+- `npm run build` pass
+
+本番反映:
+- `npx vercel --prod --yes`
+- Production: `https://gifting-gxts6pegl-shoxx1vs-projects.vercel.app`
+- Alias: `https://gifting-app-seven.vercel.app`
+- Health: `GET /api/health => ok=true`
+
+## 作業進捗 (2026-02-13: Decision OS送信 + company header伝播)
+
+現在の進捗状況:
+- campaign/influencer の mutation API から Decision OS へイベント送信を接続。
+- `x-clout-company-id` を proxy と BFF 経路で伝播し、テナント境界を固定。
+
+完了したタスク:
+- [x] `src/lib/clout-master.ts`
+  - `x-clout-company-id` 伝播を追加
+  - `postDecisionEvents()` を追加（`/api/os/events/batch` 送信）
+- [x] `src/lib/decision-events.ts` を新規追加
+  - campaign/influencer 用イベント生成を実装
+- [x] mutation APIへ送信接続:
+  - `src/app/api/campaigns/route.ts`（create / bulk delete）
+  - `src/app/api/campaigns/[id]/route.ts`（update / delete）
+  - `src/app/api/influencers/route.ts`（create）
+  - `src/app/api/influencers/[id]/route.ts`（update / delete）
+- [x] `src/proxy.ts`
+  - verify/exchange リクエストに `x-clout-company-id` を追加
+  - 下流リクエストヘッダーへ `x-clout-company-id` を注入
+- [x] `src/lib/auth/request-context.ts` / `src/app/api/auth/me/route.ts`
+  - company context を保持/返却
+
+検証結果:
+- `npm run lint`（warningのみ、error 0）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass（2/2）
+
+残りのタスク:
+- [P1] Decision OS rejection原因（missing_product_code等）のUI監視導線を管理画面へ追加。
+
 ## 作業進捗 (2026-02-06 追記: 要入力キュー + Save Gate(API) + Playwright E2E + 本番デプロイ)
 
 現在の進捗状況:
@@ -114,3 +202,35 @@
 1. ユーザー側でハードリロード後に同名インフルエンサー（例: `test`）が一覧に表示されるか確認。
 2. 表示されない場合は、検索語・選択ブランド・発生時刻を添えてスクリーンショット共有。
 3. 共有ログを基に、該当APIレスポンスと`rid`を突合して最終修正を実施。
+
+---
+
+## 作業進捗 (2026-02-18 追記: ギフティング案件登録後に2回リフレッシュが必要な不具合の修正)
+
+現在の進捗状況:
+- 症状を特定: 案件保存後、一覧側のキャッシュ反映と再取得がタイミング依存で、保存直後に最新行が見えないケースが発生していた。
+- 保存成功時に一覧へ即時反映されるよう、保存レスポンスとフロント更新フローを修正。
+- 本番デプロイ済み: `https://gifting-manager.vercel.app`（health check: `ok=true`）。
+
+完了したタスク:
+- [x] `POST /api/campaigns` のレスポンスに作成済み案件（`campaign`）を含めるよう変更。
+  - `src/app/api/campaigns/route.ts`
+- [x] `PATCH /api/campaigns/:id` のレスポンスに更新済み案件（`campaign`）を含めるよう変更。
+  - `src/app/api/campaigns/[id]/route.ts`
+- [x] `CampaignModal` から親へ `savedCampaign` を返却し、`onSave` を `await` するよう変更。
+  - `src/components/forms/CampaignModal.tsx`
+- [x] `/campaigns` の `handleSave` を改善:
+  - `queryClient.setQueryData` で即時upsert
+  - `invalidateQueries` + `refetch()` で整合
+  - 再取得失敗時でもモーダルを閉じて操作を継続可能化
+  - `src/app/campaigns/page.tsx`
+- [x] `/queue` でも保存後の `refetch()` を `await`。
+  - `src/app/queue/page.tsx`
+
+残りのタスク:
+- [P0] 実ユーザー環境で TL/BE/AM 各ブランドの「新規案件登録→一覧即反映」を確認。
+- [P1] もし未反映が残る場合、発生時刻・ブランド・該当案件ID・`x-clout-request-id` を採取して追跡。
+
+次にやるべきこと:
+1. 本番で各ブランド1件ずつ新規案件を作成し、リロードなしで一覧先頭に表示されるか確認。
+2. 未反映が出る場合は、操作時刻とブランドを共有して再現調査を実施。

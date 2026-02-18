@@ -51,11 +51,16 @@ async function getProductMasterConfig(request: { headers: { get(name: string): s
 }
 
 function getCloutToken(request: NextRequest): string | null {
-  // Prefer app-issued SSO cookies first; legacy `__session` can be stale.
+  // 1. Prefer Authorization header (proxy forwards the original Bearer token).
+  const bearer = String(request.headers.get('authorization') || '').trim()
+  if (bearer.toLowerCase().startsWith('bearer ')) {
+    const t = bearer.slice(7).trim()
+    if (t) return t
+  }
+  // 2. App-issued SSO cookies (direct browser access).
   return (
     request.cookies.get('__Host-clout_token')?.value ||
     request.cookies.get('clout_token')?.value ||
-    request.cookies.get('__session')?.value ||
     null
   )
 }
@@ -140,6 +145,7 @@ export async function GET(request: NextRequest) {
         sku: 'TF-2408',
         image_url: null,
         cost: 1234,
+        sale_date: '2026-02-01',
       },
       {
         id: 'e2e-tf-2409',
@@ -148,6 +154,7 @@ export async function GET(request: NextRequest) {
         sku: 'TF-2409',
         image_url: null,
         cost: 2345,
+        sale_date: '2026-02-15',
       },
     ]
 
@@ -242,6 +249,15 @@ export async function GET(request: NextRequest) {
             ? null
             : Number(rawCost)
 
+        const rawSaleDate =
+          row.sales_date ??
+          row.sale_date ??
+          row.release_date ??
+          null
+        const saleDate = typeof rawSaleDate === 'string'
+          ? rawSaleDate.slice(0, 10)
+          : null
+
         return {
           id: String(row.id || productCode),
           product_code: productCode,
@@ -249,6 +265,7 @@ export async function GET(request: NextRequest) {
           sku: row.sku ? String(row.sku) : null,
           image_url: row.image_url ? String(row.image_url) : null,
           cost: Number.isFinite(cost as number) ? (cost as number) : null,
+          sale_date: saleDate,
         }
       })
       .filter((p) => Boolean(p.product_code))

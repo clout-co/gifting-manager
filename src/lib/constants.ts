@@ -60,19 +60,19 @@ export type Brand = typeof BRANDS[number];
 
 export const BRAND_COLORS: Record<Brand, { primary: string; secondary: string; text: string }> = {
   TL: {
-    primary: 'bg-blue-500',
-    secondary: 'bg-blue-50',
-    text: 'text-blue-600',
+    primary: 'bg-green-900',
+    secondary: 'bg-green-50',
+    text: 'text-green-800',
   },
   BE: {
-    primary: 'bg-emerald-500',
-    secondary: 'bg-emerald-50',
-    text: 'text-emerald-600',
+    primary: 'bg-gray-600',
+    secondary: 'bg-gray-50',
+    text: 'text-gray-700',
   },
   AM: {
-    primary: 'bg-purple-500',
-    secondary: 'bg-purple-50',
-    text: 'text-purple-600',
+    primary: 'bg-red-900',
+    secondary: 'bg-red-50',
+    text: 'text-red-800',
   },
 };
 
@@ -139,19 +139,6 @@ export const DATE_FORMATS = {
 export const PAGINATION = {
   defaultPageSize: 20,
   pageSizeOptions: [10, 20, 50, 100],
-};
-
-// ==================== インポート関連 ====================
-
-export const IMPORT_CONSTANTS = {
-  /** プレビュー表示行数 */
-  PREVIEW_ROW_LIMIT: 10,
-  /** エラー表示上限 */
-  ERROR_DISPLAY_LIMIT: 5,
-  /** Excel日付シリアル値のオフセット */
-  EXCEL_DATE_OFFSET: 25569,
-  /** Excel日付の1日のミリ秒 */
-  EXCEL_DAY_MS: 86400 * 1000,
 };
 
 // ==================== キャッシュ関連 ====================

@@ -127,7 +127,7 @@ export function getCloutToken(): string | null {
     const [name, value] = cookie.trim().split('=')
     // NOTE: In production the SSO token is stored as an httpOnly cookie, so this
     // function typically returns null. Keep for dev/debug where cookies might not be httpOnly.
-    if (name === '__Host-clout_token' || name === 'clout_token' || name === '__session') {
+    if (name === '__Host-clout_token' || name === 'clout_token') {
       return value
     }
   }

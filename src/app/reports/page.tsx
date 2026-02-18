@@ -17,12 +17,11 @@ import {
   BarChart3,
   Users,
   Gift,
-  TrendingUp,
   Heart,
 } from 'lucide-react';
 
 interface ReportConfig {
-  type: 'summary' | 'detailed' | 'influencer' | 'brand' | 'roi';
+  type: 'summary' | 'detailed' | 'influencer' | 'brand';
   dateFrom: string;
   dateTo: string;
   brands: string[];
@@ -199,7 +198,7 @@ export default function ReportsPage() {
     // CSVとして生成（Excel互換）
     let csv = '';
 
-    if (config.type === 'summary' || config.type === 'roi') {
+    if (config.type === 'summary') {
       // サマリーレポート
       csv += 'ギフティングレポート サマリー\n';
       csv += `生成日時,${new Date().toLocaleString('ja-JP')}\n`;
@@ -341,8 +340,7 @@ export default function ReportsPage() {
     { id: 'summary', name: 'サマリーレポート', icon: BarChart3, desc: '全体の概要と主要KPI' },
     { id: 'detailed', name: '詳細レポート', icon: FileText, desc: '全案件の詳細データ' },
     { id: 'influencer', name: 'インフルエンサー別', icon: Users, desc: 'インフルエンサーごとの成績' },
-    { id: 'brand', name: 'ブランド別', icon: Gift, desc: 'ブランドごとのROI分析' },
-    { id: 'roi', name: 'ROI分析', icon: TrendingUp, desc: '投資対効果の詳細分析' },
+    { id: 'brand', name: 'ブランド別', icon: Gift, desc: 'ブランドごとの成績分析' },
   ];
 
   if (authLoading) {

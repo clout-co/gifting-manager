@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
+import { getRequestIdFromHeaders, postDecisionEvents } from '@/lib/clout-master'
+import { buildInfluencerDecisionEvent } from '@/lib/decision-events'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -178,6 +180,21 @@ export async function POST(request: NextRequest) {
       { error: error.message || 'Failed to create influencer' },
       { status: 400 }
     )
+  }
+
+  {
+    const requestIdBase = getRequestIdFromHeaders(request.headers) || `gifting-influencer-${Date.now()}`
+    const decisionEvent = buildInfluencerDecisionEvent({
+      requestId: `${requestIdBase}:influencer:create`,
+      operation: 'influencer_created',
+      brand: brand as AllowedBrand,
+      influencerId: String(data.id),
+      metrics: {
+        has_instagram_name: insta_name ? 1 : 0,
+        has_tiktok_name: tiktok_name ? 1 : 0,
+      },
+    })
+    void postDecisionEvents(request, [decisionEvent])
   }
 
   return NextResponse.json({ influencer: data }, { headers: { 'Cache-Control': 'no-store' } })

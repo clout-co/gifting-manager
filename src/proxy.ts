@@ -9,13 +9,21 @@ const HOST_TOKEN_COOKIE = '__Host-clout_token'
 const LEGACY_TOKEN_COOKIE = 'clout_token'
 const IS_PROD = process.env.NODE_ENV === 'production'
 const TOKEN_COOKIE = IS_PROD ? HOST_TOKEN_COOKIE : LEGACY_TOKEN_COOKIE
+const COMPANY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/i
 
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 500
 
-const VERIFY_CACHE_TTL_ALLOWED_MS = 60 * 1000
+// Clerk session JWTs are short-lived (~60s default). To avoid constant re-verification
+// (and the intermittent 401s that come with expired tokens), we cache a successful
+// verification result for 30 minutes. During this window the user's identity and
+// permissions are trusted without re-contacting Dashboard.
+const VERIFY_CACHE_TTL_ALLOWED_MS = 30 * 60 * 1000 // 30 minutes
 const VERIFY_CACHE_TTL_DENIED_MS = 10 * 1000
-const VERIFY_CACHE_TTL_ERROR_MS = 5 * 1000
+// Transient errors (5xx, network timeouts) are NOT cached.
+// This ensures that a brief Dashboard hiccup does not cascade into a burst of
+// false 401/503 responses for the affected user.
+const VERIFY_CACHE_TTL_ERROR_MS = 0
 
 type VerifyCacheEntry = {
   expiresAt: number
@@ -26,6 +34,18 @@ type VerifyCacheEntry = {
 // Edge runtime: in-memory cache (best-effort). Helps reduce extra /api/auth/verify calls
 // caused by multiple same-origin API requests during initial app load.
 const verifyCache = new Map<string, VerifyCacheEntry>()
+
+function resolveCompanyId(candidate: unknown): string {
+  const raw = String(candidate || '').trim()
+  if (raw && COMPANY_ID_PATTERN.test(raw)) {
+    return raw.toLowerCase()
+  }
+  const envCompanyId = String(process.env.CLOUT_COMPANY_ID || '').trim()
+  if (envCompanyId && COMPANY_ID_PATTERN.test(envCompanyId)) {
+    return envCompanyId.toLowerCase()
+  }
+  return 'clout'
+}
 
 function buildReauthRedirectUrl(targetUrl: string, requestId: string): string {
   const url = new URL('/api/auth/redirect', CLOUT_AUTH_URL)
@@ -73,6 +93,7 @@ export async function proxy(request: NextRequest) {
     request.headers.get('x-clout-request-id')?.trim() ||
     (ridFromUrl && ridFromUrl.length <= 128 ? ridFromUrl : '') ||
     crypto.randomUUID()
+  const companyId = resolveCompanyId(request.headers.get('x-clout-company-id'))
 
   // One-time code handoff (?code=...) -> dashboard exchange -> clout_token cookie + URL cleanup
   const codeFromUrl = request.nextUrl.searchParams.get('code')
@@ -90,6 +111,7 @@ export async function proxy(request: NextRequest) {
           'Content-Type': 'application/json',
           ...(serviceToken ? { Authorization: `Bearer ${serviceToken}` } : null),
           'x-clout-request-id': requestId,
+          'x-clout-company-id': companyId,
         },
         body: JSON.stringify({ code: codeFromUrl, app: APP_SLUG }),
       })
@@ -183,6 +205,10 @@ export async function proxy(request: NextRequest) {
     )
     requestHeaders.set('x-clout-user-email', process.env.SSO_BYPASS_USER_EMAIL || 'e2e@clout.co.jp')
     requestHeaders.set('x-clout-user-name', encodeURIComponent(process.env.SSO_BYPASS_USER_NAME || 'E2E User'))
+    requestHeaders.set(
+      'x-clout-company-id',
+      resolveCompanyId(process.env.SSO_BYPASS_COMPANY_ID || companyId)
+    )
     requestHeaders.set('x-clout-brands', process.env.SSO_BYPASS_BRANDS || 'TL,BE,AM')
     // UI affordance: app switchers can hide apps the user can't access.
     requestHeaders.set(
@@ -208,12 +234,23 @@ export async function proxy(request: NextRequest) {
   }
 
   // SSO認証チェック
-  // Prefer app-issued SSO cookies first.
-  // `__session` can be stale from legacy/other auth flows and cause false 401 loops.
+  // Token sources (in priority order):
+  // 1. App-issued SSO cookies (__Host-clout_token, clout_token)
+  // 2. Authorization: Bearer <token> header — used by internal server-to-server
+  //    calls (e.g., campaigns route → /api/master/products) where cookies may
+  //    not be properly forwarded due to __Host- cookie restrictions.
+  // `__session` (legacy Clerk/Supabase) is intentionally excluded:
+  // it can contain a stale JWT that Clout Dashboard rejects, causing false 401 loops
+  // that get cached in verifyCache for up to 10 seconds.
+  const bearerHeader = String(request.headers.get('authorization') || '').trim()
+  const bearerToken =
+    bearerHeader.toLowerCase().startsWith('bearer ')
+      ? bearerHeader.slice(7).trim()
+      : ''
   const token =
     request.cookies.get(HOST_TOKEN_COOKIE)?.value ||
     request.cookies.get(LEGACY_TOKEN_COOKIE)?.value ||
-    request.cookies.get('__session')?.value
+    bearerToken
 
   if (!token) {
     // APIはリダイレクトしない（クライアント側でハンドリングする）
@@ -247,6 +284,7 @@ export async function proxy(request: NextRequest) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'x-clout-request-id': requestId,
+          'x-clout-company-id': companyId,
         },
         body: JSON.stringify({ app: APP_SLUG }),
       })
@@ -260,14 +298,14 @@ export async function proxy(request: NextRequest) {
         data = null
       }
 
-      const ttl =
-        response.ok && data?.allowed !== false
-          ? VERIFY_CACHE_TTL_ALLOWED_MS
-          : status === 403 || data?.allowed === false
-            ? VERIFY_CACHE_TTL_DENIED_MS
-            : VERIFY_CACHE_TTL_ERROR_MS
-
-      verifyCache.set(token, { expiresAt: Date.now() + ttl, status, data })
+      // Only cache definitive results (success, 401, 403). Transient errors
+      // (5xx, network failures) are NOT cached to prevent cascading false 401s.
+      if (response.ok && data?.allowed !== false) {
+        verifyCache.set(token, { expiresAt: Date.now() + VERIFY_CACHE_TTL_ALLOWED_MS, status, data })
+      } else if (status === 401 || status === 403 || data?.allowed === false) {
+        verifyCache.set(token, { expiresAt: Date.now() + VERIFY_CACHE_TTL_DENIED_MS, status, data })
+      }
+      // else: transient error — do not cache
     }
 
     if (status === 401) {
@@ -372,6 +410,10 @@ export async function proxy(request: NextRequest) {
 
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-clout-request-id', requestId)
+    requestHeaders.set('x-clout-company-id', resolveCompanyId(data?.company_id || companyId))
+    // Forward the verified SSO token so downstream API routes can use it
+    // for upstream calls (e.g., Product Master) without re-reading cookies.
+    requestHeaders.set('authorization', `Bearer ${token}`)
     if (data.user) {
       requestHeaders.set('x-clout-user-id', data.user.id)
       if (typeof data.user.dbId === 'string' && data.user.dbId.trim()) {

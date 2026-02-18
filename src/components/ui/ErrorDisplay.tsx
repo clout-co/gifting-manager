@@ -28,8 +28,8 @@ export default function ErrorDisplay({
       lower.includes('auth_failed') ||
       lower.includes('not authenticated') ||
       lower.includes('invalid_or_expired_token') ||
-      lower.includes('token') ||
-      lower.includes('401') ||
+      lower.includes('invalid token') ||
+      lower.includes('expired token') ||
       s.includes('認証') ||
       s.includes('ログイン');
     if (looksAuth) return 'auth';

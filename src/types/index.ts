@@ -186,39 +186,6 @@ export interface InfluencerFormData {
   brand: string; // ブランド紐付け
 }
 
-// インポート用
-export interface ImportRow {
-  brand?: string;
-  insta_name?: string;
-  insta_url?: string;
-  tiktok_name?: string;
-  tiktok_url?: string;
-  item_code?: string;
-  sale_date?: string;
-  desired_post_date?: string;
-  desired_post_start?: string;
-  desired_post_end?: string;
-  agreed_date?: string;
-  offered_amount?: number;
-  agreed_amount?: number;
-  status?: string;
-  post_status?: string;
-  post_date?: string;
-  post_url?: string;
-  likes?: number;
-  comments?: number;
-  consideration_comment?: number;
-  engagement_date?: string;
-  item_quantity?: number;
-  number_of_times?: number;
-  product_cost?: number;
-  // BE用海外発送フィールド
-  is_international_shipping?: boolean;
-  shipping_country?: string;
-  international_shipping_cost?: number;
-  notes?: string;
-}
-
 // チーム・担当者機能用
 export interface TeamMember {
   id: string;

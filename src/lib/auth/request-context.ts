@@ -6,6 +6,7 @@ export type AllowedBrand = 'TL' | 'BE' | 'AM'
 type AuthContext = {
   userId: string
   email: string
+  companyId: string
   permissionLevel: AppPermissionLevel
   brands: AllowedBrand[]
 }
@@ -30,10 +31,12 @@ function readToken(request: NextRequest): string {
     return bearer.slice(7).trim()
   }
 
+  // Only read app-issued SSO cookies.
+  // `__session` (legacy Clerk/Supabase) is intentionally excluded to prevent
+  // stale JWT tokens from causing false 401 loops.
   return (
     request.cookies.get('__Host-clout_token')?.value ||
     request.cookies.get('clout_token')?.value ||
-    request.cookies.get('__session')?.value ||
     ''
   ).trim()
 }
@@ -60,6 +63,11 @@ export async function requireAuthContext(
 
   const headerUserId = String(request.headers.get('x-clout-user-id') || '').trim()
   const headerEmail = String(request.headers.get('x-clout-user-email') || '').trim()
+  const headerCompanyId = String(
+    request.headers.get('x-clout-company-id') || process.env.CLOUT_COMPANY_ID || 'clout'
+  )
+    .trim()
+    .toLowerCase()
   const headerPermissionLevel = parseAppPermissionLevel(request.headers)
   const headerBrands = parseBrands(String(request.headers.get('x-clout-brands') || ''))
 
@@ -73,6 +81,7 @@ export async function requireAuthContext(
       context: {
         userId: headerUserId,
         email: headerEmail,
+        companyId: headerCompanyId,
         permissionLevel: headerPermissionLevel,
         brands: headerBrands,
       },
@@ -94,6 +103,7 @@ export async function requireAuthContext(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         ...(requestId ? { 'x-clout-request-id': requestId } : null),
+        ...(headerCompanyId ? { 'x-clout-company-id': headerCompanyId } : null),
       },
       body: JSON.stringify({ app: APP_SLUG }),
       cache: 'no-store',
@@ -109,6 +119,7 @@ export async function requireAuthContext(
         reason?: string
         user?: { id?: string; email?: string }
         appPermissionLevel?: string
+        company_id?: string
         brands?: unknown
         error?: string
       }
@@ -152,6 +163,9 @@ export async function requireAuthContext(
         .map((b) => String(b || '').trim().toUpperCase())
         .filter((b): b is AllowedBrand => b === 'TL' || b === 'BE' || b === 'AM')
     : []
+  const companyId = String(data?.company_id || process.env.CLOUT_COMPANY_ID || 'clout')
+    .trim()
+    .toLowerCase()
 
   if (!userId || !email) {
     return badAuth(503, { error: 'auth_failed', reason: 'verify_bad_payload' })
@@ -166,9 +180,9 @@ export async function requireAuthContext(
     context: {
       userId,
       email,
+      companyId,
       permissionLevel,
       brands,
     },
   }
 }
-

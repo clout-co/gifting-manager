@@ -29,9 +29,24 @@ const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), 
 });
 
 type QueueReason = 'missing_item_code' | 'missing_cost' | 'missing_post_url' | 'missing_engagement';
+const ENGAGEMENT_UNAVAILABLE_TAG = '非公開または削除済み';
 
 function isBlank(v: unknown): boolean {
   return !String(v || '').trim();
+}
+
+function extractTags(notes: string | null | undefined): string[] {
+  const source = String(notes || '');
+  const match = source.match(/\[TAGS:(.*?)\]/);
+  if (!match) return [];
+  return match[1]
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function hasUnavailableEngagementTag(notes: string | null | undefined): boolean {
+  return extractTags(notes).includes(ENGAGEMENT_UNAVAILABLE_TAG);
 }
 
 function formatDate(date: string | null): string {
@@ -45,9 +60,10 @@ function toQueueReasons(c: Campaign): QueueReason[] {
   if (Number(c.product_cost || 0) <= 0) reasons.push('missing_cost');
   if (isBlank(c.post_url)) reasons.push('missing_post_url');
   const hasPost = !isBlank(c.post_url);
+  const isEngagementUnavailable = hasUnavailableEngagementTag(c.notes);
   const likes = Number(c.likes || 0);
   const comments = Number(c.comments || 0);
-  if (hasPost && likes <= 0 && comments <= 0) reasons.push('missing_engagement');
+  if (hasPost && !isEngagementUnavailable && likes <= 0 && comments <= 0) reasons.push('missing_engagement');
   return reasons;
 }
 
@@ -275,6 +291,7 @@ export default function QueuePage() {
                     const handle = campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明';
                     const likes = Number(campaign.likes || 0);
                     const comments = Number(campaign.comments || 0);
+                    const isEngagementUnavailable = hasUnavailableEngagementTag(campaign.notes);
 
                     return (
                       <tr key={campaign.id} className="hover:bg-muted">
@@ -323,16 +340,22 @@ export default function QueuePage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-foreground">
-                              <Heart size={16} className="text-muted-foreground" />
-                              <span className="tabular-nums">{likes}</span>
+                          {isEngagementUnavailable ? (
+                            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                              非公開または削除済み
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1 text-foreground">
+                                <Heart size={16} className="text-muted-foreground" />
+                                <span className="tabular-nums">{likes}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-foreground">
+                                <MessageCircle size={16} className="text-muted-foreground" />
+                                <span className="tabular-nums">{comments}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1 text-foreground">
-                              <MessageCircle size={16} className="text-muted-foreground" />
-                              <span className="tabular-nums">{comments}</span>
-                            </div>
-                          </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
@@ -357,9 +380,9 @@ export default function QueuePage() {
             campaign={editingCampaign}
             influencers={influencers}
             onClose={closeModal}
-            onSave={() => {
+            onSave={async () => {
               closeModal();
-              refetch();
+              await refetch();
             }}
           />
         )}

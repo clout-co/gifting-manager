@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
-import LazyAIChatWidget from '@/components/ui/LazyAIChatWidget';
 import { useBrand, Brand, isValidBrand } from '@/contexts/BrandContext';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,20 +20,20 @@ const BRAND_CONFIG: Record<Brand, {
 }> = {
   TL: {
     name: 'TL',
-    accentColor: 'text-blue-600 dark:text-blue-400',
-    accentBg: 'bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/20 dark:border-blue-500/30',
+    accentColor: 'text-green-700 dark:text-green-300',
+    accentBg: 'bg-green-500/10 border-green-500/20 dark:bg-green-900/30 dark:border-green-700/40',
     description: "That's life",
   },
   BE: {
     name: 'BE',
-    accentColor: 'text-purple-600 dark:text-purple-400',
-    accentBg: 'bg-purple-500/10 border-purple-500/20 dark:bg-purple-500/20 dark:border-purple-500/30',
+    accentColor: 'text-gray-700 dark:text-gray-300',
+    accentBg: 'bg-gray-500/10 border-gray-500/20 dark:bg-gray-500/20 dark:border-gray-500/30',
     description: 'Belvet',
   },
   AM: {
     name: 'AM',
-    accentColor: 'text-emerald-600 dark:text-emerald-400',
-    accentBg: 'bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/20 dark:border-emerald-500/30',
+    accentColor: 'text-red-700 dark:text-red-300',
+    accentBg: 'bg-red-500/10 border-red-500/20 dark:bg-red-900/30 dark:border-red-700/40',
     description: 'Antimid',
   },
 };
@@ -83,7 +82,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </main>
 
       <BottomNav />
-      <LazyAIChatWidget />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Influencer, InfluencerWithScore } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,15 +16,12 @@ import {
   Edit2,
   Trash2,
   Instagram,
-  Heart,
-  DollarSign,
-  Award,
-  BarChart3,
+  ExternalLink,
+  Users,
   SortAsc,
   SortDesc,
-  Crown,
-  Medal,
-  Users,
+  List,
+  LayoutGrid,
 } from 'lucide-react';
 import InfluencerModal from '@/components/forms/InfluencerModal';
 import { useInfluencersWithScores } from '@/hooks/useQueries';
@@ -37,7 +34,6 @@ export default function InfluencersPage() {
   const { currentBrand } = useBrand();
   const queryClient = useQueryClient();
 
-  // React Query hooks
   const { data: influencersData, isLoading: loading, error: queryError, refetch } = useInfluencersWithScores();
   const influencers = (influencersData || []) as InfluencerWithScore[];
   const error = queryError ? translateError(queryError) : null;
@@ -45,8 +41,8 @@ export default function InfluencersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
-  const [sortBy, setSortBy] = useState<'score' | 'likes' | 'cost' | 'campaigns'>('score');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [sortBy, setSortBy] = useState<'score' | 'likes' | 'cost' | 'campaigns'>('campaigns');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const handleDelete = async (id: string) => {
@@ -73,7 +69,6 @@ export default function InfluencersPage() {
         throw new Error(msg);
       }
 
-      // React Queryのキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
       queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] });
       showToast('success', 'インフルエンサーを削除しました');
@@ -93,14 +88,13 @@ export default function InfluencersPage() {
   };
 
   const handleSave = () => {
-    // React Queryのキャッシュを無効化
     queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
     queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] });
     handleModalClose();
-    showToast('success', editingInfluencer ? 'インフルエンサーを更新しました' : 'インフルエンサーを追加しました');
+    showToast('success', editingInfluencer ? '更新しました' : '追加しました');
   };
 
-  const filteredAndSortedInfluencers = influencers
+  const filteredAndSorted = influencers
     .filter((i) => {
       const name = i.insta_name || i.tiktok_name || '';
       return name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -108,197 +102,95 @@ export default function InfluencersPage() {
     .sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
-        case 'score':
-          comparison = a.score - b.score;
-          break;
-        case 'likes':
-          comparison = a.totalLikes - b.totalLikes;
-          break;
-        case 'cost':
-          comparison = a.costPerLike - b.costPerLike;
-          break;
-        case 'campaigns':
-          comparison = a.totalCampaigns - b.totalCampaigns;
-          break;
+        case 'score': comparison = a.score - b.score; break;
+        case 'likes': comparison = a.totalLikes - b.totalLikes; break;
+        case 'cost': comparison = a.costPerLike - b.costPerLike; break;
+        case 'campaigns': comparison = a.totalCampaigns - b.totalCampaigns; break;
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ja-JP', {
-      style: 'currency',
-      currency: 'JPY',
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  const fmt = (v: number) => new Intl.NumberFormat('ja-JP').format(v);
+  const fmtYen = (v: number) =>
+    new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(v);
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('ja-JP').format(value);
-  };
-
-  const getRankColor = (rank: string) => {
-    switch (rank) {
-      case 'S': return 'from-gray-900 to-gray-800 text-white';
-      case 'A': return 'from-gray-700 to-gray-600 text-white';
-      case 'B': return 'from-gray-500 to-gray-400 text-white';
-      case 'C': return 'from-gray-400 to-gray-300 text-gray-800';
-      default: return 'from-gray-300 to-gray-200 text-foreground';
-    }
-  };
-
-  const getRankBgColor = (rank: string) => {
-    switch (rank) {
-      case 'S': return 'bg-muted border-gray-400';
-      case 'A': return 'bg-muted border-border';
-      case 'B': return 'bg-white border-border';
-      case 'C': return 'bg-white border-border';
-      default: return 'bg-white border-border';
-    }
-  };
-
-  if (authLoading) {
-    return <LoadingSpinner fullScreen message="認証中..." />;
-  }
+  if (authLoading) return <LoadingSpinner fullScreen message="認証中..." />;
 
   if (error && !loading) {
     return (
       <MainLayout>
-        <ErrorDisplay
-          message={error}
-          onRetry={() => refetch()}
-          showHomeLink
-        />
+        <ErrorDisplay message={error} onRetry={() => refetch()} showHomeLink />
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        {/* ヘッダー */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="space-y-4">
+        {/* Header */}
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gray-800 rounded-xl shadow-lg">
-              <Users className="text-white" size={24} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/5 dark:bg-foreground/10">
+              <Users size={18} className="text-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">インフルエンサー管理</h1>
-              <p className="text-muted-foreground mt-0.5">登録済み: {influencers.length}名 | スコアリング対応</p>
+              <h1 className="text-lg font-bold text-foreground leading-tight">インフルエンサー</h1>
+              <p className="text-xs text-muted-foreground">{influencers.length}名</p>
             </div>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-1.5 text-sm"
           >
-            <Plus size={20} />
+            <Plus size={16} />
             新規追加
           </button>
-        </div>
+        </section>
 
-        {/* 統計サマリー */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="stat-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-800 rounded-lg">
-                <Crown className="text-white" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Sランク</p>
-                <p className="text-xl font-bold text-gray-800">
-                  {influencers.filter(i => i.rank === 'S').length}名
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-600 rounded-lg">
-                <Award className="text-white" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Aランク</p>
-                <p className="text-xl font-bold text-foreground">
-                  {influencers.filter(i => i.rank === 'A').length}名
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-muted0 rounded-lg">
-                <Heart className="text-white" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">総いいね</p>
-                <p className="text-xl font-bold text-foreground">
-                  {formatNumber(influencers.reduce((sum, i) => sum + i.totalLikes, 0))}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-400 rounded-lg">
-                <DollarSign className="text-white" size={20} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">平均いいね単価</p>
-                <p className="text-xl font-bold text-foreground">
-                  {formatCurrency(
-                    influencers.reduce((sum, i) => sum + i.totalSpent, 0) /
-                    Math.max(1, influencers.reduce((sum, i) => sum + i.totalLikes, 0))
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* フィルター＆ソート */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+        {/* Search & Sort */}
+        <section className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="インフルエンサーを検索..."
+              placeholder="名前で検索..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
+              className="input-field h-9 pl-8 pr-3 text-xs rounded-lg"
             />
           </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="input-field text-sm"
+              className="input-field h-9 py-0 text-xs rounded-lg min-w-[110px]"
             >
-              <option value="score">スコア順</option>
+              <option value="campaigns">案件数順</option>
               <option value="likes">いいね数順</option>
               <option value="cost">コスパ順</option>
-              <option value="campaigns">案件数順</option>
+              <option value="score">スコア順</option>
             </select>
-
             <button
               onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-              className="btn-secondary p-2"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors"
+              title={sortOrder === 'desc' ? '降順' : '昇順'}
             >
-              {sortOrder === 'desc' ? <SortDesc size={20} /> : <SortAsc size={20} />}
+              {sortOrder === 'desc' ? <SortDesc size={14} /> : <SortAsc size={14} />}
             </button>
-
             <button
               onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')}
-              className="btn-secondary p-2"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors"
+              title={viewMode === 'cards' ? 'テーブル表示' : 'カード表示'}
             >
-              <BarChart3 size={20} />
+              {viewMode === 'cards' ? <List size={14} /> : <LayoutGrid size={14} />}
             </button>
           </div>
-        </div>
+        </section>
 
-        {/* コンテンツ */}
+        {/* Content */}
         {loading ? (
           <CardSkeleton count={6} />
-        ) : filteredAndSortedInfluencers.length === 0 ? (
+        ) : filteredAndSorted.length === 0 ? (
           searchTerm ? (
             <EmptyState
               icon={<Search size={32} />}
@@ -309,180 +201,65 @@ export default function InfluencersPage() {
             <EmptyState
               icon={<Users size={32} />}
               title="インフルエンサーが登録されていません"
-              description="インフルエンサーを追加して管理を始めましょう"
-              action={{
-                label: '新規追加',
-                onClick: () => setIsModalOpen(true),
-              }}
+              description="新規追加から始めましょう"
+              action={{ label: '新規追加', onClick: () => setIsModalOpen(true) }}
             />
           )
-        ) : viewMode === 'cards' ? (
-          /* カードビュー */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAndSortedInfluencers.map((influencer, index) => (
-              <div
-                key={influencer.id}
-                className={`card border-2 transition-all duration-300 hover:shadow-xl hover:scale-[1.02] ${getRankBgColor(influencer.rank)}`}
-              >
-                {/* ヘッダー */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getRankColor(influencer.rank)} flex items-center justify-center font-bold text-lg shadow-lg`}>
-                      {influencer.rank}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Instagram size={16} className="text-muted-foreground" />
-                        <span className="font-bold text-foreground">@{influencer.insta_name || influencer.tiktok_name}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        スコア: {influencer.score}/100
-                      </p>
-                    </div>
-                  </div>
-                  {index < 3 && (
-                    <div className="flex items-center gap-1">
-                      {index === 0 && <Crown className="text-gray-800" size={20} />}
-                      {index === 1 && <Medal className="text-muted-foreground" size={20} />}
-                      {index === 2 && <Medal className="text-muted-foreground" size={20} />}
-                    </div>
-                  )}
-                </div>
-
-                {/* スコアバー */}
-                <div className="mb-4">
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full bg-gradient-to-r ${
-                        influencer.rank === 'S' ? 'from-gray-800 to-gray-700' :
-                        influencer.rank === 'A' ? 'from-gray-700 to-gray-600' :
-                        influencer.rank === 'B' ? 'from-gray-500 to-gray-400' :
-                        'from-gray-400 to-gray-300'
-                      } rounded-full transition-all duration-500`}
-                      style={{ width: `${influencer.score}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* 統計 */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-muted-foreground">案件数</p>
-                    <p className="font-bold text-foreground">{influencer.totalCampaigns}件</p>
-                  </div>
-                  <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-muted-foreground">総いいね</p>
-                    <p className="font-bold text-gray-800">{formatNumber(influencer.totalLikes)}</p>
-                  </div>
-                  <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-muted-foreground">総支出</p>
-                    <p className="font-bold text-foreground">{formatCurrency(influencer.totalSpent)}</p>
-                  </div>
-                  <div className="p-2 bg-white/60 rounded-lg">
-                    <p className="text-xs text-muted-foreground">いいね単価</p>
-                    <p className={`font-bold ${influencer.costPerLike < 100 ? 'text-gray-800' : 'text-muted-foreground'}`}>
-                      {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* アクション */}
-                <div className="flex gap-2">
-                  {influencer.insta_url && (
-                    <a
-                      href={influencer.insta_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-secondary flex-1 text-center text-sm"
-                    >
-                      Instagram
-                    </a>
-                  )}
-                  <button
-                    onClick={() => handleEdit(influencer)}
-                    className="p-2 text-muted-foreground hover:bg-white rounded-lg transition-colors"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(influencer.id)}
-                    className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* テーブルビュー */
-          <div className="card overflow-hidden">
+        ) : viewMode === 'table' ? (
+          /* Table view — default, most practical */
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="table-header px-4 py-3">ランク</th>
-                    <th className="table-header px-4 py-3">Instagram名</th>
-                    <th className="table-header px-4 py-3">スコア</th>
-                    <th className="table-header px-4 py-3">案件数</th>
-                    <th className="table-header px-4 py-3">総いいね</th>
-                    <th className="table-header px-4 py-3">総支出</th>
-                    <th className="table-header px-4 py-3">いいね単価</th>
-                    <th className="table-header px-4 py-3">操作</th>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="table-header px-4 py-2.5 text-xs text-left">名前</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-right">案件数</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-right">いいね</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-right">支出</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-right">いいね単価</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-center w-24">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAndSortedInfluencers.map((influencer) => (
-                    <tr key={influencer.id} className="table-row">
-                      <td className="table-cell">
-                        <span className={`px-3 py-1 rounded-full text-sm font-bold bg-gradient-to-r ${getRankColor(influencer.rank)}`}>
-                          {influencer.rank}
-                        </span>
-                      </td>
-                      <td className="table-cell font-medium">
+                  {filteredAndSorted.map((inf) => (
+                    <tr key={inf.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          <Instagram size={16} className="text-muted-foreground" />
-                          @{influencer.insta_name || influencer.tiktok_name}
+                          <Instagram size={14} className="shrink-0 text-muted-foreground" />
+                          <span className="text-sm font-medium text-foreground">@{inf.insta_name || inf.tiktok_name}</span>
+                          {inf.insta_url && (
+                            <a href={inf.insta_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                              <ExternalLink size={12} />
+                            </a>
+                          )}
                         </div>
                       </td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden w-16">
-                            <div
-                              className="h-full bg-primary-500 rounded-full"
-                              style={{ width: `${influencer.score}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium">{influencer.score}</span>
-                        </div>
-                      </td>
-                      <td className="table-cell">{influencer.totalCampaigns}件</td>
-                      <td className="table-cell text-gray-800 font-medium">
-                        {formatNumber(influencer.totalLikes)}
-                      </td>
-                      <td className="table-cell">{formatCurrency(influencer.totalSpent)}</td>
-                      <td className="table-cell">
-                        <span className={`px-2 py-1 rounded-full text-sm ${
-                          influencer.costPerLike < 50 ? 'bg-gray-800 text-white' :
-                          influencer.costPerLike < 100 ? 'bg-muted text-foreground' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {influencer.costPerLike > 0 ? formatCurrency(influencer.costPerLike) : '-'}
+                      <td className="px-4 py-2.5 text-sm text-right text-foreground">{inf.totalCampaigns}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-foreground">{fmt(inf.totalLikes)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-foreground">{fmtYen(inf.totalSpent)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right">
+                        <span className={inf.costPerLike > 0 && inf.costPerLike < 50
+                          ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                          : 'text-foreground'
+                        }>
+                          {inf.costPerLike > 0 ? fmtYen(inf.costPerLike) : '-'}
                         </span>
                       </td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => handleEdit(influencer)}
-                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
+                            onClick={() => handleEdit(inf)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                            title="編集"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={13} />
                           </button>
                           <button
-                            onClick={() => handleDelete(influencer.id)}
-                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
+                            onClick={() => handleDelete(inf.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                            title="削除"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </td>
@@ -492,10 +269,69 @@ export default function InfluencersPage() {
               </table>
             </div>
           </div>
+        ) : (
+          /* Card view */
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filteredAndSorted.map((inf) => (
+              <article
+                key={inf.id}
+                className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+              >
+                {/* Name */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Instagram size={14} className="shrink-0 text-muted-foreground" />
+                  <span className="truncate text-sm font-semibold text-foreground">@{inf.insta_name || inf.tiktok_name}</span>
+                </div>
+
+                {/* Stats */}
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                  <div className="rounded-lg bg-muted/60 px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">案件</p>
+                    <p className="text-sm font-bold text-foreground">{inf.totalCampaigns}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">いいね</p>
+                    <p className="text-sm font-bold text-foreground">{fmt(inf.totalLikes)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">支出</p>
+                    <p className="text-sm font-bold text-foreground">{fmtYen(inf.totalSpent)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/60 px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">単価</p>
+                    <p className={`text-sm font-bold ${inf.costPerLike > 0 && inf.costPerLike < 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
+                      {inf.costPerLike > 0 ? fmtYen(inf.costPerLike) : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-3 flex items-center gap-1.5">
+                  {inf.insta_url && (
+                    <a
+                      href={inf.insta_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      <ExternalLink size={12} />
+                      Instagram
+                    </a>
+                  )}
+                  <div className="flex-1" />
+                  <button onClick={() => handleEdit(inf)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="編集">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(inf.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="削除">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* モーダル */}
       {isModalOpen && (
         <InfluencerModal
           influencer={editingInfluencer}

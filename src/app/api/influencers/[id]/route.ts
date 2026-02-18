@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
+import { getRequestIdFromHeaders, postDecisionEvents } from '@/lib/clout-master'
+import { buildInfluencerDecisionEvent } from '@/lib/decision-events'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -190,6 +192,23 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     )
   }
 
+  {
+    const requestIdBase = getRequestIdFromHeaders(request.headers) || `gifting-influencer-${Date.now()}`
+    const decisionEvent = buildInfluencerDecisionEvent({
+      requestId: `${requestIdBase}:influencer:update`,
+      operation: 'influencer_updated',
+      brand: brand as AllowedBrand,
+      influencerId: String(id),
+      metrics: {
+        changed_fields: Object.keys(updates).length,
+      },
+      payload: {
+        updated_fields: Object.keys(updates),
+      },
+    })
+    void postDecisionEvents(request, [decisionEvent])
+  }
+
   return NextResponse.json({ influencer: data }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
@@ -260,6 +279,20 @@ export async function DELETE(request: NextRequest, ctx: Ctx) {
       { error: error.message || 'Failed to delete influencer' },
       { status: 400 }
     )
+  }
+
+  {
+    const requestIdBase = getRequestIdFromHeaders(request.headers) || `gifting-influencer-${Date.now()}`
+    const decisionEvent = buildInfluencerDecisionEvent({
+      requestId: `${requestIdBase}:influencer:delete`,
+      operation: 'influencer_deleted',
+      brand: brand as AllowedBrand,
+      influencerId: String(id),
+      metrics: {
+        deleted_count: 1,
+      },
+    })
+    void postDecisionEvents(request, [decisionEvent])
   }
 
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })

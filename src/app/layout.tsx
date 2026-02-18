@@ -5,7 +5,7 @@ import './globals.css';
 import { ToastProvider } from '@/lib/toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import PWAProvider from '@/components/PWAProvider';
+// PWAProvider removed — install banner is no longer needed
 import { BrandProvider } from '@/contexts/BrandContext';
 import ForceRelogin from '@/components/ForceRelogin';
 import QueryProvider from '@/providers/QueryProvider';
@@ -64,11 +64,9 @@ export default async function RootLayout({
                 <RealtimeSync />
                 <ToastProvider>
                   <ConfirmProvider>
-                    <PWAProvider>
-                      <ForceRelogin>
-                        {children}
-                      </ForceRelogin>
-                    </PWAProvider>
+                    <ForceRelogin>
+                      {children}
+                    </ForceRelogin>
                   </ConfirmProvider>
                 </ToastProvider>
               </BrandProvider>

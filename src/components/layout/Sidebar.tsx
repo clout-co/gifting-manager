@@ -6,11 +6,9 @@ import {
   LayoutDashboard,
   Users,
   Gift,
-  Upload,
   LogOut,
   Menu,
   X,
-  BarChart3,
   RefreshCw,
   ExternalLink,
   Video,
@@ -56,19 +54,17 @@ type ExternalApp = {
 const BRAND_COLORS: Record<Brand, {
   accent: string;
 }> = {
-  TL: { accent: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30' },
-  BE: { accent: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30' },
-  AM: { accent: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30' },
+  TL: { accent: 'bg-green-500/10 text-green-700 border-green-500/20 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/40' },
+  BE: { accent: 'bg-gray-500/10 text-gray-700 border-gray-500/20 dark:bg-gray-500/20 dark:text-gray-300 dark:border-gray-500/30' },
+  AM: { accent: 'bg-red-500/10 text-red-700 border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700/40' },
 };
 
 const navigation = [
   { name: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard },
   { name: '要入力キュー', href: '/queue', icon: ListTodo },
-  { name: 'ROI分析', href: '/analytics', icon: BarChart3 },
   { name: 'インフルエンサー', href: '/influencers', icon: Users },
   { name: 'ギフティング案件', href: '/campaigns', icon: Gift },
   { name: '一括入力', href: '/bulk-input', icon: ListChecks },
-  { name: 'インポート', href: '/import', icon: Upload },
 ];
 
 export default function Sidebar() {

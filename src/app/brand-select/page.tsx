@@ -8,26 +8,54 @@ import { ArrowRight } from 'lucide-react';
 const BRAND_INFO: Record<Brand, {
   name: string;
   fullName: string;
-  description: string;
-  tagline: string;
+  cardClass: string;
+  shadowClass: string;
+  badgeClass: string;
+  badgeHoverClass: string;
+  actionClass: string;
+  actionHoverClass: string;
+  actionIconClass: string;
+  actionIconHoverClass: string;
+  underlineClass: string;
 }> = {
   TL: {
     name: 'TL',
     fullName: "That's life",
-    description: 'カジュアル＆ストリート',
-    tagline: '日常に寄り添うスタイル',
+    cardClass: 'border-green-200/80 hover:border-green-900/40',
+    shadowClass: 'hover:shadow-green-900/15',
+    badgeClass: 'bg-green-100 text-green-900',
+    badgeHoverClass: 'group-hover:bg-green-900 group-hover:text-white',
+    actionClass: 'bg-green-100',
+    actionHoverClass: 'group-hover:bg-green-900',
+    actionIconClass: 'text-green-700',
+    actionIconHoverClass: 'group-hover:text-white',
+    underlineClass: 'bg-green-900',
   },
   BE: {
     name: 'BE',
     fullName: 'Belvet',
-    description: 'エレガント＆フェミニン',
-    tagline: '洗練された大人の魅力',
+    cardClass: 'border-gray-300/80 hover:border-gray-600/40',
+    shadowClass: 'hover:shadow-gray-500/20',
+    badgeClass: 'bg-gray-200 text-gray-800',
+    badgeHoverClass: 'group-hover:bg-gray-600 group-hover:text-white',
+    actionClass: 'bg-gray-200',
+    actionHoverClass: 'group-hover:bg-gray-600',
+    actionIconClass: 'text-gray-700',
+    actionIconHoverClass: 'group-hover:text-white',
+    underlineClass: 'bg-gray-600',
   },
   AM: {
     name: 'AM',
     fullName: 'Antimid',
-    description: 'モード＆アバンギャルド',
-    tagline: '常識を超えるデザイン',
+    cardClass: 'border-red-200/80 hover:border-red-900/40',
+    shadowClass: 'hover:shadow-red-900/15',
+    badgeClass: 'bg-red-100 text-red-900',
+    badgeHoverClass: 'group-hover:bg-red-900 group-hover:text-white',
+    actionClass: 'bg-red-100',
+    actionHoverClass: 'group-hover:bg-red-900',
+    actionIconClass: 'text-red-700',
+    actionIconHoverClass: 'group-hover:text-white',
+    underlineClass: 'bg-red-900',
   },
 };
 
@@ -71,29 +99,34 @@ export default function BrandSelectPage() {
             const info = (isValidBrand(brand) && BRAND_INFO[brand]) || {
               name: brand,
               fullName: brand,
-              description: 'ブランド',
-              tagline: '',
+              cardClass: 'border-gray-200 hover:border-border',
+              shadowClass: 'hover:shadow-gray-200/50',
+              badgeClass: 'bg-muted text-gray-800',
+              badgeHoverClass: 'group-hover:bg-gray-800 group-hover:text-white',
+              actionClass: 'bg-muted',
+              actionHoverClass: 'group-hover:bg-gray-800',
+              actionIconClass: 'text-muted-foreground',
+              actionIconHoverClass: 'group-hover:text-white',
+              underlineClass: 'bg-gray-800',
             };
             return (
               <button
                 key={brand}
                 onClick={() => handleSelectBrand(brand)}
-                className="group relative bg-white rounded-3xl p-8 text-left
-                         border border-gray-100 shadow-sm
+                className={`group relative bg-white rounded-3xl p-8 text-left
+                         border shadow-sm
                          transition-all duration-500 ease-out
-                         hover:shadow-2xl hover:shadow-gray-200/50
-                         hover:border-border hover:-translate-y-2
+                         hover:shadow-2xl hover:-translate-y-2
                          active:translate-y-0 active:shadow-lg
-                         animate-slide-up"
+                         animate-slide-up ${info.cardClass} ${info.shadowClass}`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 {/* ブランド名バッジ */}
                 <div className="mb-8">
-                  <span className="inline-flex items-center justify-center w-16 h-16
-                                 bg-muted rounded-2xl text-2xl font-bold text-gray-800
-                                 group-hover:bg-gray-800 group-hover:text-white
+                  <span className={`inline-flex items-center justify-center w-16 h-16
+                                 rounded-2xl text-2xl font-bold
                                  transition-all duration-300 ease-out
-                                 group-hover:scale-110 group-hover:rotate-3">
+                                 group-hover:scale-110 group-hover:rotate-3 ${info.badgeClass} ${info.badgeHoverClass}`}>
                     {info.name}
                   </span>
                 </div>
@@ -103,12 +136,6 @@ export default function BrandSelectPage() {
                   <h2 className="text-2xl font-semibold text-foreground tracking-tight">
                     {info.fullName}
                   </h2>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    {info.description}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {info.tagline}
-                  </p>
                 </div>
 
                 {/* アクション */}
@@ -116,19 +143,19 @@ export default function BrandSelectPage() {
                   <span className="text-sm font-medium text-muted-foreground group-hover:text-muted-foreground transition-colors">
                     選択して開始
                   </span>
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center
-                                group-hover:bg-gray-800 transition-all duration-300">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center
+                                transition-all duration-300 ${info.actionClass} ${info.actionHoverClass}`}>
                     <ArrowRight
                       size={18}
-                      className="text-muted-foreground group-hover:text-white
-                               transform group-hover:translate-x-0.5 transition-all"
+                      className={`transform group-hover:translate-x-0.5 transition-all
+                               ${info.actionIconClass} ${info.actionIconHoverClass}`}
                     />
                   </div>
                 </div>
 
                 {/* ホバー時の装飾線 */}
-                <div className="absolute bottom-0 left-8 right-8 h-1 bg-gray-800 rounded-full
-                              scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                <div className={`absolute bottom-0 left-8 right-8 h-1 rounded-full
+                              scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left ${info.underlineClass}`} />
               </button>
             );
           })}

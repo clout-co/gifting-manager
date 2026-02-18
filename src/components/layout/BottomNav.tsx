@@ -5,9 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home,
   Users,
-  BarChart3,
   Gift,
-  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,16 +32,6 @@ const navItems: NavItem[] = [
     icon: <Users size={20} />,
     label: 'インフルエンサー',
     activeMatch: ['/influencers'],
-  },
-  {
-    href: '/analytics',
-    icon: <BarChart3 size={20} />,
-    label: '分析',
-  },
-  {
-    href: '/import',
-    icon: <Upload size={20} />,
-    label: 'インポート',
   },
 ];
 

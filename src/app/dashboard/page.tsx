@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,12 +10,15 @@ import ErrorDisplay from '@/components/ui/ErrorDisplay';
 import { useBrand } from '@/contexts/BrandContext';
 import { useDashboardFullStats, useDashboardKpis, useItemCodes } from '@/hooks/useQueries';
 import {
-  Users,
+  Boxes,
+  CalendarRange,
+  DollarSign,
   Gift,
   Heart,
-  MessageCircle,
-  DollarSign,
   Target,
+  TrendingUp,
+  Users,
+  type LucideIcon,
 } from 'lucide-react';
 
 const DashboardCharts = dynamic(() => import('@/components/dashboard/DashboardCharts'), {
@@ -28,6 +31,24 @@ const DashboardCharts = dynamic(() => import('@/components/dashboard/DashboardCh
     </div>
   ),
 });
+
+type KpiCard = {
+  key: string;
+  label: string;
+  value: string;
+  note: string;
+  icon: LucideIcon;
+  accentClass: string;
+  iconBg: string;
+};
+
+const DATE_RANGE_LABEL: Record<string, string> = {
+  all: '全期間',
+  '7d': '過去7日',
+  '30d': '過去30日',
+  '90d': '過去90日',
+  '1y': '過去1年',
+};
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -61,17 +82,66 @@ export default function DashboardPage() {
     return () => window.clearTimeout(t);
   }, []);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ja-JP', {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('ja-JP', {
       style: 'currency',
       currency: 'JPY',
       maximumFractionDigits: 0,
     }).format(value);
-  };
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('ja-JP').format(value);
-  };
+  const formatNumber = (value: number) => new Intl.NumberFormat('ja-JP').format(value);
+
+  const kpiCards: KpiCard[] = useMemo(() => {
+    if (!kpis) return [];
+
+    return [
+      {
+        key: 'campaigns',
+        label: '総案件数',
+        value: formatNumber(kpis.totalCampaigns),
+        note: `合意 ${formatNumber(kpis.agreedCount)} / 保留 ${formatNumber(kpis.pendingCount)}`,
+        icon: Gift,
+        accentClass: 'from-slate-900 to-slate-700',
+        iconBg: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
+      },
+      {
+        key: 'influencers',
+        label: 'インフルエンサー',
+        value: formatNumber(kpis.totalInfluencers),
+        note: 'ユニーク人数',
+        icon: Users,
+        accentClass: 'from-blue-600 to-sky-500',
+        iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+      },
+      {
+        key: 'spent',
+        label: '総支出額',
+        value: formatCurrency(kpis.totalSpent),
+        note: '案件費+原価+送料',
+        icon: DollarSign,
+        accentClass: 'from-emerald-600 to-emerald-500',
+        iconBg: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+      },
+      {
+        key: 'likes',
+        label: '総いいね',
+        value: formatNumber(kpis.totalLikes),
+        note: `コメント ${formatNumber(kpis.totalComments)}`,
+        icon: Heart,
+        accentClass: 'from-rose-600 to-pink-500',
+        iconBg: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
+      },
+      {
+        key: 'cpl',
+        label: 'いいね単価',
+        value: kpis.totalLikes > 0 ? formatCurrency(kpis.totalSpent / kpis.totalLikes) : '-',
+        note: '1いいねの平均費用',
+        icon: Target,
+        accentClass: 'from-violet-600 to-indigo-500',
+        iconBg: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
+      },
+    ];
+  }, [kpis]);
 
   if (authLoading) {
     return <LoadingSpinner fullScreen message="認証中..." />;
@@ -92,25 +162,10 @@ export default function DashboardPage() {
   if (kpisLoading) {
     return (
       <MainLayout>
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-muted rounded-xl animate-pulse" />
-            <div>
-              <div className="h-6 w-40 bg-muted rounded animate-pulse" />
-              <div className="h-4 w-32 bg-muted rounded mt-1 animate-pulse" />
-            </div>
-          </div>
+        <div className="space-y-4">
+          <div className="h-14 rounded-2xl border border-border bg-muted animate-pulse" />
           <StatCardSkeleton count={5} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="card animate-pulse h-96" />
-            <div className="lg:col-span-2 space-y-6">
-              <div className="card animate-pulse h-64" />
-              <div className="grid grid-cols-2 gap-6">
-                <div className="card animate-pulse h-48" />
-                <div className="card animate-pulse h-48" />
-              </div>
-            </div>
-          </div>
+          <div className="card animate-pulse h-96" />
         </div>
       </MainLayout>
     );
@@ -120,128 +175,96 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        {/* ヘッダー */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">ダッシュボード</h1>
-                <p className="text-muted-foreground mt-0.5">ギフティング活動のBI分析</p>
-              </div>
+      <div className="space-y-4">
+        {/* Compact header with integrated filters */}
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/5 dark:bg-foreground/10">
+              <TrendingUp size={18} className="text-foreground" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground leading-tight">ダッシュボード</h1>
+              <p className="text-xs text-muted-foreground">ギフティング案件の分析</p>
             </div>
           </div>
 
-          {/* フィルター */}
-          <div className="flex flex-wrap gap-3">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="input-field text-sm min-w-[120px]"
-            >
-              <option value="all">全期間</option>
-              <option value="7d">過去7日</option>
-              <option value="30d">過去30日</option>
-              <option value="90d">過去90日</option>
-              <option value="1y">過去1年</option>
-            </select>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <CalendarRange size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="input-field h-9 py-0 pl-8 pr-3 text-xs min-w-[120px] rounded-lg"
+              >
+                <option value="all">全期間</option>
+                <option value="7d">過去7日</option>
+                <option value="30d">過去30日</option>
+                <option value="90d">過去90日</option>
+                <option value="1y">過去1年</option>
+              </select>
+            </div>
 
-            <select
-              value={selectedItem}
-              onChange={(e) => setSelectedItem(e.target.value)}
-              className="input-field text-sm min-w-[120px]"
-            >
-              <option value="all">全商品</option>
-              {itemCodes.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* KPIカード */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="stat-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">総案件数</p>
-                <p className="text-3xl font-bold mt-1 text-foreground">{formatNumber(kpis.totalCampaigns)}</p>
-              </div>
-              <div className="p-3 bg-muted rounded-xl">
-                <Gift className="text-muted-foreground" size={24} />
-              </div>
+            <div className="relative">
+              <Boxes size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <select
+                value={selectedItem}
+                onChange={(e) => setSelectedItem(e.target.value)}
+                className="input-field h-9 py-0 pl-8 pr-3 text-xs min-w-[120px] rounded-lg"
+              >
+                <option value="all">全商品</option>
+                {itemCodes.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </div>
           </div>
+        </section>
 
-          <div className="stat-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">インフルエンサー</p>
-                <p className="text-3xl font-bold mt-1 text-foreground">{formatNumber(kpis.totalInfluencers)}</p>
-              </div>
-              <div className="p-3 bg-muted rounded-xl">
-                <Users className="text-muted-foreground" size={24} />
-              </div>
-            </div>
-          </div>
+        {/* KPI Cards — compact & dense */}
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          {kpiCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.key} className="relative overflow-hidden rounded-2xl border border-border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md">
+                <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${card.accentClass}`} />
+                <div className="flex items-center gap-2.5">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.iconBg}`}>
+                    <Icon size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-muted-foreground leading-none">{card.label}</p>
+                    <p className="mt-1 truncate text-xl font-bold text-foreground leading-none">{card.value}</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">{card.note}</p>
+              </article>
+            );
+          })}
+        </section>
 
-          <div className="stat-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">総支出額</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">{formatCurrency(kpis.totalSpent)}</p>
-              </div>
-              <div className="p-3 bg-muted rounded-xl">
-                <DollarSign className="text-muted-foreground" size={24} />
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">総いいね</p>
-                <p className="text-3xl font-bold mt-1 text-foreground">{formatNumber(kpis.totalLikes)}</p>
-              </div>
-              <div className="p-3 bg-muted rounded-xl">
-                <Heart className="text-muted-foreground" size={24} />
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">いいね単価</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">
-                  {kpis.totalLikes > 0 ? formatCurrency(kpis.totalSpent / kpis.totalLikes) : '-'}
-                </p>
-              </div>
-              <div className="p-3 bg-muted rounded-xl">
-                <Target className="text-muted-foreground" size={24} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 詳細分析（チャート） */}
+        {/* Charts */}
         {!detailsEnabled ? (
-          <div className="card bg-muted border-border">
+          <div className="card border-border bg-muted/40 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="font-medium text-foreground">詳細分析</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  チャートは重いので後から読み込みます（初回表示を優先）。
-                </div>
+                <p className="font-medium text-foreground">詳細分析の準備中</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  初回描画を優先し、重いチャートは遅延ロードしています。
+                </p>
               </div>
               <button
                 type="button"
                 className="btn-primary"
                 onClick={() => setDetailsEnabled(true)}
               >
-                読み込む
+                今すぐ表示
               </button>
             </div>
+          </div>
+        ) : fullLoading && !fullStats ? (
+          <div className="space-y-6">
+            <div className="card animate-pulse h-80" />
+            <div className="card animate-pulse h-80" />
           </div>
         ) : fullError ? (
           <ErrorDisplay
