@@ -4,6 +4,25 @@
 
 ---
 
+## 作業進捗 (2026-02-18: 横断バグ診断 — analytics API auth修正)
+
+### 変更内容
+
+| ファイル | 修正内容 | 重要度 |
+|---------|---------|--------|
+| `src/app/api/analytics/product-quantities/route.ts` | `requireAuthContext()` 追加 | MEDIUM |
+| `src/app/api/analytics/product-costs/route.ts` | `requireAuthContext()` 追加 | MEDIUM |
+
+### 詳細
+- 両analyticsルートに認証チェックが欠落していた。`getAllowedBrands()`はヘッダーからブランド制限を読むが、そもそもユーザー認証を検証していなかった。
+- 他のBFF APIルート（campaigns, influencers, reports等）は全て `requireAuthContext(request)` を使用しており、このパターンに統一。
+
+### コミット
+- `8369f0a` — `fix(security): add auth check to analytics API routes`
+- ビルド確認済み、push済み
+
+---
+
 ## 作業進捗 (2026-02-17: ROI分析機能の撤去 + 作業ログ記入先の更新反映)
 
 現在の進捗状況:
