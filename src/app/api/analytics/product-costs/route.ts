@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { getAllowedBrands } from '@/lib/api-guard'
+import { requireAuthContext } from '@/lib/auth/request-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,9 @@ function calcCampaignCost(row: CampaignRow): {
  * - startDate/endDate は campaigns.created_at を基準にフィルタ（既存Analyticsと同じ）
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuthContext(request)
+  if (!auth.ok) return auth.response
+
   const { searchParams } = new URL(request.url)
   const brandParam = String(searchParams.get('brand') || '')
     .trim()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getAllowedBrands } from '@/lib/api-guard'
+import { requireAuthContext } from '@/lib/auth/request-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,9 @@ export const dynamic = 'force-dynamic'
  * Returns: { items: [{ product_code: "TF25084", total_quantity: 15 }, ...] }
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuthContext(request)
+  if (!auth.ok) return auth.response
+
   const { searchParams } = new URL(request.url)
   const brandParam = String(searchParams.get('brand') || '')
     .trim()
