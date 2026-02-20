@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
-import { getAllowedBrands } from '@/lib/api-guard'
+import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { requireAuthContext } from '@/lib/auth/request-context'
 
 export const dynamic = 'force-dynamic'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 /**
  * 品番別ギフティング数量API
@@ -16,6 +19,10 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuthContext(request)
   if (!auth.ok) return auth.response
 
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
+  }
+
   const { searchParams } = new URL(request.url)
   const brandParam = String(searchParams.get('brand') || '')
     .trim()
@@ -25,12 +32,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
   }
 
-  const allowedBrands = getAllowedBrands(request).map((b) => String(b).toUpperCase())
+  const allowedBrands = auth.context.brands.map((b: string) => String(b).toUpperCase())
   if (allowedBrands.length > 0 && !allowedBrands.includes(brandParam)) {
     return NextResponse.json({ error: 'Forbidden brand' }, { status: 403 })
   }
 
-  const supabase = createServerClient()
+  let supabaseCtx: ReturnType<typeof createSupabaseForRequest>
+  try {
+    supabaseCtx = createSupabaseForRequest({
+      request,
+      supabaseUrl,
+      supabaseAnonKey,
+      supabaseServiceRoleKey,
+    })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to init DB client' },
+      { status: 500 }
+    )
+  }
+  if (supabaseCtx.configWarning && !supabaseCtx.usingServiceRole && !supabaseCtx.hasSupabaseAccessToken) {
+    return NextResponse.json(
+      { error: 'Supabase read auth is misconfigured', reason: supabaseCtx.configWarning },
+      { status: 503 }
+    )
+  }
+  const supabase = supabaseCtx.client
 
   const { data, error } = await supabase
     .from('campaigns')

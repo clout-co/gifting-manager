@@ -1,8 +1,8 @@
 # Gifting App (GGCRM) 開発進捗状況
 
-最終更新: 2026-02-17
+最終更新: 2026-02-20
 
-## 要件準拠サマリ（2026-02-17）
+## 要件準拠サマリ（2026-02-20）
 
 ### 現在の進捗状況
 - SSO一本化（Dashboard連携）と主要UX改善は実装済み。
@@ -10,16 +10,18 @@
 - DB FK制約撤去完了（2026-02-17）。BFF化完了、RLSポリシー削除済み。
 - **UI刷新（2026-02-17）**: ダッシュボード・インフルエンサー一覧をシンプル化。PWAバナー削除。
 - **LLM/AI機能全削除（2026-02-17）**: Claude AI連携（チャット・分析・検索）を全削除。`@anthropic-ai/sdk`依存も除去。
+- **ダッシュボードBFF化完了（2026-02-20）**: KPI/全統計/品番コードのフックがclient-side Supabaseを使っていたのをBFF API (`/api/dashboard/kpis`, `/api/dashboard/full-stats`, `/api/dashboard/item-codes`) 経由に修正。RLS削除後もデータ取得可能に。
 
 ### 完了したタスク
 - `?code=` 交換 + `clout_token` 運用へ移行し、認証二重系統を解消。
 - 同ブランド担当者選択、品番検索、原価連動、保存条件チェックを実装。
 - 主要画面で遅延ロード・クイック編集・エラー復旧UIを実装。
 - DB FK制約撤去（campaigns.created_by/updated_by、user_profiles.id → TEXT化）。RLSポリシー `Enable update for own profile` 削除。
-- **ダッシュボード**: ヘッダー+フィルター統合でコンパクト化。「BI Dashboard」ヒーロー・「表示ユーザー」・分析フィルターの分離セクション → 1行ヘッダーに統合。
-- **インフルエンサー一覧**: ランク(S/A/B/C)・スコアバー・メダル・統計サマリーカードを削除。テーブルをデフォルト表示に変更し一覧性を重視。
+- **ダッシュボード**: ヘッダー+フィルター統合でコンパクト化。
+- **インフルエンサー一覧**: テーブルをデフォルト表示に変更し一覧性を重視。
 - **PWAバナー削除**: layout.tsxから `PWAProvider` を除去。
-- **LLM/AI機能全削除**: `lib/claude.ts`、`components/ui/AIChatWidget.tsx`、`components/ui/LazyAIChatWidget.tsx`、`app/api/ai/`（chat/search/analyze）、`app/ai-insights/`を削除。MainLayoutからフローティングチャットウィジェットを除去。`@anthropic-ai/sdk`パッケージと`CLAUDE_API_KEY`環境変数設定を除去。
+- **LLM/AI機能全削除**: `@anthropic-ai/sdk`依存も除去。
+- **ダッシュボードBFF化（2026-02-20）**: `useDashboardKpis`, `useDashboardFullStats`, `useItemCodes` を `/api/dashboard/*` BFF経由に変更。3つの新APIルート作成。
 
 ### 残りのタスク
 - 本番で権限ON/OFF時の業務フローE2E確認。
@@ -74,7 +76,7 @@ const response = await fetch('/api/master/brands')
 ## 現在の進捗状況
 
 現在の進捗状況:
-- 本番デプロイ済み（gifting-app-seven.vercel.app）。
+- 本番デプロイ済み（gifting-manager.vercel.app）。
 - 未認証アクセスが Clout Dashboard /sign-in に 307 リダイレクトすることを確認。
 - `?code=` 受け取りで `clout_token` cookie が発行されることを確認（`?token=` は本番/Previewでは拒否）。
 - CLI検証: `clout_token` cookie + 権限ONで HTTP 200 を確認（GGCRM）。
@@ -177,7 +179,7 @@ const response = await fetch('/api/master/brands')
 ## 作業進捗（2026-02-06）
 
 現在の進捗状況:
-- UI/UX改善（1,2,3,4,5,6,8,9）を実装し、本番へ反映済み（`https://gifting-app-seven.vercel.app`）。
+- UI/UX改善（1,2,3,4,5,6,8,9）を実装し、本番へ反映済み（`https://gifting-manager.vercel.app`）。
 - 品番選択エラーの再発要因だった Product Master 認証差分を吸収するため、`/api/master/products` の認証転送を強化して再デプロイ済み。
 
 完了したタスク:
@@ -412,7 +414,7 @@ s@clout.co.jp
 
 ## 本番URL
 
-https://gifting-app-seven.vercel.app
+https://gifting-manager.vercel.app
 
 ---
 

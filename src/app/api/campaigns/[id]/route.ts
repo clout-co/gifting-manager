@@ -154,7 +154,7 @@ async function resolveProductFromMaster(
 
   const token = getSsoToken(request)
   if (!token) {
-    return { ok: false, status: 401, error: 'Not authenticated' }
+    return { ok: false, status: 401, error: 'Not authenticated', reason: 'missing_sso_token' }
   }
 
   const baseUrl = await getProductMasterBaseUrl(request)
@@ -183,7 +183,7 @@ async function resolveProductFromMaster(
 
       // If SSO fails, Product Master may redirect to /sign-in.
       if (res.status >= 300 && res.status < 400) {
-        return { ok: false, status: 401, error: 'Product Master auth redirect' }
+        return { ok: false, status: 401, error: 'Product Master auth redirect', reason: 'product_master_auth_redirect' }
       }
 
       const data = await res.json().catch(() => null)

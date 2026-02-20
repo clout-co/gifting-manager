@@ -127,53 +127,6 @@ export function useCampaign(id: string) {
   });
 }
 
-export function useCreateCampaign() {
-  const queryClient = useQueryClient();
-  const { currentBrand } = useBrand();
-
-  return useMutation({
-    mutationFn: async (campaign: Partial<Campaign>) => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert({ ...campaign, brand: currentBrand })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats(currentBrand) });
-    },
-  });
-}
-
-export function useUpdateCampaign() {
-  const queryClient = useQueryClient();
-  const { currentBrand } = useBrand();
-
-  return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Campaign> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .update(updates)
-        .eq('id', id)
-        .eq('brand', currentBrand)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.campaign(data.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats(currentBrand) });
-    },
-  });
-}
-
 export function useDeleteCampaign() {
   const queryClient = useQueryClient();
   const { currentBrand } = useBrand();
@@ -298,54 +251,7 @@ export function useInfluencer(id: string) {
   });
 }
 
-export function useCreateInfluencer() {
-  const queryClient = useQueryClient();
-  const { currentBrand } = useBrand();
-
-  return useMutation({
-    mutationFn: async (influencer: Partial<Influencer>) => {
-      const { data, error } = await supabase
-        .from('influencers')
-        .insert({ ...influencer, brand: currentBrand })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.influencers(currentBrand) });
-    },
-  });
-}
-
-export function useUpdateInfluencer() {
-  const queryClient = useQueryClient();
-  const { currentBrand } = useBrand();
-
-  return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Influencer> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('influencers')
-        .update(updates)
-        .eq('id', id)
-        .eq('brand', currentBrand)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.influencers(currentBrand) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.influencer(data.id) });
-    },
-  });
-}
-
 // ==================== Staffs ====================
-
-const CLOUT_API_URL = process.env.NEXT_PUBLIC_CLOUT_API_URL || 'https://dashboard.clout.co.jp'
 
 /**
  * 社員一覧を取得（Clout Dashboard API連携）
@@ -417,56 +323,6 @@ export function useStaffs() {
 }
 
 // ==================== Dashboard Stats ====================
-
-export function useDashboardStats() {
-  const { currentBrand } = useBrand();
-
-  return useQuery({
-    queryKey: queryKeys.dashboardStats(currentBrand),
-    queryFn: async () => {
-      // 案件数を取得
-      const { count: campaignCount, error: campaignError } = await supabase
-        .from('campaigns')
-        .select('*', { count: 'exact', head: true })
-        .eq('brand', currentBrand);
-
-      if (campaignError) throw campaignError;
-
-      // インフルエンサー数を取得
-      const { count: influencerCount, error: influencerError } = await supabase
-        .from('influencers')
-        .select('*', { count: 'exact', head: true })
-        .eq('brand', currentBrand);
-
-      if (influencerError) throw influencerError;
-
-      // 案件の詳細を取得（統計計算用）
-      const { data: campaigns, error: detailError } = await supabase
-        .from('campaigns')
-        .select('status, agreed_amount, likes, comments')
-        .eq('brand', currentBrand);
-
-      if (detailError) throw detailError;
-
-      // 統計を計算
-      const totalSpent = campaigns?.reduce((sum, c) => sum + (c.agreed_amount || 0), 0) || 0;
-      const totalLikes = campaigns?.reduce((sum, c) => sum + (c.likes || 0), 0) || 0;
-      const totalComments = campaigns?.reduce((sum, c) => sum + (c.comments || 0), 0) || 0;
-      const agreedCount = campaigns?.filter((c) => c.status === 'agree').length || 0;
-
-      return {
-        campaignCount: campaignCount || 0,
-        influencerCount: influencerCount || 0,
-        totalSpent,
-        totalLikes,
-        totalComments,
-        agreedCount,
-        costPerLike: totalLikes > 0 ? totalSpent / totalLikes : 0,
-      };
-    },
-    staleTime: 1 * 60 * 1000, // 1分
-  });
-}
 
 export type DashboardKpis = {
   totalCampaigns: number
@@ -574,27 +430,20 @@ export function useInfluencerPastStats(influencerId: string | null) {
       if (IS_E2E) return null;
       if (!influencerId) return null;
 
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select('offered_amount, agreed_amount, likes, comments')
-        .eq('influencer_id', influencerId)
-        .eq('brand', currentBrand)
-        .not('agreed_amount', 'is', null);
+      const params = new URLSearchParams({
+        brand: currentBrand,
+        influencer_id: influencerId,
+      });
+      const data = await fetchApiJson<{
+        stats: {
+          avgOfferedAmount: number;
+          avgAgreedAmount: number;
+          avgLikes: number;
+          totalCampaigns: number;
+        } | null;
+      }>(`/api/campaigns/past-stats?${params}`);
 
-      if (error) throw error;
-      if (!data || data.length === 0) return null;
-
-      // 過去の平均値を計算
-      const avgOffered = data.reduce((sum, c) => sum + (c.offered_amount || 0), 0) / data.length;
-      const avgAgreed = data.reduce((sum, c) => sum + (c.agreed_amount || 0), 0) / data.length;
-      const avgLikes = data.reduce((sum, c) => sum + (c.likes || 0), 0) / data.length;
-
-      return {
-        avgOfferedAmount: Math.round(avgOffered),
-        avgAgreedAmount: Math.round(avgAgreed),
-        avgLikes: Math.round(avgLikes),
-        totalCampaigns: data.length,
-      };
+      return data.stats;
     },
     enabled: !!influencerId,
     staleTime: 5 * 60 * 1000,
@@ -609,18 +458,20 @@ export function useBulkUpdateCampaigns() {
 
   return useMutation({
     mutationFn: async (updates: { id: string; likes?: number; comments?: number; input_date?: string }[]) => {
-      const results = await Promise.all(
-        updates.map(async ({ id, ...data }) => {
-          const { error } = await supabase
-            .from('campaigns')
-            .update(data)
-            .eq('id', id)
-            .eq('brand', currentBrand);
-          if (error) throw error;
-          return id;
-        })
-      );
-      return results;
+      const response = await fetch('/api/campaigns/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: currentBrand, updates }),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          (data && typeof data.error === 'string' ? data.error : null) ||
+          `一括更新に失敗しました (${response.status})`
+        );
+      }
+      return (data?.updated || []) as string[];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });

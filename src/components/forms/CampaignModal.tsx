@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer, CampaignFormData } from '@/types';
 import { X, Loader2, User, Calendar, MessageSquare, Plus, Tag, Globe, Plane, UserPlus, Copy, CheckCircle2, AlertTriangle, ExternalLink, ClipboardCopy } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -256,13 +255,16 @@ export default function CampaignModal({
         if (!response.ok) {
           const dataError = data && typeof data.error === 'string' ? data.error : '';
           const dataReason = data && typeof data.reason === 'string' ? data.reason : '';
+          const isProductMasterAuthRedirect = dataReason === 'product_master_auth_redirect';
 
           setProductSearchStatus(response.status);
           setProductSearchReason(dataReason);
 
           const fallback =
             response.status === 401
-              ? '認証が切れています（再ログインしてください）'
+              ? (isProductMasterAuthRedirect
+                  ? '品番連携の認証が切れています（再ログインしてください）'
+                  : '認証が切れています（再ログインしてください）')
               : response.status === 403
                 ? '権限がありません（ブランド権限を確認してください）'
                 : `検索に失敗しました (${response.status})`;
@@ -423,15 +425,20 @@ export default function CampaignModal({
         return;
       }
 
-      const { count, error } = await supabase
-        .from('campaigns')
-        .select('*', { count: 'exact', head: true })
-        .eq('influencer_id', formData.influencer_id)
-        .eq('brand', currentBrand);
-
-      if (!error && count !== null) {
-        // 新規登録の場合は+1、編集の場合はそのまま
-        setNumberOfTimes(campaign ? count : count + 1);
+      try {
+        const params = new URLSearchParams({
+          brand: currentBrand,
+          influencer_id: formData.influencer_id,
+        });
+        const response = await fetch(`/api/campaigns/past-stats?${params}`, { cache: 'no-store' });
+        const data = await response.json().catch(() => null);
+        if (response.ok && data?.stats?.totalAllCampaigns != null) {
+          const count = data.stats.totalAllCampaigns;
+          // 新規登録の場合は+1、編集の場合はそのまま
+          setNumberOfTimes(campaign ? count : count + 1);
+        }
+      } catch {
+        // keep default
       }
     };
     fetchNumberOfTimes();
@@ -523,35 +530,29 @@ export default function CampaignModal({
     setError('');
 
     try {
-      // If user is logged in via Supabase Auth (legacy or hybrid), forward the access token so API routes
-      // can satisfy RLS in projects that require `auth.role() = 'authenticated'`.
-      let supabaseAccessToken: string | null = null;
-      try {
-        const { data } = await supabase.auth.getSession();
-        supabaseAccessToken = data?.session?.access_token || null;
-      } catch {
-        supabaseAccessToken = null;
-      }
-
       // staff_id が Clout User ID の場合、ローカルDB（staffs）へ upsert してFK整合性を保つ
       if (formData.staff_id) {
         const selectedStaff = staffs.find((s) => s.id === formData.staff_id);
         if (selectedStaff) {
-          // NOTE: staffs テーブルのスキーマ差分に強くするため、最小カラムのみ upsert する
-          // SECURITY: is_admin はクライアント側から設定しない（権限昇格防止）
-          const { error: staffUpsertError } = await supabase
-            .from('staffs')
-            .upsert([{
+          const upsertRes = await fetch('/api/staffs/upsert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
               id: selectedStaff.id,
               name: selectedStaff.name,
               email: selectedStaff.email || null,
-              team: selectedStaff.is_admin ? 'ADMIN' : (currentBrand as any),
+              team: selectedStaff.is_admin ? 'ADMIN' : currentBrand,
               department: selectedStaff.department || null,
               position: selectedStaff.position || null,
-              is_active: true,
-            }], { onConflict: 'id' });
-          if (staffUpsertError) {
-            throw staffUpsertError;
+            }),
+            cache: 'no-store',
+          });
+          if (!upsertRes.ok) {
+            const upsertData = await upsertRes.json().catch(() => null);
+            throw new Error(
+              (upsertData && typeof upsertData.error === 'string' ? upsertData.error : null) ||
+              `担当者の保存に失敗しました (${upsertRes.status})`
+            );
           }
         }
       }
@@ -628,15 +629,18 @@ export default function CampaignModal({
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            ...(supabaseAccessToken ? { 'x-supabase-access-token': supabaseAccessToken } : {}),
           },
           body: JSON.stringify(payload),
           cache: 'no-store',
         });
         const data = await response.json().catch(() => null);
         if (!response.ok) {
+          const reason = data && typeof data.reason === 'string' ? data.reason : '';
           if (response.status === 401) {
-            const msg = '認証が切れています（再ログインしてください）';
+            const msg =
+              reason === 'product_master_auth_redirect'
+                ? '品番連携の認証が切れています（再ログインしてください）'
+                : '認証が切れています（再ログインしてください）';
             setError(msg);
             showToast('error', msg);
             return;
@@ -645,7 +649,6 @@ export default function CampaignModal({
           const msg = data && typeof data.error === 'string'
             ? data.error
             : `更新に失敗しました (${response.status})`;
-          const reason = data && typeof data.reason === 'string' ? data.reason : '';
           throw new Error(reason ? `${msg} (${reason})` : msg);
         }
         savedCampaign = data && typeof data === 'object' && data.campaign
@@ -656,15 +659,18 @@ export default function CampaignModal({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(supabaseAccessToken ? { 'x-supabase-access-token': supabaseAccessToken } : {}),
           },
           body: JSON.stringify(payload),
           cache: 'no-store',
         });
         const data = await response.json().catch(() => null);
         if (!response.ok) {
+          const reason = data && typeof data.reason === 'string' ? data.reason : '';
           if (response.status === 401) {
-            const msg = '認証が切れています（再ログインしてください）';
+            const msg =
+              reason === 'product_master_auth_redirect'
+                ? '品番連携の認証が切れています（再ログインしてください）'
+                : '認証が切れています（再ログインしてください）';
             setError(msg);
             showToast('error', msg);
             return;
@@ -673,7 +679,6 @@ export default function CampaignModal({
           const msg = data && typeof data.error === 'string'
             ? data.error
             : `登録に失敗しました (${response.status})`;
-          const reason = data && typeof data.reason === 'string' ? data.reason : '';
           throw new Error(reason ? `${msg} (${reason})` : msg);
         }
         savedCampaign = data && typeof data === 'object' && data.campaign

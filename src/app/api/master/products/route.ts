@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
 
   const token = getCloutToken(request)
   if (!token) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    return NextResponse.json({ error: 'Not authenticated', reason: 'missing_sso_token' }, { status: 401 })
   }
 
   const { baseUrl } = await getProductMasterConfig(request)
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
 
     // If SSO fails, Product Master may redirect to /sign-in. Do not follow redirects.
     if (response.status >= 300 && response.status < 400) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', reason: 'product_master_auth_redirect' }, { status: 401 })
     }
 
     const data = await response.json().catch(() => null)
