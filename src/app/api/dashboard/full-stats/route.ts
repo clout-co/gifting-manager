@@ -139,43 +139,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(null, { headers: { 'Cache-Control': 'no-store' } })
   }
 
-  // Status breakdown
+  // 単一パス集計: 全ての統計情報を1回のループで計算
   const statusCount = { pending: 0, agree: 0, disagree: 0, cancelled: 0 }
-  campaigns.forEach((c: any) => {
-    if (c.status in statusCount) {
-      statusCount[c.status as keyof typeof statusCount]++
-    }
-  })
-
-  // Brand stats
   const brandMap = new Map<string, { count: number; amount: number; likes: number }>()
-  campaigns.forEach((c: any) => {
-    const b = c.brand || '未設定'
-    const existing = brandMap.get(b) || { count: 0, amount: 0, likes: 0 }
-    brandMap.set(b, {
-      count: existing.count + 1,
-      amount: existing.amount + (c.agreed_amount || 0),
-      likes: existing.likes + (c.likes || 0),
-    })
-  })
-
-  // Monthly stats
   const monthMap = new Map<string, { campaigns: number; amount: number; likes: number }>()
-  campaigns.forEach((c: any) => {
-    const date = c.sale_date || c.post_date || c.created_at
-    if (date) {
-      const month = date.substring(0, 7)
-      const existing = monthMap.get(month) || { campaigns: 0, amount: 0, likes: 0 }
-      const totalCost = calcCampaignCost(c)
-      monthMap.set(month, {
-        campaigns: existing.campaigns + 1,
-        amount: existing.amount + totalCost,
-        likes: existing.likes + (c.likes || 0),
-      })
-    }
-  })
-
-  // Influencer stats
   const influencerMap = new Map<string, {
     display_name: string
     total_likes: number
@@ -184,78 +151,120 @@ export async function GET(request: NextRequest) {
     total_amount: number
     total_consideration_comments: number
   }>()
-  campaigns.forEach((c: any) => {
-    const raw = c.influencer as
-      | { id?: unknown; insta_name?: unknown; tiktok_name?: unknown }
-      | Array<{ id?: unknown; insta_name?: unknown; tiktok_name?: unknown }>
-      | null
-      | undefined
-
-    const influencer = Array.isArray(raw) ? raw[0] : raw
-    if (influencer) {
-      const key = String((influencer as any).id || '')
-      if (!key) return
-      const displayName =
-        String((influencer as any).insta_name || '') ||
-        String((influencer as any).tiktok_name || '') ||
-        '不明'
-      const existing = influencerMap.get(key) || {
-        display_name: displayName,
-        total_likes: 0,
-        total_comments: 0,
-        total_campaigns: 0,
-        total_amount: 0,
-        total_consideration_comments: 0,
-      }
-      influencerMap.set(key, {
-        display_name: displayName,
-        total_likes: existing.total_likes + (c.likes || 0),
-        total_comments: existing.total_comments + (c.comments || 0),
-        total_campaigns: existing.total_campaigns + 1,
-        total_amount: existing.total_amount + (c.agreed_amount || 0),
-        total_consideration_comments: existing.total_consideration_comments + (c.consideration_comment || 0),
-      })
-    }
-  })
-
-  // Item stats
   const itemMap = new Map<string, { count: number; likes: number; comments: number; amount: number }>()
   const itemCostMap = new Map<string, { total_cost: number; campaigns: number }>()
   const itemPostTimingMap = new Map<string, { pre_sale_posts: number; post_sale_posts: number; no_post: number }>()
-  campaigns.forEach((c: any) => {
-    if (c.item_code) {
-      const existing = itemMap.get(c.item_code) || { count: 0, likes: 0, comments: 0, amount: 0 }
-      const totalCost = calcCampaignCost(c)
-      itemMap.set(c.item_code, {
-        count: existing.count + 1,
-        likes: existing.likes + (c.likes || 0),
-        comments: existing.comments + (c.comments || 0),
-        amount: existing.amount + totalCost,
-      })
 
-      const existingCost = itemCostMap.get(c.item_code) || { total_cost: 0, campaigns: 0 }
-      itemCostMap.set(c.item_code, {
-        total_cost: existingCost.total_cost + totalCost,
-        campaigns: existingCost.campaigns + 1,
-      })
+  const influencerIds = new Set<string>()
+  let totalSpent = 0
+  let totalLikes = 0
+  let totalComments = 0
+
+  for (const c of campaigns as any[]) {
+    const likes = c.likes || 0
+    const comments = c.comments || 0
+    const agreedAmount = c.agreed_amount || 0
+    const totalCost = calcCampaignCost(c)
+
+    // Totals
+    totalSpent += totalCost
+    totalLikes += likes
+    totalComments += comments
+    if (c.influencer_id) influencerIds.add(c.influencer_id)
+
+    // Status
+    if (c.status in statusCount) {
+      statusCount[c.status as keyof typeof statusCount]++
+    }
+
+    // Brand
+    const b = c.brand || '未設定'
+    const brandEntry = brandMap.get(b)
+    if (brandEntry) {
+      brandEntry.count++
+      brandEntry.amount += agreedAmount
+      brandEntry.likes += likes
+    } else {
+      brandMap.set(b, { count: 1, amount: agreedAmount, likes })
+    }
+
+    // Monthly
+    const date = c.sale_date || c.post_date || c.created_at
+    if (date) {
+      const month = date.substring(0, 7)
+      const monthEntry = monthMap.get(month)
+      if (monthEntry) {
+        monthEntry.campaigns++
+        monthEntry.amount += totalCost
+        monthEntry.likes += likes
+      } else {
+        monthMap.set(month, { campaigns: 1, amount: totalCost, likes })
+      }
+    }
+
+    // Influencer
+    const raw = c.influencer
+    const influencer = Array.isArray(raw) ? raw[0] : raw
+    if (influencer) {
+      const key = String(influencer.id || '')
+      if (key) {
+        const displayName = String(influencer.insta_name || '') || String(influencer.tiktok_name || '') || '不明'
+        const infEntry = influencerMap.get(key)
+        if (infEntry) {
+          infEntry.total_likes += likes
+          infEntry.total_comments += comments
+          infEntry.total_campaigns++
+          infEntry.total_amount += agreedAmount
+          infEntry.total_consideration_comments += (c.consideration_comment || 0)
+        } else {
+          influencerMap.set(key, {
+            display_name: displayName,
+            total_likes: likes,
+            total_comments: comments,
+            total_campaigns: 1,
+            total_amount: agreedAmount,
+            total_consideration_comments: c.consideration_comment || 0,
+          })
+        }
+      }
+    }
+
+    // Item stats
+    if (c.item_code) {
+      const itemEntry = itemMap.get(c.item_code)
+      if (itemEntry) {
+        itemEntry.count++
+        itemEntry.likes += likes
+        itemEntry.comments += comments
+        itemEntry.amount += totalCost
+      } else {
+        itemMap.set(c.item_code, { count: 1, likes, comments, amount: totalCost })
+      }
+
+      const costEntry = itemCostMap.get(c.item_code)
+      if (costEntry) {
+        costEntry.total_cost += totalCost
+        costEntry.campaigns++
+      } else {
+        itemCostMap.set(c.item_code, { total_cost: totalCost, campaigns: 1 })
+      }
 
       const saleDate = toDateOnly(c.sale_date)
       const postDate = toDateOnly(c.post_date)
-      const timing = itemPostTimingMap.get(c.item_code) || {
-        pre_sale_posts: 0,
-        post_sale_posts: 0,
-        no_post: 0,
+      let timing = itemPostTimingMap.get(c.item_code)
+      if (!timing) {
+        timing = { pre_sale_posts: 0, post_sale_posts: 0, no_post: 0 }
+        itemPostTimingMap.set(c.item_code, timing)
       }
       if (!postDate) {
-        timing.no_post += 1
+        timing.no_post++
       } else if (saleDate && postDate < saleDate) {
-        timing.pre_sale_posts += 1
+        timing.pre_sale_posts++
       } else {
-        timing.post_sale_posts += 1
+        timing.post_sale_posts++
       }
-      itemPostTimingMap.set(c.item_code, timing)
     }
-  })
+  }
 
   // Influencer ranking
   const influencerRanking = Array.from(influencerMap.values())
@@ -311,10 +320,10 @@ export async function GET(request: NextRequest) {
 
   const result = {
     totalCampaigns: campaigns.length,
-    totalInfluencers: new Set(campaigns.map((c: any) => c.influencer_id)).size,
-    totalSpent: campaigns.reduce((sum: number, c: any) => sum + calcCampaignCost(c), 0),
-    totalLikes: campaigns.reduce((sum: number, c: any) => sum + (c.likes || 0), 0),
-    totalComments: campaigns.reduce((sum: number, c: any) => sum + (c.comments || 0), 0),
+    totalInfluencers: influencerIds.size,
+    totalSpent,
+    totalLikes,
+    totalComments,
     statusBreakdown: [
       { name: '合意', value: statusCount.agree, color: '#374151' },
       { name: '保留', value: statusCount.pending, color: '#6b7280' },

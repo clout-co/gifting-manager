@@ -24,8 +24,6 @@ const nextConfig = {
         headers: [
           ...baseSecurityHeaders,
           ...hstsHeader,
-          { key: 'Cache-Control', value: 'no-store' },
-          { key: 'Pragma', value: 'no-cache' },
         ],
       },
       {
