@@ -5,6 +5,18 @@ import { rateLimit } from './lib/api/rate-limit'
 const CLOUT_AUTH_URL = process.env.NEXT_PUBLIC_CLOUT_AUTH_URL || 'https://dashboard.clout.co.jp'
 const APP_SLUG = 'gifting-app'
 
+/**
+ * Service-to-service auth: allow other Clout apps (e.g., Product Master) to call
+ * read-only analytics API endpoints without going through the full SSO verify flow.
+ * The calling app sends `x-clout-service-key` header with the shared secret and
+ * must also provide `x-clout-user-id` + `x-clout-user-email` headers (already verified
+ * by the calling app's proxy).
+ */
+const CLOUT_SERVICE_SECRET = String(process.env.CLOUT_SERVICE_SECRET || '').trim()
+const SERVICE_AUTH_ALLOWED_PATHS = new Set([
+  '/api/analytics/product-costs',
+])
+
 const HOST_TOKEN_COOKIE = '__Host-clout_token'
 const LEGACY_TOKEN_COOKIE = 'clout_token'
 const IS_PROD = process.env.NODE_ENV === 'production'
@@ -187,6 +199,27 @@ export async function proxy(request: NextRequest) {
   // Logout must work even if SSO verify is temporarily failing.
   if (pathname === '/api/auth/logout') {
     return NextResponse.next()
+  }
+
+  // Service-to-service bypass: allow other Clout apps to call whitelisted analytics
+  // endpoints using a shared secret + pre-verified x-clout-* headers.
+  // This avoids the app-slug permission check (the calling app already verified the user).
+  if (
+    isApiRoute &&
+    request.method === 'GET' &&
+    CLOUT_SERVICE_SECRET &&
+    SERVICE_AUTH_ALLOWED_PATHS.has(pathname) &&
+    request.headers.get('x-clout-service-key') === CLOUT_SERVICE_SECRET
+  ) {
+    const svcUserId = String(request.headers.get('x-clout-user-id') || '').trim()
+    const svcEmail = String(request.headers.get('x-clout-user-email') || '').trim()
+    if (svcUserId && svcEmail) {
+      // Headers are already set by the calling app's proxy — pass through as-is.
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('x-clout-request-id', requestId)
+      requestHeaders.delete('x-clout-service-key') // Don't leak to downstream
+      return NextResponse.next({ request: { headers: requestHeaders } })
+    }
   }
 
   // E2E/dev-only bypass (never enabled in production builds).
