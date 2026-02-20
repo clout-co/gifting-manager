@@ -350,5 +350,5 @@ export async function GET(request: NextRequest) {
       .slice(0, 10),
   }
 
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json(result, { headers: { 'Cache-Control': 'private, max-age=60' } })
 }

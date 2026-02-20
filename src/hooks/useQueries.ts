@@ -109,7 +109,7 @@ export function useCampaigns() {
         staff: { id: string; name: string } | null;
       })[];
     },
-    staleTime: 2 * 60 * 1000, // 2分
+    staleTime: 5 * 60 * 1000, // 5分
   });
 }
 
@@ -233,7 +233,7 @@ export function useInfluencersWithScores() {
         };
       });
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5分
   });
 }
 
@@ -374,7 +374,7 @@ export function useDashboardKpis(selectedItem: string, dateRange: string) {
       })
       return fetchApiJson<DashboardKpis>(`/api/dashboard/kpis?${params}`)
     },
-    staleTime: 1 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5分（KPIは頻繁に変わらない）
   })
 }
 
@@ -398,7 +398,7 @@ export function useDashboardFullStats(
       return fetchApiJson<DashboardFullStats>(`/api/dashboard/full-stats?${params}`)
     },
     enabled: options?.enabled ?? true,
-    staleTime: 1 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5分
   });
 }
 

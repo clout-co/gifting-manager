@@ -324,7 +324,14 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from('campaigns')
     .select(`
-      *,
+      id, brand, influencer_id, item_code, item_quantity, sale_date,
+      desired_post_date, desired_post_start, desired_post_end,
+      agreed_date, offered_amount, agreed_amount, status,
+      post_status, post_date, post_url, likes, comments,
+      consideration_comment, engagement_date, number_of_times,
+      product_cost, shipping_cost,
+      is_international_shipping, shipping_country, international_shipping_cost,
+      notes, staff_id, created_at, updated_at,
       influencer:influencers(id, insta_name, tiktok_name, insta_url, tiktok_url),
       staff:staffs(id, name)
     `)
@@ -337,7 +344,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     { campaigns: Array.isArray(data) ? data : [] },
-    { headers: { 'Cache-Control': 'no-store' } }
+    { headers: { 'Cache-Control': 'private, max-age=30' } }
   )
 }
 

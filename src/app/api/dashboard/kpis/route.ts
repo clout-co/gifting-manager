@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       agreedCount,
       costPerLike: totalLikes > 0 ? totalSpent / totalLikes : 0,
     },
-    { headers: { 'Cache-Control': 'no-store' } }
+    { headers: { 'Cache-Control': 'private, max-age=60' } }
   )
 }
 
