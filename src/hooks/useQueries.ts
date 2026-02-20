@@ -7,6 +7,7 @@ import {
   calculateStatsFromCampaigns,
   type InfluencerRank,
 } from '@/lib/scoring';
+import { redirectToCloutSignIn } from '@/lib/clout-auth';
 
 const IS_E2E =
   process.env.NODE_ENV !== 'production' &&
@@ -53,6 +54,19 @@ const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
   ],
 };
 
+/** 401/403 を示すエラー。React Query のリトライをスキップするために使う */
+class AuthError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'AuthError';
+    this.status = status;
+  }
+}
+
+/** 再認証リダイレクトの多重発火を防ぐフラグ */
+let isRedirecting = false;
+
 async function fetchApiJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
     method: 'GET',
@@ -61,6 +75,15 @@ async function fetchApiJson<T>(url: string): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    // 認証切れ → 自動的に再認証フローへリダイレクト
+    if (response.status === 401 || response.status === 403) {
+      if (!isRedirecting) {
+        isRedirecting = true;
+        redirectToCloutSignIn();
+      }
+      throw new AuthError('認証の有効期限が切れました', response.status);
+    }
+
     const message =
       data && typeof data.error === 'string'
         ? data.error
