@@ -173,7 +173,9 @@ export default function CampaignsPage() {
   };
 
   // インライン編集ヘルパー
-  const EDITABLE_FIELDS: EditableField[] = ['item_code', 'agreed_amount', 'status', 'post_url', 'likes', 'comments'];
+  // 投稿関連(post_url/likes/comments)は複数投稿メタ(notes内POSTS_JSON)と整合性を保つため
+  // CampaignModalからのみ編集可能。インライン編集は案件メタのみ。
+  const EDITABLE_FIELDS: EditableField[] = ['item_code', 'agreed_amount', 'status'];
 
   const handleCellChange = useCallback((campaignId: string, field: EditableField, value: unknown) => {
     setPendingChanges((prev) => {
@@ -200,9 +202,6 @@ export default function CampaignsPage() {
       case 'item_code': return campaign.item_code || '';
       case 'agreed_amount': return campaign.agreed_amount || 0;
       case 'status': return campaign.status;
-      case 'post_url': return campaign.post_url || '';
-      case 'likes': return campaign.likes || 0;
-      case 'comments': return campaign.comments || 0;
       default: return '';
     }
   }, [pendingChanges]);
@@ -225,9 +224,6 @@ export default function CampaignsPage() {
         }
         if ('agreed_amount' in changes) update.agreed_amount = Number(changes.agreed_amount) || 0;
         if ('status' in changes) update.status = String(changes.status);
-        if ('post_url' in changes) update.post_url = String(changes.post_url || '');
-        if ('likes' in changes) update.likes = Number(changes.likes) || 0;
-        if ('comments' in changes) update.comments = Number(changes.comments) || 0;
         updates.push(update);
       }
       await bulkUpdateMutation.mutateAsync(updates);
@@ -989,37 +985,31 @@ export default function CampaignsPage() {
                           </span>
                         ) : (
                           <div className="flex items-center gap-3">
-                            <EditableCell
-                              field="likes"
-                              value={getCellDisplayValue(campaign, 'likes')}
-                              isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'likes'}
-                              onChange={(v) => handleCellChange(campaign.id, 'likes', v)}
-                              onActivate={() => handleCellActivate(campaign.id, 'likes')}
-                              onNavigate={(dir) => handleCellNavigate(campaign.id, 'likes', dir)}
-                              onDeactivate={handleCellDeactivate}
-                            />
-                            <EditableCell
-                              field="comments"
-                              value={getCellDisplayValue(campaign, 'comments')}
-                              isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'comments'}
-                              onChange={(v) => handleCellChange(campaign.id, 'comments', v)}
-                              onActivate={() => handleCellActivate(campaign.id, 'comments')}
-                              onNavigate={(dir) => handleCellNavigate(campaign.id, 'comments', dir)}
-                              onDeactivate={handleCellDeactivate}
-                            />
+                            <span className="text-sm tabular-nums flex items-center gap-1">
+                              <Heart size={12} className="text-muted-foreground" />
+                              {Number(campaign.likes || 0).toLocaleString()}
+                            </span>
+                            <span className="text-sm tabular-nums flex items-center gap-1">
+                              <MessageCircle size={12} className="text-muted-foreground" />
+                              {Number(campaign.comments || 0).toLocaleString()}
+                            </span>
                           </div>
                         )}
                       </td>
                       <td className="table-cell">
-                        <EditableCell
-                          field="post_url"
-                          value={getCellDisplayValue(campaign, 'post_url')}
-                          isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'post_url'}
-                          onChange={(v) => handleCellChange(campaign.id, 'post_url', v)}
-                          onActivate={() => handleCellActivate(campaign.id, 'post_url')}
-                          onNavigate={(dir) => handleCellNavigate(campaign.id, 'post_url', dir)}
-                          onDeactivate={handleCellDeactivate}
-                        />
+                        {campaign.post_url ? (
+                          <a
+                            href={campaign.post_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-400 hover:underline truncate max-w-[120px] block"
+                            title={campaign.post_url}
+                          >
+                            {campaign.post_url.replace(/^https?:\/\//, '').slice(0, 25)}{campaign.post_url.length > 35 ? '...' : ''}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
                       </td>
                       <td className="table-cell">
                         {campaign.staff ? (

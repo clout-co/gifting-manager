@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState, memo } from 'react';
 import { CAMPAIGN_STATUS_LABELS, type CampaignStatus } from '@/lib/constants';
 import { toHalfWidth } from '@/lib/product-code';
 
-export type EditableField = 'item_code' | 'agreed_amount' | 'status' | 'post_url' | 'likes' | 'comments';
+export type EditableField = 'item_code' | 'agreed_amount' | 'status';
 
 interface EditableCellProps {
   field: EditableField;
@@ -59,7 +59,7 @@ function EditableCellInner({
   };
 
   const commitValue = () => {
-    if (field === 'likes' || field === 'comments' || field === 'agreed_amount') {
+    if (field === 'agreed_amount') {
       const num = Number(normalizeNumeric(localValue));
       onChange(Number.isFinite(num) ? Math.max(0, num) : 0);
     } else {
@@ -108,8 +108,8 @@ function EditableCellInner({
     );
   }
 
-  // Edit mode: numeric fields
-  if (field === 'likes' || field === 'comments' || field === 'agreed_amount') {
+  // Edit mode: numeric field (agreed_amount)
+  if (field === 'agreed_amount') {
     return (
       <input
         ref={inputRef as React.RefObject<HTMLInputElement>}
@@ -123,16 +123,16 @@ function EditableCellInner({
           onDeactivate();
         }}
         className="w-full bg-background border border-primary/50 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-right"
-        placeholder={field === 'agreed_amount' ? '¥' : '0'}
+        placeholder="¥"
       />
     );
   }
 
-  // Edit mode: text fields (item_code, post_url)
+  // Edit mode: text field (item_code)
   return (
     <input
       ref={inputRef as React.RefObject<HTMLInputElement>}
-      type={field === 'post_url' ? 'url' : 'text'}
+      type="text"
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onKeyDown={handleKeyDown}
@@ -141,7 +141,7 @@ function EditableCellInner({
         onDeactivate();
       }}
       className="w-full bg-background border border-primary/50 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-      placeholder={field === 'post_url' ? 'https://...' : '品番'}
+      placeholder="品番"
     />
   );
 }
@@ -159,19 +159,6 @@ function renderDisplayValue(field: EditableField, value: unknown): React.ReactNo
   if (field === 'agreed_amount') {
     const num = Number(value);
     return <span className="text-sm tabular-nums">¥{num.toLocaleString()}</span>;
-  }
-
-  if (field === 'likes' || field === 'comments') {
-    return <span className="text-sm tabular-nums">{Number(value).toLocaleString()}</span>;
-  }
-
-  if (field === 'post_url') {
-    const url = String(value);
-    return (
-      <span className="text-sm text-blue-400 truncate max-w-[120px] block" title={url}>
-        {url.replace(/^https?:\/\//, '').slice(0, 25)}{url.length > 35 ? '...' : ''}
-      </span>
-    );
   }
 
   return <span className="text-sm">{String(value)}</span>;
