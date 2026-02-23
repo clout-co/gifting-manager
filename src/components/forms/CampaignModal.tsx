@@ -13,6 +13,7 @@ import { calculatePostStatus, suggestPostDate } from '@/lib/post-status';
 import { useInfluencerPastStats, useStaffs } from '@/hooks/useQueries';
 import SearchableSelect, { type SearchableOption } from '@/components/ui/SearchableSelect';
 import { CLOUT_AUTH_URL, redirectToCloutSignIn } from '@/lib/clout-auth';
+import { DEFAULT_SHIPPING_COST } from '@/lib/constants';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface CampaignModalProps {
@@ -62,42 +63,16 @@ export default function CampaignModal({
     engagement_date: campaign?.engagement_date || '',
     number_of_times: campaign?.number_of_times || 1,
     product_cost: campaign?.product_cost ?? 0,
-    shipping_cost: 800, // 送料は800円固定
+    shipping_cost: campaign ? (Number(campaign.shipping_cost || 0) > 0 ? DEFAULT_SHIPPING_COST : 0) : DEFAULT_SHIPPING_COST,
     is_international_shipping: campaign?.is_international_shipping ?? false,
     shipping_country: campaign?.shipping_country || '',
     international_shipping_cost: campaign?.international_shipping_cost ?? 0,
-    notes: campaign?.notes || '',
+    notes: String(campaign?.notes || '')
+      .replace(/\[TAGS:.*?\]\n?/g, '')
+      .replace(/\[POSTS_JSON:[A-Za-z0-9+/=]+\]\n?/g, '')
+      .trim(),
     staff_id: campaign?.staff_id || '',
   });
-
-  // いいね/コメント/検討コメント入力時に入力日を自動設定
-  const handleEngagementChange = (field: 'likes' | 'comments' | 'consideration_comment', value: number) => {
-    const updates: Partial<CampaignFormData> = { [field]: value };
-
-    // 値が入力され、まだ入力日が設定されていない場合は当日を自動設定
-    if (value > 0 && !formData.engagement_date) {
-      updates.engagement_date = getTodayDate();
-    }
-
-    // いいねが入力された場合、ステータスを自動で「合意」に変更
-    if (field === 'likes' && value > 0 && formData.status === 'pending') {
-      updates.status = 'agree';
-    }
-
-    setFormData({ ...formData, ...updates });
-  };
-
-  // 投稿URL入力時に投稿日を自動設定
-  const handlePostUrlChange = (url: string) => {
-    const updates: Partial<CampaignFormData> = { post_url: url };
-
-    // URLが入力され、まだ投稿日が設定されていない場合は当日を自動設定
-    if (url && !formData.post_date) {
-      updates.post_date = getTodayDate();
-    }
-
-    setFormData({ ...formData, ...updates });
-  };
 
   // 担当者（Clout Dashboardのユーザー）を取得
   const {
@@ -138,6 +113,184 @@ export default function CampaignModal({
   };
 
   const normalizeProductCodeInput = (value: string) => toHalfWidth(value).trim();
+  const parseNonNegativeIntFromInput = (value: string) => {
+    const normalized = toHalfWidth(value).replace(/[^\d]/g, '');
+    if (!normalized) return 0;
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+  const POSTS_META_PREFIX = '[POSTS_JSON:';
+  const POSTS_META_REGEX = /\[POSTS_JSON:([A-Za-z0-9+/=]+)\]\n?/;
+
+  type CampaignPostForm = {
+    post_date: string;
+    post_url: string;
+    likes: number;
+    comments: number;
+    consideration_comment: number;
+    engagement_date: string;
+    is_unavailable: boolean;
+  };
+
+  type NormalizedCampaignPost = {
+    sort_order: number;
+    post_date: string | null;
+    post_url: string | null;
+    likes: number;
+    comments: number;
+    consideration_comment: number;
+    engagement_date: string | null;
+    is_unavailable: boolean;
+  };
+
+  const toDateInputValue = (value: unknown): string => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().slice(0, 10);
+  };
+
+  const createEmptyPost = (): CampaignPostForm => ({
+    post_date: '',
+    post_url: '',
+    likes: 0,
+    comments: 0,
+    consideration_comment: 0,
+    engagement_date: '',
+    is_unavailable: false,
+  });
+
+  const decodePostsFromNotes = (notes: string | null): CampaignPostForm[] => {
+    const source = String(notes || '');
+    const match = source.match(POSTS_META_REGEX);
+    if (!match || !match[1]) return [];
+
+    try {
+      const bytes = Uint8Array.from(atob(match[1]), (ch) => ch.charCodeAt(0));
+      const decoded = new TextDecoder().decode(bytes);
+      const parsed = JSON.parse(decoded) as unknown;
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .map((row: unknown) => {
+          const item = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+          const isUnavailable = Boolean(item.is_unavailable);
+          return {
+            post_date: toDateInputValue(item.post_date),
+            post_url: String(item.post_url || '').trim(),
+            likes: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.likes ?? '0')),
+            comments: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.comments ?? '0')),
+            consideration_comment: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.consideration_comment ?? '0')),
+            engagement_date: isUnavailable ? '' : toDateInputValue(item.engagement_date),
+            is_unavailable: isUnavailable,
+          } satisfies CampaignPostForm;
+        })
+        .filter((row) =>
+          Boolean(
+            row.post_date ||
+            row.post_url ||
+            row.likes > 0 ||
+            row.comments > 0 ||
+            row.consideration_comment > 0 ||
+            row.engagement_date ||
+            row.is_unavailable
+          )
+        );
+    } catch {
+      return [];
+    }
+  };
+
+  const stripMetaFromNotes = (notes: string | null): string =>
+    String(notes || '')
+      .replace(/\[TAGS:.*?\]\n?/g, '')
+      .replace(POSTS_META_REGEX, '')
+      .trim();
+
+  const normalizePostsForSave = (source: CampaignPostForm[]): NormalizedCampaignPost[] =>
+    source
+      .map((row, index) => {
+        const isUnavailable = Boolean(row.is_unavailable);
+        const postDate = toDateInputValue(row.post_date) || null;
+        const postUrl = String(row.post_url || '').trim() || null;
+        const likes = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.likes ?? '0'));
+        const comments = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.comments ?? '0'));
+        const consideration = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.consideration_comment ?? '0'));
+        const engagementDate = isUnavailable ? null : (toDateInputValue(row.engagement_date) || null);
+
+        return {
+          sort_order: index,
+          post_date: postDate,
+          post_url: postUrl,
+          likes,
+          comments,
+          consideration_comment: consideration,
+          engagement_date: engagementDate,
+          is_unavailable: isUnavailable,
+        } satisfies NormalizedCampaignPost;
+      })
+      .filter((row) =>
+        Boolean(
+          row.post_date ||
+          row.post_url ||
+          row.likes > 0 ||
+          row.comments > 0 ||
+          row.consideration_comment > 0 ||
+          row.engagement_date ||
+          row.is_unavailable
+        )
+      );
+
+  const summarizePosts = (source: NormalizedCampaignPost[]) => {
+    if (!source.length) {
+      return {
+        post_date: null as string | null,
+        post_url: null as string | null,
+        likes: 0,
+        comments: 0,
+        consideration_comment: 0,
+        engagement_date: null as string | null,
+      };
+    }
+
+    const totalLikes = source.reduce((sum, row) => sum + row.likes, 0);
+    const totalComments = source.reduce((sum, row) => sum + row.comments, 0);
+    const totalConsideration = source.reduce((sum, row) => sum + row.consideration_comment, 0);
+
+    const latestPostByDate = source
+      .filter((row) => row.post_date)
+      .sort((a, b) => String(a.post_date).localeCompare(String(b.post_date)))
+      .at(-1);
+    const latestPostByOrder = source.at(-1) || null;
+    const representative = latestPostByDate || latestPostByOrder;
+
+    const latestEngagementDate = source
+      .filter((row) => row.engagement_date)
+      .sort((a, b) => String(a.engagement_date).localeCompare(String(b.engagement_date)))
+      .at(-1)?.engagement_date || null;
+
+    return {
+      post_date: representative?.post_date || null,
+      post_url: representative?.post_url || null,
+      likes: totalLikes,
+      comments: totalComments,
+      consideration_comment: totalConsideration,
+      engagement_date: latestEngagementDate,
+    };
+  };
+
+  const encodePostsToMeta = (source: NormalizedCampaignPost[]): string => {
+    if (!source.length) return '';
+    const json = JSON.stringify(source);
+    const bytes = new TextEncoder().encode(json);
+    let binary = '';
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return `${POSTS_META_PREFIX}${btoa(binary)}]\n`;
+  };
 
   const canonicalizeProductCode = (value: string) =>
     normalizeProductCodeInput(value)
@@ -466,7 +619,6 @@ export default function CampaignModal({
 
   // コメント機能用の状態
   const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState<{ text: string; user: string; date: string }[]>([]);
 
   // タグの状態（notesからタグを抽出）
   const ENGAGEMENT_UNAVAILABLE_TAG = '非公開または削除済み';
@@ -480,9 +632,33 @@ export default function CampaignModal({
   };
 
   const [tags, setTags] = useState<string[]>(extractTags(campaign?.notes || null));
-  const [isEngagementUnavailable, setIsEngagementUnavailable] = useState<boolean>(
-    extractTags(campaign?.notes || null).includes(ENGAGEMENT_UNAVAILABLE_TAG)
-  );
+  const initialPostsFromNotes = decodePostsFromNotes(campaign?.notes || null);
+  const [posts, setPosts] = useState<CampaignPostForm[]>(() => {
+    if (initialPostsFromNotes.length > 0) return initialPostsFromNotes;
+
+    const unavailableFromTag = extractTags(campaign?.notes || null).includes(ENGAGEMENT_UNAVAILABLE_TAG);
+    const legacyPost: CampaignPostForm = {
+      post_date: toDateInputValue(campaign?.post_date || ''),
+      post_url: String(campaign?.post_url || '').trim(),
+      likes: unavailableFromTag ? 0 : Number(campaign?.likes || 0),
+      comments: unavailableFromTag ? 0 : Number(campaign?.comments || 0),
+      consideration_comment: unavailableFromTag ? 0 : Number(campaign?.consideration_comment || 0),
+      engagement_date: unavailableFromTag ? '' : toDateInputValue(campaign?.engagement_date || ''),
+      is_unavailable: unavailableFromTag,
+    };
+
+    const hasLegacyValue = Boolean(
+      legacyPost.post_date ||
+      legacyPost.post_url ||
+      legacyPost.likes > 0 ||
+      legacyPost.comments > 0 ||
+      legacyPost.consideration_comment > 0 ||
+      legacyPost.engagement_date ||
+      legacyPost.is_unavailable
+    );
+
+    return hasLegacyValue ? [legacyPost] : [createEmptyPost()];
+  });
 
   // テンプレート適用
   const handleTemplateSelect = (templateData: Partial<CampaignFormData>) => {
@@ -557,24 +733,34 @@ export default function CampaignModal({
         }
       }
 
-      // 既存のnotesにコメントを追加
-      let updatedNotes = formData.notes || '';
+      const normalizedPosts = normalizePostsForSave(posts);
+      const postSummary = summarizePosts(normalizedPosts);
 
-      // 既存のTAGSを削除
-      updatedNotes = updatedNotes.replace(/\[TAGS:.*?\]\n?/g, '');
+      // 既存のメタ行は除去し、最新の tags/posts を組み立てる
+      let updatedNotes = stripMetaFromNotes(formData.notes || '');
 
+      const hasUnavailablePost =
+        normalizedPosts.length > 0 &&
+        normalizedPosts.every((post) => post.is_unavailable);
       const tagsWithoutUnavailable = tags.filter((tag) => tag !== ENGAGEMENT_UNAVAILABLE_TAG);
       const tagsForSave = Array.from(
         new Set(
-          isEngagementUnavailable
+          hasUnavailablePost
             ? [...tagsWithoutUnavailable, ENGAGEMENT_UNAVAILABLE_TAG]
             : tagsWithoutUnavailable
         )
       );
 
-      // タグを追加
+      const notesPrefix: string[] = [];
       if (tagsForSave.length > 0) {
-        updatedNotes = `[TAGS:${tagsForSave.join(',')}]\n${updatedNotes}`;
+        notesPrefix.push(`[TAGS:${tagsForSave.join(',')}]`);
+      }
+      const postsMeta = encodePostsToMeta(normalizedPosts).trim();
+      if (postsMeta) {
+        notesPrefix.push(postsMeta);
+      }
+      if (notesPrefix.length > 0) {
+        updatedNotes = `${notesPrefix.join('\n')}\n${updatedNotes}`.trim();
       }
 
       if (newComment.trim()) {
@@ -585,7 +771,7 @@ export default function CampaignModal({
       // 投稿ステータスを自動計算
       const autoPostStatus = calculatePostStatus(
         formData.sale_date,
-        formData.post_date,
+        postSummary.post_date || '',
         formData.desired_post_date,
         formData.desired_post_start,
         formData.desired_post_end
@@ -606,18 +792,20 @@ export default function CampaignModal({
         agreed_amount: formData.agreed_amount || 0,
         status: formData.status,
         post_status: autoPostStatus || null,
-        post_date: formData.post_date || null,
-        post_url: formData.post_url || null,
-        likes: isEngagementUnavailable ? 0 : (formData.likes || 0),
-        comments: isEngagementUnavailable ? 0 : (formData.comments || 0),
-        consideration_comment: isEngagementUnavailable ? 0 : (formData.consideration_comment || 0),
-        engagement_date: isEngagementUnavailable ? null : (formData.engagement_date || null),
+        post_date: postSummary.post_date || null,
+        post_url: postSummary.post_url || null,
+        likes: postSummary.likes || 0,
+        comments: postSummary.comments || 0,
+        consideration_comment: postSummary.consideration_comment || 0,
+        engagement_date: postSummary.engagement_date || null,
         number_of_times: numberOfTimes || 1,
         product_cost: formData.product_cost || 0,
-        shipping_cost: 800, // 送料は800円固定
+        // 同一発送の追加投稿は 0（送料非計上）にできる
+        shipping_cost: Number(formData.shipping_cost || 0) > 0 ? DEFAULT_SHIPPING_COST : 0,
         is_international_shipping: formData.is_international_shipping || false,
         shipping_country: formData.is_international_shipping ? (formData.shipping_country || null) : null,
         international_shipping_cost: formData.is_international_shipping ? (formData.international_shipping_cost || null) : null,
+        posts: normalizedPosts,
         notes: updatedNotes || null,
         staff_id: formData.staff_id || null,
       };
@@ -720,7 +908,7 @@ export default function CampaignModal({
     }).filter(Boolean) as { date: string; user: string; text: string }[];
   };
 
-  const existingComments = parseComments(campaign?.notes || null);
+  const existingComments = parseComments(stripMetaFromNotes(campaign?.notes || null));
 
   // Submit gating: show why the user can't submit yet (prevents trial-and-error).
   const influencerSectionRef = useRef<HTMLDivElement | null>(null);
@@ -819,19 +1007,25 @@ export default function CampaignModal({
     isSaleDateReady &&
     isInternationalReady;
 
+  const currentPostSummary = useMemo(
+    () => summarizePosts(normalizePostsForSave(posts)),
+    [posts]
+  );
+
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount || 0);
 
   const totalCost = useMemo(() => {
     const agreed = Number(formData.agreed_amount || 0);
     const cost = Number(formData.product_cost || 0) * Math.max(1, Number(formData.item_quantity || 1));
-    const ship = 800;
+    const ship = Number(formData.shipping_cost || 0);
     const intl = formData.is_international_shipping ? Number(formData.international_shipping_cost || 0) : 0;
     return Math.round(agreed + cost + ship + intl);
   }, [
     formData.agreed_amount,
     formData.product_cost,
     formData.item_quantity,
+    formData.shipping_cost,
     formData.is_international_shipping,
     formData.international_shipping_cost,
   ]);
@@ -1523,7 +1717,7 @@ export default function CampaignModal({
                   <span className="text-gray-800 font-medium">
                     {calculatePostStatus(
                       formData.sale_date,
-                      formData.post_date,
+                      currentPostSummary.post_date || '',
                       formData.desired_post_date,
                       formData.desired_post_start,
                       formData.desired_post_end
@@ -1602,11 +1796,13 @@ export default function CampaignModal({
                 </label>
                 <input
                   type="number"
-                  value={800}
+                  value={formData.shipping_cost || 0}
                   disabled
                   className="input-field bg-muted cursor-not-allowed"
                 />
-                <p className="text-xs text-muted-foreground mt-1">固定: ¥800</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  送料は案件単位で1回のみ自動計上します（同一案件内の2投稿目以降では追加計上しません）
+                </p>
               </div>
 
               <div>
@@ -1648,7 +1844,7 @@ export default function CampaignModal({
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span>送料</span>
-                  <span className="font-medium tabular-nums">{formatCurrency(800)}</span>
+                  <span className="font-medium tabular-nums">{formatCurrency(formData.shipping_cost || 0)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span>海外送料</span>
@@ -1725,147 +1921,217 @@ export default function CampaignModal({
             </div>
           )}
 
-          {/* 投稿情報 */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-foreground border-b pb-2">投稿情報（実績）</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  実際の投稿日
-                </label>
-                <input
-                  type="date"
-                  value={formData.post_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, post_date: e.target.value })
-                  }
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  投稿URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.post_url}
-                  onChange={(e) => handlePostUrlChange(e.target.value)}
-                  className="input-field"
-                  placeholder="https://www.tiktok.com/@..."
-                />
-                {formData.post_url && !formData.post_date && (
-                  <p className="text-xs text-green-600 mt-1">※投稿日が自動設定されます</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* エンゲージメント（任意） */}
+          {/* 投稿実績（複数登録） */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="font-medium text-foreground">エンゲージメント</h3>
-              {formData.status !== 'agree' && (
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                  合意後に入力可能
-                </span>
-              )}
+              <h3 className="font-medium text-foreground">投稿実績（複数登録）</h3>
+              <button
+                type="button"
+                className="btn-secondary btn-sm flex items-center gap-2"
+                onClick={() => setPosts((prev) => [...prev, createEmptyPost()])}
+              >
+                <Plus size={16} />
+                投稿を追加
+              </button>
             </div>
 
-            <div className="rounded-lg border border-border bg-muted px-3 py-2">
-              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={isEngagementUnavailable}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setIsEngagementUnavailable(checked);
-                    setTags((prev) => {
-                      const withoutUnavailable = prev.filter((tag) => tag !== ENGAGEMENT_UNAVAILABLE_TAG);
-                      return checked
-                        ? [...withoutUnavailable, ENGAGEMENT_UNAVAILABLE_TAG]
-                        : withoutUnavailable;
-                    });
-                    if (checked) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        likes: 0,
-                        comments: 0,
-                        consideration_comment: 0,
-                        engagement_date: '',
-                      }));
-                    }
-                  }}
-                />
-                非公開または削除済み（エンゲージメント入力不要）
-              </label>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              1案件に複数投稿を登録できます。合意額・商品原価・送料は案件単位で1回だけ計上されます。
+            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  いいね数
-                </label>
-                <input
-                  type="number"
-                  value={formData.likes}
-                  onChange={(e) => handleEngagementChange('likes', parseInt(e.target.value) || 0)}
-                  className="input-field"
-                  min={0}
-                  disabled={isEngagementUnavailable}
-                />
-                {formData.status === 'pending' && !isEngagementUnavailable && (
-                  <p className="text-xs text-muted-foreground mt-1">※入力するとステータスが「合意」に</p>
-                )}
-              </div>
+            <div className="space-y-4">
+              {posts.map((post, index) => (
+                <div key={`post-${index}`} className="rounded-lg border border-border bg-muted p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-foreground">投稿 {index + 1}</div>
+                    {posts.length > 1 ? (
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:text-red-700"
+                        onClick={() =>
+                          setPosts((prev) => {
+                            const next = prev.filter((_, i) => i !== index);
+                            return next.length > 0 ? next : [createEmptyPost()];
+                          })
+                        }
+                      >
+                        削除
+                      </button>
+                    ) : null}
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  コメント数
-                </label>
-                <input
-                  type="number"
-                  value={formData.comments}
-                  onChange={(e) => handleEngagementChange('comments', parseInt(e.target.value) || 0)}
-                  className="input-field"
-                  min={0}
-                  disabled={isEngagementUnavailable}
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        実際の投稿日
+                      </label>
+                      <input
+                        type="date"
+                        value={post.post_date}
+                        onChange={(e) =>
+                          setPosts((prev) => prev.map((p, i) => i === index ? { ...p, post_date: e.target.value } : p))
+                        }
+                        className="input-field"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  検討コメント
-                </label>
-                <input
-                  type="number"
-                  value={formData.consideration_comment}
-                  onChange={(e) => handleEngagementChange('consideration_comment', parseInt(e.target.value) || 0)}
-                  className="input-field"
-                  min={0}
-                  disabled={isEngagementUnavailable}
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        投稿URL
+                      </label>
+                      <input
+                        type="url"
+                        value={post.post_url}
+                        onChange={(e) =>
+                          setPosts((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== index) return p;
+                              const nextUrl = e.target.value;
+                              return {
+                                ...p,
+                                post_url: nextUrl,
+                                post_date: nextUrl && !p.post_date ? getTodayDate() : p.post_date,
+                              };
+                            })
+                          )
+                        }
+                        className="input-field"
+                        placeholder="https://www.tiktok.com/@..."
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  入力日
-                </label>
-                <input
-                  type="date"
-                  value={formData.engagement_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, engagement_date: e.target.value })
-                  }
-                  className="input-field"
-                  disabled={isEngagementUnavailable}
-                />
-                {!isEngagementUnavailable && !formData.engagement_date && (formData.likes > 0 || formData.comments > 0 || formData.consideration_comment > 0) && (
-                  <p className="text-xs text-green-600 mt-1">※自動設定されます</p>
-                )}
-              </div>
+                  <div className="rounded-lg border border-border bg-white px-3 py-2">
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={post.is_unavailable}
+                        onChange={(e) =>
+                          setPosts((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== index) return p;
+                              const checked = e.target.checked;
+                              return checked
+                                ? {
+                                    ...p,
+                                    is_unavailable: true,
+                                    likes: 0,
+                                    comments: 0,
+                                    consideration_comment: 0,
+                                    engagement_date: '',
+                                  }
+                                : { ...p, is_unavailable: false };
+                            })
+                          )
+                        }
+                      />
+                      非公開または削除済み（この投稿のエンゲージメント入力不要）
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        いいね数
+                      </label>
+                      <input
+                        type="text"
+                        value={post.likes}
+                        onChange={(e) => {
+                          const nextLikes = parseNonNegativeIntFromInput(e.target.value);
+                          setPosts((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== index) return p;
+                              return {
+                                ...p,
+                                likes: nextLikes,
+                                engagement_date: nextLikes > 0 && !p.engagement_date ? getTodayDate() : p.engagement_date,
+                              };
+                            })
+                          );
+                          if (nextLikes > 0 && formData.status === 'pending') {
+                            setFormData((prev) => ({ ...prev, status: 'agree' }));
+                          }
+                        }}
+                        className="input-field"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        disabled={post.is_unavailable}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        コメント数
+                      </label>
+                      <input
+                        type="text"
+                        value={post.comments}
+                        onChange={(e) => {
+                          const nextComments = parseNonNegativeIntFromInput(e.target.value);
+                          setPosts((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== index) return p;
+                              return {
+                                ...p,
+                                comments: nextComments,
+                                engagement_date: nextComments > 0 && !p.engagement_date ? getTodayDate() : p.engagement_date,
+                              };
+                            })
+                          );
+                        }}
+                        className="input-field"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        disabled={post.is_unavailable}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        検討コメント
+                      </label>
+                      <input
+                        type="text"
+                        value={post.consideration_comment}
+                        onChange={(e) => {
+                          const nextConsideration = parseNonNegativeIntFromInput(e.target.value);
+                          setPosts((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== index) return p;
+                              return {
+                                ...p,
+                                consideration_comment: nextConsideration,
+                                engagement_date: nextConsideration > 0 && !p.engagement_date ? getTodayDate() : p.engagement_date,
+                              };
+                            })
+                          );
+                        }}
+                        className="input-field"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        disabled={post.is_unavailable}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        入力日
+                      </label>
+                      <input
+                        type="date"
+                        value={post.engagement_date}
+                        onChange={(e) =>
+                          setPosts((prev) => prev.map((p, i) => i === index ? { ...p, engagement_date: e.target.value } : p))
+                        }
+                        className="input-field"
+                        disabled={post.is_unavailable}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* 回数（自動計算）*/}

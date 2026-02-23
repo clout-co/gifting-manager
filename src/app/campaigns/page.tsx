@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Campaign, Influencer } from '@/types';
@@ -24,16 +24,20 @@ import {
   CheckSquare,
   Square,
   X,
-  Settings2,
   Loader2,
   Globe,
   Plane,
   MapPin,
   FileText,
+  Zap,
+  Save,
+  RotateCcw,
 } from 'lucide-react';
 import { useBrand } from '@/contexts/BrandContext';
-import { useCampaigns, useInfluencers, useDeleteCampaign } from '@/hooks/useQueries';
+import { useCampaigns, useInfluencers, useDeleteCampaign, useBulkUpdateCampaigns, type BulkUpdateItem } from '@/hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
+import { EditableCell, type EditableField } from '@/components/campaigns/EditableCell';
+import QuickRegister from '@/components/campaigns/QuickRegister';
 
 const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), {
   ssr: false,
@@ -115,17 +119,15 @@ export default function CampaignsPage() {
     missingEngagement: false,
   });
 
-  // クイック編集（よく触る項目だけ）
-  const [quickEditId, setQuickEditId] = useState<string | null>(null);
-  const [quickEditDraft, setQuickEditDraft] = useState<{
-    status: Campaign['status'];
-    post_url: string;
-    post_date: string;
-    likes: string;
-    comments: string;
-    engagement_date: string;
-  } | null>(null);
-  const [quickSaving, setQuickSaving] = useState(false);
+  // インライン編集（スプレッドシート風）
+  type PendingChange = Partial<Record<EditableField, unknown>>;
+  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
+  const [activeCell, setActiveCell] = useState<{ rowId: string; field: EditableField } | null>(null);
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const bulkUpdateMutation = useBulkUpdateCampaigns();
+
+  // クイック登録ドロワー
+  const [isQuickRegisterOpen, setIsQuickRegisterOpen] = useState(false);
 
   // 一括編集用の状態
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -170,98 +172,74 @@ export default function CampaignsPage() {
     setEditingCampaign(null);
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+  // インライン編集ヘルパー
+  const EDITABLE_FIELDS: EditableField[] = ['item_code', 'agreed_amount', 'status', 'post_url', 'likes', 'comments'];
 
-  const openQuickEdit = (campaign: Campaign) => {
-    setQuickEditId(campaign.id);
-    setQuickEditDraft({
-      status: campaign.status,
-      post_url: campaign.post_url || '',
-      post_date: campaign.post_date || '',
-      likes: String(campaign.likes ?? ''),
-      comments: String(campaign.comments ?? ''),
-      engagement_date: campaign.engagement_date || '',
+  const handleCellChange = useCallback((campaignId: string, field: EditableField, value: unknown) => {
+    setPendingChanges((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(campaignId) || {};
+      next.set(campaignId, { ...existing, [field]: value });
+      return next;
     });
-  };
+  }, []);
 
-  const closeQuickEdit = () => {
-    setQuickEditId(null);
-    setQuickEditDraft(null);
-    setQuickSaving(false);
-  };
+  const handleCellActivate = useCallback((rowId: string, field: EditableField) => {
+    setActiveCell({ rowId, field });
+  }, []);
 
-  const saveQuickEdit = async (campaign: Campaign) => {
-    if (!quickEditDraft) return;
-    if (quickSaving) return;
+  const handleCellDeactivate = useCallback(() => {
+    setActiveCell(null);
+  }, []);
 
-    setQuickSaving(true);
+  const getCellDisplayValue = useCallback((campaign: Campaign, field: EditableField): unknown => {
+    const pending = pendingChanges.get(campaign.id);
+    if (pending && field in pending) return pending[field];
+
+    switch (field) {
+      case 'item_code': return campaign.item_code || '';
+      case 'agreed_amount': return campaign.agreed_amount || 0;
+      case 'status': return campaign.status;
+      case 'post_url': return campaign.post_url || '';
+      case 'likes': return campaign.likes || 0;
+      case 'comments': return campaign.comments || 0;
+      default: return '';
+    }
+  }, [pendingChanges]);
+
+  const discardAllChanges = useCallback(() => {
+    setPendingChanges(new Map());
+    setActiveCell(null);
+  }, []);
+
+  const saveAllChanges = useCallback(async () => {
+    if (pendingChanges.size === 0) return;
+    setInlineSaving(true);
     try {
-      const likes = parseInt(quickEditDraft.likes, 10);
-      const comments = parseInt(quickEditDraft.comments, 10);
-      const nextLikes = Number.isFinite(likes) ? likes : 0;
-      const nextComments = Number.isFinite(comments) ? comments : 0;
-
-      let nextStatus = quickEditDraft.status;
-      if (nextLikes > 0 && nextStatus === 'pending') {
-        nextStatus = 'agree';
+      const updates: BulkUpdateItem[] = [];
+      for (const [id, changes] of pendingChanges.entries()) {
+        const update: BulkUpdateItem = { id };
+        if ('item_code' in changes) {
+          update.item_code = String(changes.item_code || '');
+          update.product_cost = 0; // TODO: resolve from Product Master
+        }
+        if ('agreed_amount' in changes) update.agreed_amount = Number(changes.agreed_amount) || 0;
+        if ('status' in changes) update.status = String(changes.status);
+        if ('post_url' in changes) update.post_url = String(changes.post_url || '');
+        if ('likes' in changes) update.likes = Number(changes.likes) || 0;
+        if ('comments' in changes) update.comments = Number(changes.comments) || 0;
+        updates.push(update);
       }
-
-      const trimmedUrl = (quickEditDraft.post_url || '').trim();
-      let nextPostDate = quickEditDraft.post_date || '';
-      if (trimmedUrl && !nextPostDate) {
-        nextPostDate = getTodayDate();
-      }
-
-      let nextEngagementDate = quickEditDraft.engagement_date || '';
-      if ((nextLikes > 0 || nextComments > 0) && !nextEngagementDate) {
-        nextEngagementDate = getTodayDate();
-      }
-
-      const updates = {
-        status: nextStatus,
-        post_url: trimmedUrl ? trimmedUrl : null,
-        post_date: trimmedUrl ? (nextPostDate || null) : null,
-        likes: nextLikes,
-        comments: nextComments,
-        engagement_date: (nextLikes > 0 || nextComments > 0) ? (nextEngagementDate || null) : null,
-      } satisfies Partial<Campaign>;
-
-      const noChanges =
-        updates.status === campaign.status &&
-        (updates.post_url || '') === (campaign.post_url || '') &&
-        (updates.post_date || '') === (campaign.post_date || '') &&
-        (updates.likes ?? 0) === (campaign.likes ?? 0) &&
-        (updates.comments ?? 0) === (campaign.comments ?? 0) &&
-        (updates.engagement_date || '') === (campaign.engagement_date || '');
-
-      if (noChanges) {
-        showToast('info', '変更がありません');
-        closeQuickEdit();
-        return;
-      }
-
-      const { error } = await supabase
-        .from('campaigns')
-        .update(updates)
-        .eq('id', campaign.id)
-        .eq('brand', currentBrand);
-
-      if (error) throw error;
-
-      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardFullStats', currentBrand] });
-
-      showToast('success', '更新しました');
-      closeQuickEdit();
+      await bulkUpdateMutation.mutateAsync(updates);
+      setPendingChanges(new Map());
+      setActiveCell(null);
+      showToast('success', `${updates.length}件を一括更新しました`);
     } catch (err) {
       showToast('error', translateError(err));
-      setQuickSaving(false);
+    } finally {
+      setInlineSaving(false);
     }
-  };
+  }, [pendingChanges, bulkUpdateMutation, showToast]);
 
   const handleSave = async (savedCampaign?: Campaign | null) => {
     if (savedCampaign?.id) {
@@ -454,6 +432,34 @@ export default function CampaignsPage() {
     return list;
   }, [baseFilteredCampaigns, opsFilters]);
 
+  const handleCellNavigate = useCallback((rowId: string, field: EditableField, direction: 'next' | 'prev' | 'down' | 'up') => {
+    const fieldIdx = EDITABLE_FIELDS.indexOf(field);
+    const rowIdx = filteredCampaigns.findIndex((c) => c.id === rowId);
+    if (fieldIdx < 0 || rowIdx < 0) return;
+
+    if (direction === 'next') {
+      if (fieldIdx < EDITABLE_FIELDS.length - 1) {
+        setActiveCell({ rowId, field: EDITABLE_FIELDS[fieldIdx + 1] });
+      } else if (rowIdx < filteredCampaigns.length - 1) {
+        setActiveCell({ rowId: filteredCampaigns[rowIdx + 1].id, field: EDITABLE_FIELDS[0] });
+      }
+    } else if (direction === 'prev') {
+      if (fieldIdx > 0) {
+        setActiveCell({ rowId, field: EDITABLE_FIELDS[fieldIdx - 1] });
+      } else if (rowIdx > 0) {
+        setActiveCell({ rowId: filteredCampaigns[rowIdx - 1].id, field: EDITABLE_FIELDS[EDITABLE_FIELDS.length - 1] });
+      }
+    } else if (direction === 'down') {
+      if (rowIdx < filteredCampaigns.length - 1) {
+        setActiveCell({ rowId: filteredCampaigns[rowIdx + 1].id, field });
+      }
+    } else if (direction === 'up') {
+      if (rowIdx > 0) {
+        setActiveCell({ rowId: filteredCampaigns[rowIdx - 1].id, field });
+      }
+    }
+  }, [filteredCampaigns]);
+
   const getStatusClass = (status: string) => {
     switch (status) {
       case 'agree':
@@ -564,13 +570,22 @@ export default function CampaignsPage() {
               <p className="text-muted-foreground mt-0.5">案件数: {campaigns.length}件</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={20} />
-            新規案件
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsQuickRegisterOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            >
+              <Zap size={16} />
+              クイック登録
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={20} />
+              新規案件
+            </button>
+          </div>
         </div>
 
         {/* 統計サマリー */}
@@ -740,7 +755,7 @@ export default function CampaignsPage() {
                 onClick={() => setIsBulkEditOpen(true)}
                 className="btn-secondary text-sm flex items-center gap-2"
               >
-                <Settings2 size={16} />
+                <Edit2 size={16} />
                 一括編集
               </button>
               <button
@@ -852,9 +867,9 @@ export default function CampaignsPage() {
               />
             )
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative">
               <table className="w-full">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-gray-100">
                     <th className="table-header px-4 py-3 w-10">
                       <button
@@ -884,7 +899,7 @@ export default function CampaignsPage() {
                     <th className="table-header px-4 py-3">ステータス</th>
                     <th className="table-header px-4 py-3">投稿日</th>
                     <th className="table-header px-4 py-3">エンゲージメント</th>
-                    <th className="table-header px-4 py-3">投稿</th>
+                    <th className="table-header px-4 py-3">投稿URL</th>
                     <th className="table-header px-4 py-3">担当者</th>
                     <th className="table-header px-4 py-3">更新日</th>
                     <th className="table-header px-4 py-3">操作</th>
@@ -892,271 +907,153 @@ export default function CampaignsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredCampaigns.map((campaign) => (
-                    <Fragment key={campaign.id}>
-                      <tr
-                        className={`table-row ${selectedIds.has(campaign.id) ? 'bg-muted' : ''}`}
-                      >
+                    <tr
+                      key={campaign.id}
+                      className={`table-row ${selectedIds.has(campaign.id) ? 'bg-muted' : ''} ${
+                        pendingChanges.has(campaign.id) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500' : ''
+                      }`}
+                    >
+                      <td className="table-cell">
+                        <button
+                          onClick={() => toggleSelect(campaign.id)}
+                          className="p-1 hover:bg-muted rounded"
+                        >
+                          {selectedIds.has(campaign.id) ? (
+                            <CheckSquare size={18} className="text-foreground" />
+                          ) : (
+                            <Square size={18} className="text-muted-foreground" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="table-cell">{campaign.brand || '-'}</td>
+                      <td className="table-cell font-medium">
+                        @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
+                      </td>
+                      <td className="table-cell">
+                        <EditableCell
+                          field="item_code"
+                          value={getCellDisplayValue(campaign, 'item_code')}
+                          isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'item_code'}
+                          onChange={(v) => handleCellChange(campaign.id, 'item_code', v)}
+                          onActivate={() => handleCellActivate(campaign.id, 'item_code')}
+                          onNavigate={(dir) => handleCellNavigate(campaign.id, 'item_code', dir)}
+                          onDeactivate={handleCellDeactivate}
+                        />
+                      </td>
+                      {currentBrand === 'BE' && (
                         <td className="table-cell">
-                          <button
-                            onClick={() => toggleSelect(campaign.id)}
-                            className="p-1 hover:bg-muted rounded"
-                          >
-                            {selectedIds.has(campaign.id) ? (
-                              <CheckSquare size={18} className="text-foreground" />
-                            ) : (
-                              <Square size={18} className="text-muted-foreground" />
-                            )}
-                          </button>
+                          {campaign.is_international_shipping ? (
+                            <div className="flex items-center gap-1">
+                              <MapPin size={12} className="text-muted-foreground" />
+                              <span className="text-foreground text-xs font-medium">
+                                {campaign.shipping_country || '未設定'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">国内</span>
+                          )}
                         </td>
-                        <td className="table-cell">{campaign.brand || '-'}</td>
-                        <td className="table-cell font-medium">
-                          @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
-                        </td>
-                        <td className="table-cell">{campaign.item_code || '-'}</td>
-                        {currentBrand === 'BE' && (
-                          <td className="table-cell">
-                            {campaign.is_international_shipping ? (
-                              <div className="flex items-center gap-1">
-                                <MapPin size={12} className="text-muted-foreground" />
-                                <span className="text-foreground text-xs font-medium">
-                                  {campaign.shipping_country || '未設定'}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">国内</span>
-                            )}
-                          </td>
-                        )}
-                        <td className="table-cell">
-                          {formatAmount(campaign.offered_amount)}
-                        </td>
-                        <td className="table-cell font-medium">
-                          {formatAmount(campaign.agreed_amount)}
-                        </td>
-                        <td className="table-cell">
-                          <span className={getStatusClass(campaign.status)}>
-                            {getStatusLabel(campaign.status)}
+                      )}
+                      <td className="table-cell">
+                        {formatAmount(campaign.offered_amount)}
+                      </td>
+                      <td className="table-cell">
+                        <EditableCell
+                          field="agreed_amount"
+                          value={getCellDisplayValue(campaign, 'agreed_amount')}
+                          isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'agreed_amount'}
+                          onChange={(v) => handleCellChange(campaign.id, 'agreed_amount', v)}
+                          onActivate={() => handleCellActivate(campaign.id, 'agreed_amount')}
+                          onNavigate={(dir) => handleCellNavigate(campaign.id, 'agreed_amount', dir)}
+                          onDeactivate={handleCellDeactivate}
+                        />
+                      </td>
+                      <td className="table-cell">
+                        <EditableCell
+                          field="status"
+                          value={getCellDisplayValue(campaign, 'status')}
+                          isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'status'}
+                          onChange={(v) => handleCellChange(campaign.id, 'status', v)}
+                          onActivate={() => handleCellActivate(campaign.id, 'status')}
+                          onNavigate={(dir) => handleCellNavigate(campaign.id, 'status', dir)}
+                          onDeactivate={handleCellDeactivate}
+                        />
+                      </td>
+                      <td className="table-cell text-muted-foreground">
+                        {formatDate(campaign.post_date)}
+                      </td>
+                      <td className="table-cell">
+                        {hasUnavailableEngagementTag(campaign.notes) ? (
+                          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                            非公開または削除済み
                           </span>
-                        </td>
-                        <td className="table-cell text-muted-foreground">
-                          {formatDate(campaign.post_date)}
-                        </td>
-                        <td className="table-cell">
-                          {hasUnavailableEngagementTag(campaign.notes) ? (
-                            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
-                              非公開または削除済み
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-3">
-                              <span className="flex items-center gap-1 text-foreground">
-                                <Heart size={14} />
-                                {campaign.likes?.toLocaleString() || 0}
-                              </span>
-                              <span className="flex items-center gap-1 text-muted-foreground">
-                                <MessageCircle size={14} />
-                                {campaign.comments?.toLocaleString() || 0}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="table-cell">
-                          {campaign.post_url ? (
-                            <a
-                              href={campaign.post_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-white hover:underline flex items-center gap-1"
-                            >
-                              表示
-                              <ExternalLink size={14} />
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </td>
-                        <td className="table-cell">
-                          {campaign.staff ? (
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {campaign.staff.name}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">未設定</span>
-                          )}
-                        </td>
-                        <td className="table-cell">
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(campaign.updated_at || campaign.created_at)}
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <EditableCell
+                              field="likes"
+                              value={getCellDisplayValue(campaign, 'likes')}
+                              isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'likes'}
+                              onChange={(v) => handleCellChange(campaign.id, 'likes', v)}
+                              onActivate={() => handleCellActivate(campaign.id, 'likes')}
+                              onNavigate={(dir) => handleCellNavigate(campaign.id, 'likes', dir)}
+                              onDeactivate={handleCellDeactivate}
+                            />
+                            <EditableCell
+                              field="comments"
+                              value={getCellDisplayValue(campaign, 'comments')}
+                              isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'comments'}
+                              onChange={(v) => handleCellChange(campaign.id, 'comments', v)}
+                              onActivate={() => handleCellActivate(campaign.id, 'comments')}
+                              onNavigate={(dir) => handleCellNavigate(campaign.id, 'comments', dir)}
+                              onDeactivate={handleCellDeactivate}
+                            />
                           </div>
-                        </td>
-                        <td className="table-cell">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                if (quickEditId === campaign.id) {
-                                  closeQuickEdit();
-                                } else {
-                                  openQuickEdit(campaign);
-                                }
-                              }}
-                              className={`p-2 rounded-lg transition-colors ${
-                                quickEditId === campaign.id
-                                  ? 'bg-muted text-foreground'
-                                  : 'text-muted-foreground hover:bg-muted'
-                              }`}
-                              title="クイック編集"
-                            >
-                              <Settings2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleEdit(campaign)}
-                              className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
-                              title="詳細編集"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(campaign.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                              title="削除"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {quickEditId === campaign.id && quickEditDraft ? (
-                        <tr className="bg-muted">
-                          <td className="px-6 py-4" colSpan={tableCols}>
-                            <div className="flex flex-col gap-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="font-medium text-foreground">クイック編集</div>
-                                  <div className="text-xs text-muted-foreground mt-0.5">
-                                    ステータス / 投稿URL / いいね / コメント
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={closeQuickEdit}
-                                >
-                                  閉じる
-                                </button>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">ステータス</label>
-                                  <select
-                                    value={quickEditDraft.status}
-                                    onChange={(e) =>
-                                      setQuickEditDraft((prev) => prev ? ({ ...prev, status: e.target.value as Campaign['status'] }) : prev)
-                                    }
-                                    className="input-field text-sm"
-                                  >
-                                    <option value="pending">保留</option>
-                                    <option value="agree">合意</option>
-                                    <option value="disagree">不合意</option>
-                                    <option value="cancelled">キャンセル</option>
-                                    <option value="ignored">無視</option>
-                                  </select>
-                                  <p className="text-[11px] text-muted-foreground mt-1">※いいね入力で保留→合意に自動更新</p>
-                                </div>
-
-                                <div className="md:col-span-2">
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">投稿URL</label>
-                                  <input
-                                    type="url"
-                                    value={quickEditDraft.post_url}
-                                    onChange={(e) =>
-                                      setQuickEditDraft((prev) => prev ? ({ ...prev, post_url: e.target.value }) : prev)
-                                    }
-                                    className="input-field text-sm"
-                                    placeholder="https://..."
-                                  />
-                                  <p className="text-[11px] text-muted-foreground mt-1">※URL入力時、投稿日が未設定なら当日を自動設定</p>
-                                </div>
-
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">いいね</label>
-                                  <input
-                                    type="number"
-                                    value={quickEditDraft.likes}
-                                    onChange={(e) =>
-                                      setQuickEditDraft((prev) => {
-                                        if (!prev) return prev;
-                                        const nextLikes = e.target.value;
-                                        const num = parseInt(nextLikes, 10) || 0;
-                                        const next: typeof prev = { ...prev, likes: nextLikes };
-                                        if (num > 0 && prev.status === 'pending') next.status = 'agree';
-                                        if (num > 0 && !prev.engagement_date) next.engagement_date = getTodayDate();
-                                        return next;
-                                      })
-                                    }
-                                    className="input-field text-sm"
-                                    min={0}
-                                  />
-                                  <p className="text-[11px] text-muted-foreground mt-1">※入力日が未設定なら当日を自動設定</p>
-                                </div>
-
-                                <div>
-                                  <label className="block text-xs font-medium text-muted-foreground mb-1">コメント</label>
-                                  <input
-                                    type="number"
-                                    value={quickEditDraft.comments}
-                                    onChange={(e) =>
-                                      setQuickEditDraft((prev) => {
-                                        if (!prev) return prev;
-                                        const nextComments = e.target.value;
-                                        const num = parseInt(nextComments, 10) || 0;
-                                        const next: typeof prev = { ...prev, comments: nextComments };
-                                        if (num > 0 && !prev.engagement_date) next.engagement_date = getTodayDate();
-                                        return next;
-                                      })
-                                    }
-                                    className="input-field text-sm"
-                                    min={0}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="text-xs text-muted-foreground">
-                                    入力日: <span className="font-medium text-foreground">{quickEditDraft.engagement_date || '未設定'}</span>
-                                  </div>
-                                  {quickEditDraft.post_url ? (
-                                    <div className="text-xs text-muted-foreground">
-                                      投稿日: <span className="font-medium text-foreground">{quickEditDraft.post_date || '自動設定(当日)'}</span>
-                                    </div>
-                                  ) : null}
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={closeQuickEdit}
-                                    disabled={quickSaving}
-                                  >
-                                    キャンセル
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-primary flex items-center gap-2"
-                                    onClick={() => saveQuickEdit(campaign)}
-                                    disabled={quickSaving}
-                                  >
-                                    {quickSaving ? <Loader2 size={18} className="animate-spin" /> : null}
-                                    保存
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
+                        )}
+                      </td>
+                      <td className="table-cell">
+                        <EditableCell
+                          field="post_url"
+                          value={getCellDisplayValue(campaign, 'post_url')}
+                          isActive={activeCell?.rowId === campaign.id && activeCell?.field === 'post_url'}
+                          onChange={(v) => handleCellChange(campaign.id, 'post_url', v)}
+                          onActivate={() => handleCellActivate(campaign.id, 'post_url')}
+                          onNavigate={(dir) => handleCellNavigate(campaign.id, 'post_url', dir)}
+                          onDeactivate={handleCellDeactivate}
+                        />
+                      </td>
+                      <td className="table-cell">
+                        {campaign.staff ? (
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {campaign.staff.name}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">未設定</span>
+                        )}
+                      </td>
+                      <td className="table-cell">
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(campaign.updated_at || campaign.created_at)}
+                        </div>
+                      </td>
+                      <td className="table-cell">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEdit(campaign)}
+                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg"
+                            title="詳細編集"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(campaign.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="削除"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -1164,6 +1061,47 @@ export default function CampaignsPage() {
           )}
         </div>
       </div>
+
+      {/* インライン編集の一括保存バー */}
+      {pendingChanges.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur border-t border-border px-6 py-3 flex items-center justify-between lg:ml-64">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-foreground font-medium">{pendingChanges.size}件の変更</span>
+            <span className="text-muted-foreground">があります</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={discardAllChanges}
+              disabled={inlineSaving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <RotateCcw size={14} />
+              破棄
+            </button>
+            <button
+              onClick={saveAllChanges}
+              disabled={inlineSaving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+            >
+              {inlineSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              一括保存
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* クイック登録ドロワー */}
+      {isQuickRegisterOpen && (
+        <QuickRegister
+          isOpen={isQuickRegisterOpen}
+          onClose={() => setIsQuickRegisterOpen(false)}
+          onCreated={() => {
+            refetch();
+            queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
+          }}
+        />
+      )}
 
       {/* モーダル */}
       {isModalOpen && (

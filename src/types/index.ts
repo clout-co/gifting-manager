@@ -68,7 +68,7 @@ export interface Campaign {
   engagement_date: string | null; // エンゲージメント入力日
   number_of_times: number | null; // 回数
   product_cost: number; // 商品原価
-  shipping_cost: number; // 送料（800円固定）
+  shipping_cost: number; // 送料（計上ON=800, OFF=0）
   // BE用海外発送フィールド
   is_international_shipping: boolean; // 海外発送フラグ
   shipping_country: string | null; // 発送先国

@@ -6,8 +6,8 @@ import { buildInfluencerDecisionEvent } from '@/lib/decision-events'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 function isE2E(): boolean {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
@@ -95,10 +95,6 @@ export async function POST(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
-  }
-
   if (isE2E()) {
     return NextResponse.json(
       {
@@ -113,6 +109,10 @@ export async function POST(request: NextRequest) {
       },
       { headers: { 'Cache-Control': 'no-store' } }
     )
+  }
+
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
+    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
   let supabaseCtx: ReturnType<typeof createSupabaseForRequest>

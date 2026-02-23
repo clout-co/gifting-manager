@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 /**
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuthContext(request, { requireWrite: true })
   if (!auth.ok) return auth.response
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 

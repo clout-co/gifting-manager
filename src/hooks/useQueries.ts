@@ -475,12 +475,24 @@ export function useInfluencerPastStats(influencerId: string | null) {
 
 // ==================== Bulk Operations ====================
 
+export type BulkUpdateItem = {
+  id: string;
+  likes?: number;
+  comments?: number;
+  input_date?: string;
+  item_code?: string;
+  product_cost?: number;
+  agreed_amount?: number;
+  status?: string;
+  post_url?: string;
+};
+
 export function useBulkUpdateCampaigns() {
   const queryClient = useQueryClient();
   const { currentBrand } = useBrand();
 
   return useMutation({
-    mutationFn: async (updates: { id: string; likes?: number; comments?: number; input_date?: string }[]) => {
+    mutationFn: async (updates: BulkUpdateItem[]) => {
       const response = await fetch('/api/campaigns/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -499,6 +511,45 @@ export function useBulkUpdateCampaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats(currentBrand) });
+    },
+  });
+}
+
+export type BulkCreateItem = {
+  influencer_id: string;
+  item_code: string;
+  agreed_amount: number;
+  status: string;
+  staff_id: string;
+  sale_date: string;
+  shipping_cost: number;
+};
+
+export function useBulkCreateCampaigns() {
+  const queryClient = useQueryClient();
+  const { currentBrand } = useBrand();
+
+  return useMutation({
+    mutationFn: async (items: BulkCreateItem[]) => {
+      const response = await fetch('/api/campaigns/bulk-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: currentBrand, items }),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          (data && typeof data.error === 'string' ? data.error : null) ||
+          `一括登録に失敗しました (${response.status})`
+        );
+      }
+      return data as { ok: boolean; created: string[]; errors: { index: number; error: string }[] };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats(currentBrand) });
+      queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
     },
   });
 }

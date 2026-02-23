@@ -8,8 +8,8 @@ function isAllowedBrand(value: unknown): value is AllowedBrand {
   return value === 'TL' || value === 'BE' || value === 'AM'
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 /**
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuthContext(request)
   if (!auth.ok) return auth.response
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 

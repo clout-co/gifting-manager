@@ -21,14 +21,15 @@ test('Create Campaign (SSO bypass + Master stub)', async ({ page }) => {
   await productInput.fill('TF2408');
   await expect(page.getByText('確定', { exact: true })).toBeVisible();
 
-  // Should still be blocked until required sale date is set.
   const registerButton = page.getByRole('button', { name: '登録', exact: true });
-  await expect(page.getByText('セール日を入力')).toBeVisible();
-  await expect(registerButton).toBeDisabled();
 
-  // Sale date: required.
-  const saleDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  await page.getByLabel('セール日').fill(saleDate);
+  // Sale date may be auto-filled from Product Master.
+  const saleDateInput = page.getByLabel('セール日');
+  const currentSaleDate = await saleDateInput.inputValue();
+  if (!currentSaleDate) {
+    const saleDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    await saleDateInput.fill(saleDate);
+  }
   await expect(registerButton).toBeEnabled();
 
   const [res] = await Promise.all([

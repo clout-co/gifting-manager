@@ -69,16 +69,18 @@ export function createSupabaseForRequest(args: {
   if (!supabaseUrl) {
     throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
   }
-  if (!supabaseAnonKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  if (!supabaseAnonKey && !supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase API key (NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY)')
   }
 
   const projectRef = parseProjectRefFromUrl(supabaseUrl)
-  const anonPayload = parseJwtPayload(supabaseAnonKey)
-  if (projectRef && anonPayload?.ref && anonPayload.ref !== projectRef) {
-    throw new Error(
-      `NEXT_PUBLIC_SUPABASE_ANON_KEY project ref mismatch (${anonPayload.ref} != ${projectRef})`
-    )
+  if (supabaseAnonKey) {
+    const anonPayload = parseJwtPayload(supabaseAnonKey)
+    if (projectRef && anonPayload?.ref && anonPayload.ref !== projectRef) {
+      throw new Error(
+        `NEXT_PUBLIC_SUPABASE_ANON_KEY project ref mismatch (${anonPayload.ref} != ${projectRef})`
+      )
+    }
   }
 
   let usingServiceRole = false
@@ -93,6 +95,10 @@ export function createSupabaseForRequest(args: {
       usingServiceRole = true
       configWarning = undefined
     }
+  }
+
+  if (!usingServiceRole && !supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
   const accessToken = usingServiceRole ? null : getSupabaseAccessToken(args.request)

@@ -21,8 +21,8 @@ type MasterProduct = {
   sale_date: string | null
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 function isE2E(): boolean {
@@ -286,7 +286,7 @@ export async function GET(request: NextRequest, ctx: Ctx) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
@@ -363,13 +363,13 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
-  }
-
   // E2E/dev-only stub (never enabled in production builds).
   if (isE2E()) {
     return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
+  }
+
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
+    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
   let supabaseCtx: ReturnType<typeof createSupabaseForRequest>
@@ -463,8 +463,10 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     }
   }
 
-  // shipping_cost is fixed and must not drift.
-  updates.shipping_cost = 800
+  // shipping_cost: 送料計上ON/OFFを受け取り、0/800 に正規化して保持。
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'shipping_cost')) {
+    updates.shipping_cost = parseNonNegativeNumber(body?.shipping_cost, 0) > 0 ? 800 : 0
+  }
 
   // If item_code is present in the payload, treat it as a "campaign save" and enforce Product Master resolution.
   const itemCodeIsProvided = Object.prototype.hasOwnProperty.call(body || {}, 'item_code')
@@ -635,7 +637,7 @@ export async function DELETE(request: NextRequest, ctx: Ctx) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 

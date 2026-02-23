@@ -21,8 +21,8 @@ type MasterProduct = {
   sale_date: string | null
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 function isE2E(): boolean {
@@ -280,7 +280,7 @@ export async function GET(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
@@ -354,7 +354,17 @@ export async function POST(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  // E2E/dev-only stub (never enabled in production builds).
+  // Keep before env checks so tests don't require Supabase secrets.
+  if (isE2E()) {
+    const id = `e2e-${Date.now()}`
+    return NextResponse.json(
+      { ok: true, id },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
+
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
@@ -390,6 +400,10 @@ export async function POST(request: NextRequest) {
   const itemQuantity = parsePositiveInt(body?.item_quantity, 1)
 
   const isInternational = Boolean(body?.is_international_shipping)
+  const shouldChargeShipping = Object.prototype.hasOwnProperty.call(body || {}, 'shipping_cost')
+    ? parseNonNegativeNumber(body?.shipping_cost, 0) > 0
+    : true
+  const shippingCost = shouldChargeShipping ? 800 : 0
   const shippingCountry = isInternational ? String(body?.shipping_country || '').trim() : ''
   const intlShippingCost = isInternational ? parseNonNegativeNumber(body?.international_shipping_cost, 0) : 0
   if (isInternational) {
@@ -399,17 +413,6 @@ export async function POST(request: NextRequest) {
     if (intlShippingCost <= 0) {
       return NextResponse.json({ error: 'international_shipping_cost is required for international shipping' }, { status: 400 })
     }
-  }
-
-  // E2E/dev-only stub (never enabled in production builds).
-  // Keep this before Product Master resolution because bypass mode does not mint
-  // a real SSO token for upstream auth.
-  if (isE2E()) {
-    const id = `e2e-${Date.now()}`
-    return NextResponse.json(
-      { ok: true, id },
-      { headers: { 'Cache-Control': 'no-store' } }
-    )
   }
 
   const resolved = await resolveProductFromMaster(request, { brand, itemCode: rawItemCode })
@@ -463,8 +466,8 @@ export async function POST(request: NextRequest) {
     engagement_date: normalizeNullish(String(body?.engagement_date || '').trim()),
     number_of_times: parsePositiveInt(body?.number_of_times, 1),
     product_cost: productCost,
-    // Fixed to keep cost math consistent across the app
-    shipping_cost: 800,
+    // 送料は発送単位。追加投稿は 0 で重複計上を防ぐ。
+    shipping_cost: shippingCost,
     is_international_shipping: isInternational,
     shipping_country: isInternational ? shippingCountry : null,
     international_shipping_cost: isInternational ? intlShippingCost : null,
@@ -574,7 +577,7 @@ export async function DELETE(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
     return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
