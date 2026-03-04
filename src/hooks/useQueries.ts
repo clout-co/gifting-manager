@@ -15,6 +15,13 @@ const IS_E2E =
 
 const E2E_NOW = new Date('2026-02-06T00:00:00.000Z').toISOString();
 
+const E2E_INFLUENCER_NULLS = {
+  real_name: null, postal_code: null, address: null, phone: null, email: null,
+  bank_name: null, bank_branch: null, bank_code: null, branch_code: null, account_type: null, account_number: null, account_holder: null,
+  invoice_registration_number: null, invoice_acknowledged: false,
+  form_token: null, form_token_expires_at: null, form_token_used_at: null,
+} as const;
+
 const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
   TL: [
     {
@@ -23,6 +30,7 @@ const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
       insta_url: null,
       tiktok_name: null,
       tiktok_url: null,
+      ...E2E_INFLUENCER_NULLS,
       brand: 'TL',
       created_at: E2E_NOW,
       updated_at: E2E_NOW,
@@ -35,6 +43,7 @@ const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
       insta_url: null,
       tiktok_name: null,
       tiktok_url: null,
+      ...E2E_INFLUENCER_NULLS,
       brand: 'BE',
       created_at: E2E_NOW,
       updated_at: E2E_NOW,
@@ -47,6 +56,7 @@ const E2E_INFLUENCERS_BY_BRAND: Record<string, Influencer[]> = {
       insta_url: null,
       tiktok_name: null,
       tiktok_url: null,
+      ...E2E_INFLUENCER_NULLS,
       brand: 'AM',
       created_at: E2E_NOW,
       updated_at: E2E_NOW,
@@ -103,6 +113,7 @@ export const queryKeys = {
   influencer: (id: string) => ['influencer', id] as const,
   staffs: (brand: string) => ['staffs', brand] as const,
   dashboardStats: (brand: string) => ['dashboardStats', brand] as const,
+  payments: (brand: string, status: string) => ['payments', brand, status] as const,
 };
 
 // ==================== Campaigns ====================
@@ -356,6 +367,7 @@ export type DashboardKpis = {
   pendingCount: number
   agreedCount: number
   costPerLike: number
+  totalGgCount: number
 }
 
 export type DashboardFullStats = {
@@ -470,6 +482,86 @@ export function useInfluencerPastStats(influencerId: string | null) {
     },
     enabled: !!influencerId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ==================== Payments ====================
+
+/** 支払い対象案件の型（APIレスポンス） */
+export type PaymentCampaign = Campaign & {
+  influencer: {
+    id: string;
+    insta_name: string | null;
+    tiktok_name: string | null;
+    insta_url: string | null;
+    tiktok_url: string | null;
+    real_name: string | null;
+    bank_name: string | null;
+    bank_branch: string | null;
+    bank_code: string | null;
+    branch_code: string | null;
+    account_type: string | null;
+    account_number: string | null;
+    account_holder: string | null;
+    invoice_registration_number: string | null;
+    invoice_acknowledged: boolean;
+  } | null;
+  staff: { id: string; name: string; email: string | null } | null;
+};
+
+export function usePayments(paymentStatusFilter: string = 'unpaid') {
+  const { currentBrand } = useBrand();
+
+  return useQuery({
+    queryKey: queryKeys.payments(currentBrand, paymentStatusFilter),
+    queryFn: async () => {
+      if (IS_E2E) return [] as PaymentCampaign[];
+
+      const params = new URLSearchParams({
+        brand: currentBrand,
+        payment_status: paymentStatusFilter,
+      });
+      const data = await fetchApiJson<{ campaigns: PaymentCampaign[] }>(
+        `/api/payments?${params}`
+      );
+      return data.campaigns || [];
+    },
+    staleTime: 2 * 60 * 1000, // 2分（支払い操作は頻繁に更新される）
+  });
+}
+
+export function useMarkPaid() {
+  const queryClient = useQueryClient();
+  const { currentBrand } = useBrand();
+
+  return useMutation({
+    mutationFn: async ({
+      ids,
+      action,
+    }: {
+      ids: string[];
+      action: 'approve' | 'unapprove' | 'paid' | 'unpaid';
+    }) => {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: currentBrand, ids, action }),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          (data && typeof data.error === 'string' ? data.error : null) ||
+            `支払いステータスの更新に失敗しました (${response.status})`
+        );
+      }
+      return data as { ok: boolean; updated: number; skipped?: number };
+    },
+    onSuccess: () => {
+      // 全ステータスのキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['payments', currentBrand] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.campaigns(currentBrand) });
+    },
   });
 }
 

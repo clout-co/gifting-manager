@@ -155,6 +155,62 @@ export const CACHE_CONSTANTS = {
 /** UTF-8 BOM（CSVエクスポート用） */
 export const UTF8_BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
 
+// ==================== 支払いステータス定義 ====================
+
+export const PAYMENT_STATUS = {
+  unpaid: 'unpaid',
+  approved: 'approved',
+  paid: 'paid',
+} as const;
+
+export type PaymentStatus = typeof PAYMENT_STATUS[keyof typeof PAYMENT_STATUS];
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  unpaid: '未払い',
+  approved: '承認済み',
+  paid: '支払い済み',
+};
+
+/** インボイス未登録時の控除率（消費税額の20% = 依頼額の2%） */
+export const INVOICE_DEDUCTION_RATE = 0.02;
+
+// ==================== 消費税計算（方法A: 税額先算・国税庁標準） ====================
+
+/** 消費税率 */
+export const TAX_RATE_NUMERATOR = 10;
+export const TAX_RATE_DENOMINATOR = 110;
+
+/**
+ * 方法A（税額先算・国税庁標準）で税込金額から税抜金額を算出する。
+ *
+ * ステップ①  消費税額 = floor( 税込金額 × 10 ÷ 110 )
+ * ステップ②  税抜金額 = 税込金額 − 消費税額
+ *
+ * @param taxIncluded 税込金額（整数）
+ * @returns { taxExcluded: 税抜金額, tax: 消費税額 }
+ */
+export function calcTaxExcluded(taxIncluded: number): { taxExcluded: number; tax: number } {
+  const n = Math.max(0, Math.round(taxIncluded));
+  const tax = Math.floor(n * TAX_RATE_NUMERATOR / TAX_RATE_DENOMINATOR);
+  return { taxExcluded: n - tax, tax };
+}
+
+/**
+ * 税抜金額から税込金額を逆算する（検証・表示用）。
+ * taxIncluded = Math.floor(taxExcluded × 110 / 100)  ← 端数切り捨て
+ *
+ * 数学的証明: calcTaxExcluded(N) で得られた taxExcluded に対し、
+ * N*100/110 ≤ taxExcluded < N*100/110 + 1 が成立するため、
+ * floor(taxExcluded * 110/100) = N（元の税込金額）が常に成立する。
+ * ceil を使うと 5,001→4,547→5,002 のように1円多くなるケースがある。
+ */
+export function calcTaxIncluded(taxExcluded: number): number {
+  return Math.floor(taxExcluded * TAX_RATE_DENOMINATOR / (TAX_RATE_DENOMINATOR - TAX_RATE_NUMERATOR));
+}
+
+/** よく使う税込金額のプリセット（QuickAmountButtons用） */
+export const QUICK_TAX_INCLUDED_AMOUNTS = [3000, 5000, 10000, 20000];
+
 // ==================== その他の定数 ====================
 
 export const DEFAULT_SHIPPING_COST = 800;
