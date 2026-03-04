@@ -38,6 +38,7 @@ import { useCampaigns, useInfluencers, useDeleteCampaign, useBulkUpdateCampaigns
 import { useQueryClient } from '@tanstack/react-query';
 import { EditableCell, type EditableField } from '@/components/campaigns/EditableCell';
 import QuickRegister from '@/components/campaigns/QuickRegister';
+import { calcTaxExcluded, calcTaxIncluded } from '@/lib/constants';
 
 const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), {
   ssr: false,
@@ -200,7 +201,8 @@ export default function CampaignsPage() {
 
     switch (field) {
       case 'item_code': return campaign.item_code || '';
-      case 'agreed_amount': return campaign.agreed_amount || 0;
+      // DB値（税抜）→ 税込に変換して表示（ユーザーは税込で入力するため）
+      case 'agreed_amount': return campaign.agreed_amount ? calcTaxIncluded(campaign.agreed_amount) : 0;
       case 'status': return campaign.status;
       default: return '';
     }
@@ -299,7 +301,9 @@ export default function CampaignsPage() {
         updates.status = bulkEditData.status;
       }
       if (bulkEditData.agreed_amount) {
-        updates.agreed_amount = parseFloat(bulkEditData.agreed_amount);
+        // 入力は税込。方法Aで税抜に変換してDBに保存。
+        const taxInc = parseFloat(bulkEditData.agreed_amount);
+        updates.agreed_amount = taxInc > 0 ? calcTaxExcluded(taxInc).taxExcluded : 0;
       }
 
       if (Object.keys(updates).length === 0) {
@@ -662,7 +666,7 @@ export default function CampaignsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"
-              placeholder="検索（インフルエンサー、品番、ブランド）..."
+              placeholder="検索（インフルエンサー、品番）..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field pl-10"
@@ -808,15 +812,20 @@ export default function CampaignsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    合意額
+                    合意額（税込金額を入力）
                   </label>
                   <input
                     type="number"
                     value={bulkEditData.agreed_amount}
                     onChange={(e) => setBulkEditData({ ...bulkEditData, agreed_amount: e.target.value })}
-                    placeholder="変更しない場合は空欄"
+                    placeholder="税込金額を入力（例: 3000）"
                     className="input-field"
                   />
+                  {bulkEditData.agreed_amount && parseFloat(bulkEditData.agreed_amount) > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      税抜: ¥{calcTaxExcluded(parseFloat(bulkEditData.agreed_amount)).taxExcluded.toLocaleString()}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -879,7 +888,6 @@ export default function CampaignsPage() {
                         )}
                       </button>
                     </th>
-                    <th className="table-header px-4 py-3">ブランド</th>
                     <th className="table-header px-4 py-3">インフルエンサー</th>
                     <th className="table-header px-4 py-3">品番</th>
                     {currentBrand === 'BE' && (
@@ -890,8 +898,9 @@ export default function CampaignsPage() {
                         </div>
                       </th>
                     )}
-                    <th className="table-header px-4 py-3">提示額</th>
-                    <th className="table-header px-4 py-3">合意額</th>
+                    <th className="table-header px-4 py-3">合意額(税込)</th>
+                    <th className="table-header px-4 py-3">原価</th>
+                    <th className="table-header px-4 py-3">合計コスト</th>
                     <th className="table-header px-4 py-3">ステータス</th>
                     <th className="table-header px-4 py-3">投稿日</th>
                     <th className="table-header px-4 py-3">エンゲージメント</th>
@@ -921,7 +930,6 @@ export default function CampaignsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="table-cell">{campaign.brand || '-'}</td>
                       <td className="table-cell font-medium">
                         @{campaign.influencer?.insta_name || campaign.influencer?.tiktok_name || '不明'}
                       </td>
@@ -951,9 +959,6 @@ export default function CampaignsPage() {
                         </td>
                       )}
                       <td className="table-cell">
-                        {formatAmount(campaign.offered_amount)}
-                      </td>
-                      <td className="table-cell">
                         <EditableCell
                           field="agreed_amount"
                           value={getCellDisplayValue(campaign, 'agreed_amount')}
@@ -963,6 +968,12 @@ export default function CampaignsPage() {
                           onNavigate={(dir) => handleCellNavigate(campaign.id, 'agreed_amount', dir)}
                           onDeactivate={handleCellDeactivate}
                         />
+                      </td>
+                      <td className="table-cell tabular-nums text-muted-foreground">
+                        {formatAmount(Number(campaign.product_cost || 0) + Number(campaign.shipping_cost || 0))}
+                      </td>
+                      <td className="table-cell tabular-nums font-medium">
+                        {formatAmount(calcTaxIncluded(campaign.agreed_amount) + Number(campaign.product_cost || 0) + Number(campaign.shipping_cost || 0))}
                       </td>
                       <td className="table-cell">
                         <EditableCell
@@ -984,14 +995,20 @@ export default function CampaignsPage() {
                             非公開または削除済み
                           </span>
                         ) : (
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm tabular-nums flex items-center gap-1">
-                              <Heart size={12} className="text-muted-foreground" />
-                              {Number(campaign.likes || 0).toLocaleString()}
-                            </span>
-                            <span className="text-sm tabular-nums flex items-center gap-1">
-                              <MessageCircle size={12} className="text-muted-foreground" />
-                              {Number(campaign.comments || 0).toLocaleString()}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm tabular-nums flex items-center gap-1">
+                                <Heart size={12} className="text-muted-foreground" />
+                                {Number(campaign.likes || 0).toLocaleString()}
+                              </span>
+                              <span className="text-sm tabular-nums flex items-center gap-1">
+                                <MessageCircle size={12} className="text-muted-foreground" />
+                                {Number(campaign.comments || 0).toLocaleString()}
+                              </span>
+                            </div>
+                            <span className="text-xs tabular-nums flex items-center gap-1 text-muted-foreground">
+                              <FileText size={10} />
+                              検討: {Number(campaign.consideration_comment || 0).toLocaleString()}
                             </span>
                           </div>
                         )}

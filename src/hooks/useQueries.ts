@@ -571,6 +571,7 @@ export type BulkUpdateItem = {
   id: string;
   likes?: number;
   comments?: number;
+  consideration_comment?: number;
   input_date?: string;
   item_code?: string;
   product_cost?: number;

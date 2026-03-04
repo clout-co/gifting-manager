@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
+import { calcTaxExcluded } from '@/lib/constants'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     const data: Record<string, unknown> = {}
     if (typeof row.likes === 'number') data.likes = Math.max(0, Math.floor(row.likes))
     if (typeof row.comments === 'number') data.comments = Math.max(0, Math.floor(row.comments))
+    if (typeof row.consideration_comment === 'number') data.consideration_comment = Math.max(0, Math.floor(row.consideration_comment))
     if (typeof row.input_date === 'string' && row.input_date.trim()) data.engagement_date = row.input_date.trim()
 
     // 拡張フィールド: 品番（品番変更時は product_cost もセットで必要）
@@ -98,9 +100,10 @@ export async function POST(request: NextRequest) {
       data.product_cost = Math.max(0, Math.floor(row.product_cost))
     }
 
-    // 拡張フィールド: 合意額
+    // 拡張フィールド: 合意額（税込入力 → 方法A税抜変換）
     if (typeof row.agreed_amount === 'number') {
-      data.agreed_amount = Math.max(0, row.agreed_amount)
+      const v = Math.max(0, row.agreed_amount)
+      data.agreed_amount = v > 0 ? calcTaxExcluded(v).taxExcluded : 0
     }
 
     // 拡張フィールド: ステータス
