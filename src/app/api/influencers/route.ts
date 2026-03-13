@@ -3,6 +3,11 @@ import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { getRequestIdFromHeaders, postDecisionEvents } from '@/lib/clout-master'
 import { buildInfluencerDecisionEvent } from '@/lib/decision-events'
+import {
+  buildDuplicateInfluencerMessage,
+  influencerHasExactHandle,
+  type SelectableInfluencer,
+} from '@/lib/influencer-search'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -21,6 +26,45 @@ function isAllowedBrand(value: unknown): value is AllowedBrand {
 function normalizeNullishText(v: unknown): string | null {
   const s = String(v || '').trim()
   return s ? s : null
+}
+
+function isDuplicateKeyError(message: string): boolean {
+  return (
+    message.includes('duplicate key') ||
+    message.includes('unique constraint') ||
+    message.includes('idx_influencers_insta_name')
+  )
+}
+
+async function findExistingInfluencerByHandle(
+  supabase: ReturnType<typeof createSupabaseForRequest>['client'],
+  handles: { insta_name: string | null; tiktok_name: string | null }
+): Promise<SelectableInfluencer | null> {
+  const candidates = [handles.insta_name, handles.tiktok_name].filter(Boolean) as string[]
+  if (candidates.length === 0) return null
+
+  const orFilters = candidates.flatMap((candidate) => [
+    `insta_name.eq.${candidate}`,
+    `tiktok_name.eq.${candidate}`,
+  ])
+
+  const { data, error } = await supabase
+    .from('influencers')
+    .select('id, brand, insta_name, insta_url, tiktok_name, tiktok_url')
+    .or(orFilters.join(','))
+    .limit(10)
+
+  if (error || !Array.isArray(data)) {
+    return null
+  }
+
+  return (
+    data.find(
+      (item) =>
+        influencerHasExactHandle(item as SelectableInfluencer, handles.insta_name || '') ||
+        influencerHasExactHandle(item as SelectableInfluencer, handles.tiktok_name || '')
+    ) || null
+  ) as SelectableInfluencer | null
 }
 
 export async function GET(request: NextRequest) {
@@ -176,6 +220,21 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
+    if (isDuplicateKeyError(error.message || '')) {
+      const existing = await findExistingInfluencerByHandle(supabase, { insta_name, tiktok_name })
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: buildDuplicateInfluencerMessage(String(existing.brand || ''), brand),
+            code: 'influencer_already_exists',
+            existing_influencer: existing,
+            same_brand: String(existing.brand || '').toUpperCase() === brand,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
     return NextResponse.json(
       { error: error.message || 'Failed to create influencer' },
       { status: 400 }

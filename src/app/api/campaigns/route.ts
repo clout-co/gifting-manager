@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
       product_cost, shipping_cost,
       is_international_shipping, shipping_country, international_shipping_cost,
       notes, staff_id, created_at, updated_at,
-      influencer:influencers(id, insta_name, tiktok_name, insta_url, tiktok_url),
+      influencer:influencers(id, brand, insta_name, tiktok_name, insta_url, tiktok_url),
       staff:staffs(id, name)
     `)
     .eq('brand', brand)
@@ -505,7 +505,7 @@ export async function POST(request: NextRequest) {
     .insert([payload])
     .select(`
       *,
-      influencer:influencers(id, insta_name, tiktok_name, insta_url, tiktok_url),
+      influencer:influencers(id, brand, insta_name, tiktok_name, insta_url, tiktok_url),
       staff:staffs(id, name)
     `)
     .single()
