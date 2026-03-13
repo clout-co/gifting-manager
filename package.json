@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --test src/lib/influencer-search.test.mjs",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "e2e": "playwright test",

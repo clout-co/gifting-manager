@@ -8,6 +8,10 @@ import {
   type InfluencerRank,
 } from '@/lib/scoring';
 import { redirectToCloutSignIn } from '@/lib/clout-auth';
+import {
+  influencerMatchesQuery,
+  type SelectableInfluencer,
+} from '@/lib/influencer-search';
 
 const IS_E2E =
   process.env.NODE_ENV !== 'production' &&
@@ -110,6 +114,7 @@ export const queryKeys = {
   campaigns: (brand: string) => ['campaigns', brand] as const,
   campaign: (id: string) => ['campaign', id] as const,
   influencers: (brand: string) => ['influencers', brand] as const,
+  influencerSearch: (brand: string, query: string) => ['influencerSearch', brand, query] as const,
   influencer: (id: string) => ['influencer', id] as const,
   staffs: (brand: string) => ['staffs', brand] as const,
   dashboardStats: (brand: string) => ['dashboardStats', brand] as const,
@@ -126,20 +131,20 @@ export function useCampaigns() {
     queryFn: async () => {
       if (IS_E2E) {
         return [] as (Campaign & {
-          influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
           staff: { id: string; name: string } | null;
         })[];
       }
 
       const data = await fetchApiJson<{
         campaigns: (Campaign & {
-          influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
           staff: { id: string; name: string } | null;
         })[]
       }>(`/api/campaigns?brand=${encodeURIComponent(currentBrand)}`)
 
       return (data.campaigns || []) as (Campaign & {
-        influencer: { id: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+        influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
         staff: { id: string; name: string } | null;
       })[];
     },
@@ -200,6 +205,43 @@ export function useInfluencers() {
       return data.influencers || [];
     },
     staleTime: 5 * 60 * 1000, // 5分（インフルエンサーはあまり変更されない）
+  });
+}
+
+export type InfluencerSearchResult = SelectableInfluencer;
+
+export function useInfluencerSearch(query: string) {
+  const { currentBrand } = useBrand();
+  const normalizedQuery = query.trim();
+
+  return useQuery({
+    queryKey: queryKeys.influencerSearch(currentBrand, normalizedQuery),
+    queryFn: async () => {
+      if (normalizedQuery.length < 2) {
+        return [] as InfluencerSearchResult[];
+      }
+
+      if (IS_E2E) {
+        return Object.values(E2E_INFLUENCERS_BY_BRAND)
+          .flat()
+          .filter((influencer) => influencerMatchesQuery(influencer, normalizedQuery))
+          .map((influencer) => ({
+            id: influencer.id,
+            brand: influencer.brand,
+            insta_name: influencer.insta_name,
+            insta_url: influencer.insta_url,
+            tiktok_name: influencer.tiktok_name,
+            tiktok_url: influencer.tiktok_url,
+          })) as InfluencerSearchResult[];
+      }
+
+      const data = await fetchApiJson<{ influencers: InfluencerSearchResult[] }>(
+        `/api/influencers/search?brand=${encodeURIComponent(currentBrand)}&q=${encodeURIComponent(normalizedQuery)}`
+      );
+      return data.influencers || [];
+    },
+    enabled: normalizedQuery.length >= 2,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -489,6 +531,11 @@ export function useInfluencerPastStats(influencerId: string | null) {
 
 /** 支払い対象案件の型（APIレスポンス） */
 export type PaymentCampaign = Campaign & {
+  payment_status: 'unpaid' | 'approved' | 'paid' | null;
+  paid_at: string | null;
+  approved_by: string | null;
+  approved_by_email?: string | null;
+  approved_at: string | null;
   influencer: {
     id: string;
     insta_name: string | null;

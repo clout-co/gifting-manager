@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Plus, Trash2, Loader2, Zap, Send } from 'lucide-react';
 import { useBrand } from '@/contexts/BrandContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useInfluencers, useStaffs, useBulkCreateCampaigns, type BulkCreateItem } from '@/hooks/useQueries';
+import { useInfluencers, useInfluencerSearch, useStaffs, useBulkCreateCampaigns, type BulkCreateItem } from '@/hooks/useQueries';
 import { useProductSearch, type MasterProduct } from '@/hooks/useProductSearch';
 import { useToast, translateError } from '@/lib/toast';
 import SearchableSelect, { type SearchableOption } from '@/components/ui/SearchableSelect';
 import { CAMPAIGN_STATUS_LABELS, type CampaignStatus } from '@/lib/constants';
+import {
+  dedupeSelectableInfluencers,
+  getInfluencerPrimaryHandle,
+  type SelectableInfluencer,
+} from '@/lib/influencer-search';
 
 interface QuickRegisterProps {
   isOpen: boolean;
@@ -40,11 +45,14 @@ export default function QuickRegister({ isOpen, onClose, onCreated }: QuickRegis
 
   // Form state
   const [influencerId, setInfluencerId] = useState('');
+  const [influencerQuery, setInfluencerQuery] = useState('');
   const [itemCodeQuery, setItemCodeQuery] = useState('');
   const [selectedItemCode, setSelectedItemCode] = useState('');
   const [agreedAmount, setAgreedAmount] = useState('');
   const [status, setStatus] = useState<string>('pending');
   const [staffId, setStaffId] = useState('');
+  const [knownInfluencers, setKnownInfluencers] = useState<SelectableInfluencer[]>(influencers);
+  const { data: searchedInfluencers = [], isLoading: influencerSearchLoading } = useInfluencerSearch(influencerQuery);
 
   // Queue
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -65,13 +73,46 @@ export default function QuickRegister({ isOpen, onClose, onCreated }: QuickRegis
     if (me) setStaffId(me.id);
   }, [staffs, user?.email, staffId]);
 
+  useEffect(() => {
+    setKnownInfluencers((prev) => dedupeSelectableInfluencers([...influencers, ...prev]));
+  }, [influencers]);
+
+  const rememberInfluencer = useCallback((nextInfluencer: SelectableInfluencer | null | undefined) => {
+    if (!nextInfluencer) return;
+    setKnownInfluencers((prev) => dedupeSelectableInfluencers([nextInfluencer, ...prev]));
+  }, []);
+
   // Influencer options
-  const influencerOptions: SearchableOption[] = influencers.map((inf) => {
+  const selectableInfluencers = useMemo(
+    () => dedupeSelectableInfluencers([...knownInfluencers, ...searchedInfluencers]),
+    [knownInfluencers, searchedInfluencers]
+  );
+
+  const selectedInfluencer = useMemo(
+    () => selectableInfluencers.find((inf) => inf.id === influencerId) || null,
+    [influencerId, selectableInfluencers]
+  );
+
+  useEffect(() => {
+    if (!selectedInfluencer || influencerQuery) return;
+    setInfluencerQuery(`@${getInfluencerPrimaryHandle(selectedInfluencer)}`);
+  }, [influencerQuery, selectedInfluencer]);
+
+  const influencerOptions: SearchableOption[] = selectableInfluencers.map((inf) => {
     const handle = inf.insta_name || inf.tiktok_name;
+    const description = [
+      inf.brand !== currentBrand ? `${inf.brand}既存` : null,
+      inf.insta_name ? `IG: @${inf.insta_name}` : null,
+      inf.tiktok_name ? `TT: @${inf.tiktok_name}` : null,
+    ].filter(Boolean).join(' / ');
+
     return {
       value: inf.id,
       label: handle ? `@${handle}` : '不明',
+      description: description || undefined,
+      meta: inf.brand !== currentBrand ? inf.brand : undefined,
       keywords: [inf.insta_name, inf.tiktok_name].filter(Boolean) as string[],
+      data: inf,
     };
   });
 
@@ -92,9 +133,9 @@ export default function QuickRegister({ isOpen, onClose, onCreated }: QuickRegis
   }));
 
   const getInfluencerName = useCallback((id: string) => {
-    const inf = influencers.find((i) => i.id === id);
+    const inf = selectableInfluencers.find((i) => i.id === id);
     return inf ? `@${inf.insta_name || inf.tiktok_name || '不明'}` : '不明';
-  }, [influencers]);
+  }, [selectableInfluencers]);
 
   const getStaffName = useCallback((id: string) => {
     const s = staffs.find((st) => st.id === id);
@@ -103,6 +144,7 @@ export default function QuickRegister({ isOpen, onClose, onCreated }: QuickRegis
 
   const resetForm = useCallback(() => {
     setInfluencerId('');
+    setInfluencerQuery('');
     setItemCodeQuery('');
     setSelectedItemCode('');
     setAgreedAmount('');
@@ -197,14 +239,26 @@ export default function QuickRegister({ isOpen, onClose, onCreated }: QuickRegis
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">インフルエンサー *</label>
             <SearchableSelect
               value={influencerId}
-              onChange={(v) => setInfluencerId(v)}
+              onChange={(v, option) => {
+                rememberInfluencer(option?.data as SelectableInfluencer | undefined);
+                setInfluencerId(v);
+              }}
               options={influencerOptions}
               placeholder="選択してください"
               searchPlaceholder="名前で検索..."
+              query={influencerQuery}
+              onQueryChange={setInfluencerQuery}
               emptyText="該当なし"
+              loading={influencerSearchLoading}
+              minQueryLength={2}
               recentKey={`ggcrm_quick_reg_inf_${currentBrand}`}
               required
             />
+            {selectedInfluencer && selectedInfluencer.brand !== currentBrand ? (
+              <p className="mt-1 text-[11px] text-amber-700">
+                {selectedInfluencer.brand}ブランド既存のインフルエンサーです。{currentBrand}案件として登録されます。
+              </p>
+            ) : null}
           </div>
 
           {/* Item Code */}

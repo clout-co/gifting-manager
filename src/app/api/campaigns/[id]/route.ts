@@ -563,7 +563,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     .eq('brand', brand)
     .select(`
       *,
-      influencer:influencers(id, insta_name, tiktok_name, insta_url, tiktok_url),
+      influencer:influencers(id, brand, insta_name, tiktok_name, insta_url, tiktok_url),
       staff:staffs(id, name)
     `)
     .single()

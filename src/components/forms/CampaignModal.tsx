@@ -10,11 +10,16 @@ import { useBrand } from '@/contexts/BrandContext';
 import { useToast, translateError } from '@/lib/toast';
 import { validateCampaignForm, getFieldError } from '@/lib/validation';
 import { calculatePostStatus, suggestPostDate } from '@/lib/post-status';
-import { useInfluencerPastStats, useStaffs } from '@/hooks/useQueries';
+import { useInfluencerPastStats, useInfluencerSearch, useStaffs } from '@/hooks/useQueries';
 import SearchableSelect, { type SearchableOption } from '@/components/ui/SearchableSelect';
 import { CLOUT_AUTH_URL, redirectToCloutSignIn } from '@/lib/clout-auth';
 import { DEFAULT_SHIPPING_COST } from '@/lib/constants';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  dedupeSelectableInfluencers,
+  getInfluencerPrimaryHandle,
+  type SelectableInfluencer,
+} from '@/lib/influencer-search';
 
 interface CampaignModalProps {
   campaign: Campaign | null;
@@ -23,6 +28,14 @@ interface CampaignModalProps {
   onSave: (savedCampaign?: Campaign | null) => void | Promise<void>;
   onInfluencerAdded?: (newInfluencer: Influencer) => void; // 新規インフルエンサー追加時のコールバック
 }
+
+type CreateInfluencerResponse = {
+  influencer?: Influencer;
+  error?: string;
+  code?: string;
+  existing_influencer?: SelectableInfluencer;
+  same_brand?: boolean;
+};
 
 export default function CampaignModal({
   campaign,
@@ -514,12 +527,45 @@ export default function CampaignModal({
   const [newInfluencerName, setNewInfluencerName] = useState('');
   const [newInfluencerType, setNewInfluencerType] = useState<'instagram' | 'tiktok'>('instagram');
   const [addingInfluencer, setAddingInfluencer] = useState(false);
-  const [localInfluencers, setLocalInfluencers] = useState<Influencer[]>(influencers);
+  const [influencerQuery, setInfluencerQuery] = useState('');
+  const [localInfluencers, setLocalInfluencers] = useState<SelectableInfluencer[]>(() =>
+    dedupeSelectableInfluencers([
+      ...influencers,
+      ...(campaign?.influencer ? [campaign.influencer as SelectableInfluencer] : []),
+    ])
+  );
+  const { data: searchedInfluencers = [], isLoading: influencerSearchLoading } = useInfluencerSearch(influencerQuery);
 
   // influencers propが更新されたらlocalInfluencersも更新
   useEffect(() => {
-    setLocalInfluencers(influencers);
-  }, [influencers]);
+    setLocalInfluencers((prev) =>
+      dedupeSelectableInfluencers([
+        ...influencers,
+        ...(campaign?.influencer ? [campaign.influencer as SelectableInfluencer] : []),
+        ...prev,
+      ])
+    );
+  }, [campaign?.influencer, influencers]);
+
+  const rememberSelectableInfluencer = (nextInfluencer: SelectableInfluencer | null | undefined) => {
+    if (!nextInfluencer) return;
+    setLocalInfluencers((prev) => dedupeSelectableInfluencers([nextInfluencer, ...prev]));
+  };
+
+  const selectableInfluencers = useMemo(
+    () => dedupeSelectableInfluencers([...localInfluencers, ...searchedInfluencers]),
+    [localInfluencers, searchedInfluencers]
+  );
+
+  const selectedInfluencer = useMemo(
+    () => selectableInfluencers.find((inf) => inf.id === formData.influencer_id) || null,
+    [formData.influencer_id, selectableInfluencers]
+  );
+
+  useEffect(() => {
+    if (!selectedInfluencer || influencerQuery) return;
+    setInfluencerQuery(`@${getInfluencerPrimaryHandle(selectedInfluencer)}`);
+  }, [influencerQuery, selectedInfluencer]);
 
   // 新規インフルエンサーを追加
   const handleAddInfluencer = async () => {
@@ -537,8 +583,24 @@ export default function CampaignModal({
         body: JSON.stringify(payload),
         cache: 'no-store',
       });
-      const json = await response.json().catch(() => null) as { influencer?: Influencer; error?: string } | null;
+      const json = await response.json().catch(() => null) as CreateInfluencerResponse | null;
       if (!response.ok || !json?.influencer) {
+        if (response.status === 409 && json?.code === 'influencer_already_exists' && json.existing_influencer) {
+          const existing = json.existing_influencer;
+          rememberSelectableInfluencer(existing);
+          setFormData((prev) => ({ ...prev, influencer_id: existing.id }));
+          setInfluencerQuery(`@${getInfluencerPrimaryHandle(existing)}`);
+          setNewInfluencerName('');
+          setShowNewInfluencer(false);
+          showToast(
+            json.same_brand ? 'warning' : 'success',
+            json.same_brand
+              ? '同ブランドの既存インフルエンサーを選択しました'
+              : `${existing.brand}ブランドの既存インフルエンサーを選択しました`
+          );
+          return;
+        }
+
         const msg = json && typeof json.error === 'string'
           ? json.error
           : `インフルエンサー登録に失敗しました (${response.status})`;
@@ -547,12 +609,13 @@ export default function CampaignModal({
       const created = json.influencer;
 
       // ローカルのリストに追加
-      setLocalInfluencers([created, ...localInfluencers]);
+      setLocalInfluencers((prev) => dedupeSelectableInfluencers([created, ...prev]));
       // Ensure the rest of the app (and other tabs) can pick up the new influencer.
       queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] });
       queryClient.invalidateQueries({ queryKey: ['influencersWithScores', currentBrand] });
       // 新しいインフルエンサーを選択
-      setFormData({ ...formData, influencer_id: created.id });
+      setFormData((prev) => ({ ...prev, influencer_id: created.id }));
+      setInfluencerQuery(`@${getInfluencerPrimaryHandle(created)}`);
       // フォームをリセット
       setNewInfluencerName('');
       setShowNewInfluencer(false);
@@ -1147,12 +1210,14 @@ export default function CampaignModal({
                   <div className="flex-1">
                     <SearchableSelect
                       value={formData.influencer_id}
-                      onChange={(nextId) =>
-                        setFormData({ ...formData, influencer_id: nextId })
-                      }
-                      options={localInfluencers.map((inf) => {
+                      onChange={(nextId, option) => {
+                        rememberSelectableInfluencer(option?.data as SelectableInfluencer | undefined);
+                        setFormData((prev) => ({ ...prev, influencer_id: nextId }));
+                      }}
+                      options={selectableInfluencers.map((inf) => {
                         const handle = inf.insta_name || inf.tiktok_name || '';
                         const details = [
+                          inf.brand !== currentBrand ? `${inf.brand}既存` : null,
                           inf.insta_name ? `IG: @${inf.insta_name}` : null,
                           inf.tiktok_name ? `TT: @${inf.tiktok_name}` : null,
                         ].filter(Boolean).join(' / ');
@@ -1161,12 +1226,18 @@ export default function CampaignModal({
                           value: inf.id,
                           label: handle ? `@${handle}` : '不明',
                           description: details || undefined,
+                          meta: inf.brand !== currentBrand ? inf.brand : undefined,
                           keywords: [inf.insta_name, inf.tiktok_name].filter(Boolean) as string[],
+                          data: inf,
                         } satisfies SearchableOption;
                       })}
                       placeholder="選択してください"
                       searchPlaceholder="検索して選択..."
+                      query={influencerQuery}
+                      onQueryChange={setInfluencerQuery}
                       emptyText="該当するインフルエンサーがありません"
+                      loading={influencerSearchLoading}
+                      minQueryLength={2}
                       recentKey={`ggcrm_recent_influencers_${currentBrand}`}
                       required
                       ariaLabel="インフルエンサー"
@@ -1229,6 +1300,12 @@ export default function CampaignModal({
                     ) : (
                       <div className="text-sm text-muted-foreground">過去データがありません</div>
                     )}
+                  </div>
+                ) : null}
+
+                {selectedInfluencer && selectedInfluencer.brand !== currentBrand ? (
+                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {selectedInfluencer.brand}ブランドで登録済みのインフルエンサーです。この案件は{currentBrand}案件として保存されます。
                   </div>
                 ) : null}
 

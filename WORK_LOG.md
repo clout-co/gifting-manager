@@ -4,6 +4,34 @@
 
 ---
 
+## 作業進捗 (2026-03-13: Cross-brand influencer selection fallback for campaigns)
+
+### 変更内容
+
+| ファイル | 修正内容 | 重要度 |
+|---------|---------|--------|
+| `src/app/api/influencers/search/route.ts` | 案件登録向けの cross-brand インフルエンサー検索 API を追加 | HIGH |
+| `src/app/api/influencers/route.ts` | 重複登録時に既存インフルエンサー情報を返す 409 応答を追加 | HIGH |
+| `src/components/forms/CampaignModal.tsx` | 他ブランド既存インフルエンサー検索・選択と重複時自動フォールバックを追加 | HIGH |
+| `src/components/campaigns/QuickRegister.tsx` | クイック案件登録でも他ブランド既存インフルエンサーを検索可能に変更 | HIGH |
+| `src/hooks/useQueries.ts` | `useInfluencerSearch` と `PaymentCampaign` 型補完を追加 | MEDIUM |
+| `src/lib/influencer-search.ts` | ハンドル一致判定・候補整列・重複メッセージを helper 化 | MEDIUM |
+| `src/lib/influencer-search.test.mjs` | helper の自動テストを追加 | MEDIUM |
+| `package.json` | `npm test` スクリプトを追加 | LOW |
+
+### 詳細
+- インフルエンサーは現行DBで全ブランド横断の重複制約を持っており、他ブランド既存ユーザーを同ブランドへ再登録できない。
+- そこで案件登録フローでは最小情報だけを cross-brand で検索できるようにし、同名登録にぶつかった場合も既存レコードへフォールバックして案件作成を継続できるようにした。
+- 選択UIには元ブランドのメタ表示と注意文を追加し、他ブランドレコードを選んだ状態でも現在ブランド案件として保存されることを明示した。
+- 併せて `next build` を阻害していた `payments` 用 `PaymentCampaign` 型の不足プロパティを補完した。
+
+### 検証結果
+- `npm test` pass
+- `npm run type-check` pass
+- `npm run build` pass
+
+---
+
 ## 作業進捗 (2026-02-18: 横断バグ診断 — analytics API auth修正)
 
 ### 変更内容
