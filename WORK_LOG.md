@@ -30,6 +30,11 @@
 - `npm run type-check` pass
 - `npm run build` pass
 
+### 本番反映
+- Commit: `7c28611` — `merge: cross-brand influencer selection fix`
+- Production: `https://gifting-manager.vercel.app`
+- Health: `GET /api/health => ok=true`
+
 ---
 
 ## 作業進捗 (2026-02-18: 横断バグ診断 — analytics API auth修正)
