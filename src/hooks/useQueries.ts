@@ -424,6 +424,38 @@ export type DashboardFullStats = {
   itemCostStats: { item_code: string; total_cost: number; campaigns: number }[]
   itemPostTimingStats: { item_code: string; pre_sale_posts: number; post_sale_posts: number; no_post: number }[]
   influencerScreening: { segment: string; count: number; color: string }[]
+  countryDistributionStats: {
+    country: string
+    gift_count: number
+    post_count: number
+    influencer_count: number
+    shipping_cost_total: number
+  }[]
+  internationalInfluencerRanking: {
+    display_name: string
+    total_likes: number
+    total_comments: number
+    total_campaigns: number
+    total_posts: number
+    total_amount: number
+    cost_per_like: number
+    score: number
+    rank: string
+  }[]
+  countryInfluencerRanking: {
+    country: string
+    influencers: {
+      display_name: string
+      total_likes: number
+      total_comments: number
+      total_campaigns: number
+      total_posts: number
+      total_amount: number
+      cost_per_like: number
+      score: number
+      rank: string
+    }[]
+  }[]
   influencerRanking: {
     display_name: string
     total_likes: number

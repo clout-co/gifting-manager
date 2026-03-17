@@ -328,3 +328,36 @@
 次にやるべきこと:
 1. 認証済みブラウザで `https://gifting-manager.vercel.app/dashboard` を開き、サイドバーの `支払い管理` 表示を確認。
 2. そのまま `/payments` に遷移し、対象ブランドでテーブル表示が問題ないか確認。
+
+## 作業進捗 (2026-03-17 追記: Belvet ダッシュボードの国別ギフティング集計と国別ランキング)
+
+現在の進捗状況:
+- GGCRM ダッシュボードに Belvet 専用の海外発送国別サマリーを追加。
+- `インフルエンサーランキング TOP10` は Belvet のみ国選択で絞り込める仕様に変更。
+- 国別集計は route 直書きではなく helper 化し、将来の集計差分や再利用に備えて単体テストを追加。
+
+完了したタスク:
+- [x] `src/lib/dashboard-country-stats.ts`
+  - `shipping_country` / `item_quantity` / 投稿有無を正規化し、国別 `配布数 / 投稿数 / 人数` と国別ランキングを集計する helper を追加。
+- [x] `src/app/api/dashboard/full-stats/route.ts`
+  - Belvet 用に `countryDistributionStats` / `internationalInfluencerRanking` / `countryInfluencerRanking` を返すよう拡張。
+- [x] `src/components/dashboard/DashboardCharts.tsx`
+  - Belvet のみ `Belvet 海外発送 国別サマリー` 表を追加。
+  - `インフルエンサーランキング TOP10` に国セレクトを追加し、全体 or 国別で切り替え可能に変更。
+- [x] `src/hooks/useQueries.ts`
+  - ダッシュボード full stats の型を拡張。
+- [x] `src/lib/dashboard-country-stats.test.mjs`
+  - 国別集計と国別ランキングの回帰テストを追加。
+
+検証結果:
+- `pnpm type-check` pass
+- `pnpm test` pass
+- `pnpm build` pass
+
+本番デプロイ / 本番確認:
+- `main` 反映後に Vercel production deploy を実施。
+- `https://gifting-manager.vercel.app/dashboard` の Belvet で、
+  - 国別サマリー表が表示されること
+  - `インフルエンサーランキング TOP10` に国セレクトが表示されること
+  - 国切替でランキング内容が切り替わること
+  を確認。

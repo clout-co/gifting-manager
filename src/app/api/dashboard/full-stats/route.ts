@@ -5,6 +5,7 @@ import {
   calculateInfluencerScore,
   type InfluencerRank,
 } from '@/lib/scoring'
+import { buildDashboardCountryInsights } from '@/lib/dashboard-country-stats'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
@@ -108,13 +109,16 @@ export async function GET(request: NextRequest) {
       likes,
       comments,
       consideration_comment,
+      is_international_shipping,
       influencer_id,
       item_code,
       item_quantity,
       product_cost,
+      shipping_country,
       shipping_cost,
       international_shipping_cost,
       post_date,
+      post_url,
       created_at,
       influencer:influencers(id, insta_name, tiktok_name)
     `)
@@ -318,6 +322,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const countryInsights =
+    brand === 'BE'
+      ? buildDashboardCountryInsights(campaigns as any[], { topN: 10 })
+      : {
+          countryDistributionStats: [],
+          internationalInfluencerRanking: [],
+          countryInfluencerRanking: [],
+        }
+
   const result = {
     totalCampaigns: campaigns.length,
     totalInfluencers: influencerIds.size,
@@ -352,6 +365,9 @@ export async function GET(request: NextRequest) {
       { segment: '500いいね以下', count: influencerScreeningCount.low_500_or_less, color: '#60a5fa' },
       { segment: '501-999いいね', count: influencerScreeningCount.mid_501_999, color: '#93c5fd' },
     ],
+    countryDistributionStats: countryInsights.countryDistributionStats,
+    internationalInfluencerRanking: countryInsights.internationalInfluencerRanking,
+    countryInfluencerRanking: countryInsights.countryInfluencerRanking,
     influencerRanking,
     itemStats: Array.from(itemMap.entries())
       .map(([item_code, data]) => ({ item_code, ...data }))

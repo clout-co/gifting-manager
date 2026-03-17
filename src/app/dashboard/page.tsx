@@ -273,7 +273,7 @@ export default function DashboardPage() {
             variant="card"
           />
         ) : (
-          <DashboardCharts stats={fullStats || null} />
+          <DashboardCharts stats={fullStats || null} currentBrand={currentBrand} />
         )}
       </div>
     </MainLayout>

@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { DashboardFullStats } from '@/hooks/useQueries';
 import {
   AlertCircle,
   CalendarDays,
+  Globe2,
   Package,
   Trophy,
   Users,
@@ -24,6 +26,7 @@ import {
 
 type Props = {
   stats?: DashboardFullStats | null;
+  currentBrand: string;
 };
 
 type TooltipValue = number | string | ReadonlyArray<number | string> | undefined;
@@ -53,7 +56,21 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
-export default function DashboardCharts({ stats }: Props) {
+export default function DashboardCharts({ stats, currentBrand }: Props) {
+  const [selectedCountry, setSelectedCountry] = useState<string>('all');
+  const isBelvet = currentBrand === 'BE';
+  const countryOptions = stats?.countryDistributionStats.map((entry) => entry.country) || [];
+
+  useEffect(() => {
+    if (!isBelvet) {
+      setSelectedCountry('all');
+      return;
+    }
+    if (selectedCountry !== 'all' && !countryOptions.includes(selectedCountry)) {
+      setSelectedCountry('all');
+    }
+  }, [countryOptions, isBelvet, selectedCountry]);
+
   if (!stats) {
     return (
       <div className="space-y-6">
@@ -96,7 +113,19 @@ export default function DashboardCharts({ stats }: Props) {
   const topCostItem = stats.itemCostStats[0] || null;
   const latestMonthly = stats.monthlyStats[stats.monthlyStats.length - 1] || null;
   const totalScreened = stats.influencerScreening.reduce((sum, row) => sum + row.count, 0);
-  const maxLikes = Math.max(...stats.influencerRanking.map((inf) => inf.total_likes), 1);
+  const totalCountryGiftCount = stats.countryDistributionStats.reduce((sum, row) => sum + row.gift_count, 0);
+  const totalCountryPostCount = stats.countryDistributionStats.reduce((sum, row) => sum + row.post_count, 0);
+  const rankingRows = isBelvet
+    ? (
+        selectedCountry === 'all'
+          ? stats.internationalInfluencerRanking
+          : stats.countryInfluencerRanking.find((entry) => entry.country === selectedCountry)?.influencers || []
+      )
+    : stats.influencerRanking.map((entry) => ({
+        ...entry,
+        total_posts: entry.total_campaigns,
+      }));
+  const maxLikes = Math.max(...rankingRows.map((inf) => inf.total_likes), 1);
 
   return (
     <div className="space-y-6">
@@ -213,6 +242,82 @@ export default function DashboardCharts({ stats }: Props) {
           </div>
         </section>
       </div>
+
+      {isBelvet ? (
+        <section className="card p-5 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Globe2 className="text-muted-foreground" size={18} />
+                <h3 className="font-bold text-foreground">Belvet 海外発送 国別サマリー</h3>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                海外発送案件の配布数と投稿数を国ごとに一覧で確認できます。
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-border bg-muted/60 px-3 py-2 text-right">
+                <p className="text-[11px] text-muted-foreground">対象国</p>
+                <p className="text-sm font-bold text-foreground">{formatNumber(stats.countryDistributionStats.length)}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/60 px-3 py-2 text-right">
+                <p className="text-[11px] text-muted-foreground">配布数</p>
+                <p className="text-sm font-bold text-foreground">{formatNumber(totalCountryGiftCount)}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/60 px-3 py-2 text-right">
+                <p className="text-[11px] text-muted-foreground">投稿数</p>
+                <p className="text-sm font-bold text-foreground">{formatNumber(totalCountryPostCount)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-border">
+            {stats.countryDistributionStats.length === 0 ? (
+              <div className="px-6 py-10">
+                <EmptyChart message="Belvet の海外発送データがありません" />
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-border text-sm">
+                <thead className="bg-muted/70">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">国</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">配布数</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">投稿数</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">人数</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border bg-background">
+                  {stats.countryDistributionStats.map((row) => {
+                    const isActive = selectedCountry === row.country;
+                    return (
+                      <tr key={row.country} className={isActive ? 'bg-muted/50' : undefined}>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            className="font-medium text-foreground underline-offset-4 hover:underline"
+                            onClick={() => setSelectedCountry(row.country)}
+                          >
+                            {row.country}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">
+                          {formatNumber(row.gift_count)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-foreground">
+                          {formatNumber(row.post_count)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted-foreground">
+                          {formatNumber(row.influencer_count)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section className="card p-5 sm:p-6">
@@ -341,15 +446,41 @@ export default function DashboardCharts({ stats }: Props) {
       </div>
 
       <section className="card p-5 sm:p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Trophy className="text-muted-foreground" size={18} />
-          <h3 className="font-bold text-foreground">インフルエンサーランキング TOP10</h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="text-muted-foreground" size={18} />
+            <div>
+              <h3 className="font-bold text-foreground">インフルエンサーランキング TOP10</h3>
+              {isBelvet ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  国を選択すると、その国に限定した Belvet のランキングを表示します。
+                </p>
+              ) : null}
+            </div>
+          </div>
+          {isBelvet ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">国で絞り込み</span>
+              <select
+                value={selectedCountry}
+                onChange={(event) => setSelectedCountry(event.target.value)}
+                className="input-field h-9 min-w-[160px] rounded-lg py-0 text-xs"
+              >
+                <option value="all">すべての国</option>
+                {countryOptions.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
-        {stats.influencerRanking.length === 0 ? (
+        {rankingRows.length === 0 ? (
           <EmptyChart message="ランキング対象データがありません" />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {stats.influencerRanking.map((inf, index) => {
+            {rankingRows.map((inf, index) => {
               const width = Math.max(6, (inf.total_likes / maxLikes) * 100);
               return (
                 <div key={`${inf.display_name}-${index}`} className="rounded-xl border border-border bg-muted/70 px-3 py-3">
@@ -359,7 +490,9 @@ export default function DashboardCharts({ stats }: Props) {
                         {index + 1}. @{inf.display_name}
                       </p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        案件 {formatNumber(inf.total_campaigns)} / いいね {formatNumber(inf.total_likes)}
+                        {isBelvet
+                          ? `配布 ${formatNumber(inf.total_campaigns)} / 投稿 ${formatNumber(inf.total_posts)} / いいね ${formatNumber(inf.total_likes)}`
+                          : `案件 ${formatNumber(inf.total_campaigns)} / いいね ${formatNumber(inf.total_likes)}`}
                       </p>
                     </div>
                     <span className="rounded-md border border-border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
@@ -381,4 +514,3 @@ export default function DashboardCharts({ stats }: Props) {
     </div>
   );
 }
-
