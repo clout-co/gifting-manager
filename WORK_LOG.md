@@ -315,9 +315,8 @@
     - desktop: `["ダッシュボード","要入力キュー","インフルエンサー","ギフティング案件","一括入力","支払い管理", ...]`
     - mobile: `["ホーム","インフルエンサー","案件","支払い"]`
 - [x] `main` 反映・本番デプロイ
-  - GitHub `main`: `5bffaee fix: restore payments navigation`
-  - Inspect: `https://vercel.com/clout-10b5c7f9/gifting-manager/6jpKuzVGMQF5sUHK3qjc1PqEDQcv`
-  - Production: `https://gifting-manager-kh0i4bcm5-clout-10b5c7f9.vercel.app`
+  - GitHub `main` へ反映済み
+  - Vercel production deploy 実施済み
   - Alias: `https://gifting-manager.vercel.app`
   - `GET https://gifting-manager.vercel.app/api/health` => `ok=true`
   - `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 -> dashboard.clout.co.jp/sign-in`
