@@ -286,3 +286,38 @@
 次にやるべきこと:
 1. 本番で各ブランド1件ずつ新規案件を作成し、リロードなしで一覧先頭に表示されるか確認。
 2. 未反映が出る場合は、操作時刻とブランドを共有して再現調査を実施。
+
+---
+
+## 作業進捗 (2026-03-17) — 支払い管理導線の復旧
+
+現在の進捗状況:
+- `gifting-manager.vercel.app/dashboard` から「支払い管理」が見えない事象を診断。
+- 原因は `src/app/payments/page.tsx` や `/api/payments` の欠損ではなく、`Sidebar` と `BottomNav` が別管理されており、`main` 側のナビ定義から `/payments` 導線だけが脱落していたこと。
+- 導線定義を共通化し、デスクトップ/モバイルの両方で `支払い管理` を再表示するよう修正。
+
+完了したタスク:
+- [x] 根本原因の切り分け
+  - `src/app/payments/page.tsx` と `src/app/api/payments/route.ts` は `main` に残存していることを確認。
+  - `src/components/layout/Sidebar.tsx` の `navigation` から `/payments` が欠落していることを確認。
+- [x] ナビ導線の共通化
+  - `src/components/layout/navigation.ts` を新設し、サイドバーと下部ナビの定義を一元化。
+  - `src/components/layout/Sidebar.tsx`
+  - `src/components/layout/BottomNav.tsx`
+- [x] 既存 lint エラーの是正
+  - `src/app/payments/page.tsx` の `useCallback` / render-inline component 起因の React Compiler エラーを、無振る舞い変更で解消。
+- [x] ローカル検証
+  - `npm run lint` ✅（warning のみ）
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `SSO_BYPASS=true` の headless Playwright でナビ文言確認
+    - desktop: `["ダッシュボード","要入力キュー","インフルエンサー","ギフティング案件","一括入力","支払い管理", ...]`
+    - mobile: `["ホーム","インフルエンサー","案件","支払い"]`
+
+残りのタスク:
+- [P0] latest `main` へ fast-forward 反映し、production deploy を実施。
+- [P0] 本番で `https://gifting-manager.vercel.app` の `/dashboard` / `/payments` 導線を再確認。
+
+次にやるべきこと:
+1. この修正を `main` に取り込み、`main` のコミットから production deploy を実行。
+2. 本番で `支払い管理` 導線の表示と `/payments` ルートの疎通を確認。

@@ -2,54 +2,25 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  Users,
-  Gift,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface NavItem {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-  activeMatch?: string[];
-}
-
-const navItems: NavItem[] = [
-  {
-    href: '/dashboard',
-    icon: <Home size={20} />,
-    label: 'ホーム',
-  },
-  {
-    href: '/campaigns',
-    icon: <Gift size={20} />,
-    label: '案件',
-  },
-  {
-    href: '/influencers',
-    icon: <Users size={20} />,
-    label: 'インフルエンサー',
-    activeMatch: ['/influencers'],
-  },
-];
+import { BOTTOM_NAVIGATION } from './navigation';
 
 export default function BottomNav() {
   const pathname = usePathname();
 
-  const isActive = (item: NavItem) => {
-    if (item.activeMatch) {
-      return item.activeMatch.some(match => pathname.startsWith(match));
+  const isActive = (href: string, activeMatch?: string[]) => {
+    if (activeMatch) {
+      return activeMatch.some((match) => pathname.startsWith(match));
     }
-    return pathname === item.href || pathname.startsWith(item.href + '/');
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t z-40 lg:hidden safe-area-pb">
       <div className="flex items-center justify-around h-16">
-        {navItems.map((item) => {
-          const active = isActive(item);
+        {BOTTOM_NAVIGATION.map((item) => {
+          const active = isActive(item.href, item.activeMatch);
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
@@ -63,9 +34,9 @@ export default function BottomNav() {
                 'p-1.5 rounded-lg transition-colors',
                 active && 'bg-primary/10'
               )}>
-                {item.icon}
+                <Icon size={20} />
               </div>
-              <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+              <span className="text-[10px] mt-0.5 font-medium">{item.mobileLabel || item.label}</span>
             </Link>
           );
         })}

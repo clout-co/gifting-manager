@@ -93,6 +93,12 @@ function getStatusLabel(status: string | null | undefined): string {
 
 type SortKey = 'influencer' | 'item_code' | 'post_date' | 'agreed_amount' | 'deduction' | 'net_amount' | 'payment_status' | 'staff';
 type SortDir = 'asc' | 'desc';
+const EMPTY_PAYMENT_CAMPAIGNS: PaymentCampaign[] = [];
+
+function getSortIcon(sortKey: SortKey | null, sortDir: SortDir, colKey: SortKey) {
+  if (sortKey !== colKey) return <ArrowUpDown size={14} className="opacity-40" />;
+  return sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
+}
 
 // ---------- メインコンポーネント ----------
 
@@ -122,8 +128,9 @@ export default function PaymentsPage() {
   const { data: paymentsData, isLoading, error: queryError, refetch } = usePayments(paymentStatusFilter);
   const markPaidMutation = useMarkPaid();
 
-  const campaigns = paymentsData || [];
+  const campaigns = paymentsData ?? EMPTY_PAYMENT_CAMPAIGNS;
   const error = queryError ? translateError(queryError) : null;
+  const approverDisplayName = user?.name || user?.email || '';
 
   // URL同期
   const updateUrlParams = useCallback(
@@ -227,51 +234,47 @@ export default function PaymentsPage() {
 
   // ---------- ステータスアクション ----------
 
-  const handleAction = useCallback(
-    async (ids: string[], action: 'approve' | 'unapprove' | 'paid' | 'unpaid') => {
-      const actionLabels: Record<string, string> = {
-        approve: '承認する',
-        unapprove: '承認を取り消す',
-        paid: '支払い済みにする',
-        unpaid: '未払いに戻す',
-      };
-      const resultLabels: Record<string, string> = {
-        approve: '承認済み',
-        unapprove: '未払い',
-        paid: '支払い済み',
-        unpaid: '未払い',
-      };
-      const actionLabel = actionLabels[action];
+  async function handleAction(ids: string[], action: 'approve' | 'unapprove' | 'paid' | 'unpaid') {
+    const actionLabels: Record<string, string> = {
+      approve: '承認する',
+      unapprove: '承認を取り消す',
+      paid: '支払い済みにする',
+      unpaid: '未払いに戻す',
+    };
+    const resultLabels: Record<string, string> = {
+      approve: '承認済み',
+      unapprove: '未払い',
+      paid: '支払い済み',
+      unpaid: '未払い',
+    };
+    const actionLabel = actionLabels[action];
 
-      // 承認時は登録者本人チェックの注意書きを追加
-      let message = `${ids.length}件の案件を${resultLabels[action]}にします。よろしいですか？`;
-      if (action === 'approve') {
-        message = `${ids.length}件の案件を承認します。\n\n※ 監査要件により、案件の登録者（担当者）本人のみ承認可能です。\n承認者として「${user?.name || user?.email || ''}」が記録されます。`;
-      }
+    let message = `${ids.length}件の案件を${resultLabels[action]}にします。よろしいですか？`;
+    if (action === 'approve') {
+      message = `${ids.length}件の案件を承認します。\n\n※ 監査要件により、案件の登録者（担当者）本人のみ承認可能です。\n承認者として「${approverDisplayName}」が記録されます。`;
+    }
 
-      const confirmed = await confirm({
-        title: actionLabel,
-        message,
-        type: action === 'unpaid' || action === 'unapprove' ? 'warning' : 'info',
-        confirmText: actionLabel,
-        cancelText: 'キャンセル',
-      });
-      if (!confirmed) return;
+    const confirmed = await confirm({
+      title: actionLabel,
+      message,
+      type: action === 'unpaid' || action === 'unapprove' ? 'warning' : 'info',
+      confirmText: actionLabel,
+      cancelText: 'キャンセル',
+    });
+    if (!confirmed) return;
 
-      try {
-        const result = await markPaidMutation.mutateAsync({ ids, action });
-        const msg = `${result.updated}件を${resultLabels[action]}に更新しました`;
-        const skippedMsg = result.skipped && result.skipped > 0
-          ? `（${result.skipped}件はステータス条件不一致のためスキップ）`
-          : '';
-        showToast('success', msg + skippedMsg);
-        setSelectedIds(new Set());
-      } catch (err) {
-        showToast('error', translateError(err));
-      }
-    },
-    [confirm, markPaidMutation, showToast]
-  );
+    try {
+      const result = await markPaidMutation.mutateAsync({ ids, action });
+      const msg = `${result.updated}件を${resultLabels[action]}に更新しました`;
+      const skippedMsg = result.skipped && result.skipped > 0
+        ? `（${result.skipped}件はステータス条件不一致のためスキップ）`
+        : '';
+      showToast('success', msg + skippedMsg);
+      setSelectedIds(new Set());
+    } catch (err) {
+      showToast('error', translateError(err));
+    }
+  }
 
   // ---------- 集計 ----------
 
@@ -313,11 +316,6 @@ export default function PaymentsPage() {
       setSortKey(key);
       setSortDir('asc');
     }
-  };
-
-  const SortIcon = ({ colKey }: { colKey: SortKey }) => {
-    if (sortKey !== colKey) return <ArrowUpDown size={14} className="opacity-40" />;
-    return sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
   };
 
   // ---------- ステータスタブ ----------
@@ -642,46 +640,46 @@ export default function PaymentsPage() {
                     </th>
                     <th className="px-3 py-3 text-left">
                       <button onClick={() => handleSort('influencer')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground">
-                        インフルエンサー <SortIcon colKey="influencer" />
+                        インフルエンサー {getSortIcon(sortKey, sortDir, 'influencer')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-left">
                       <button onClick={() => handleSort('item_code')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground">
-                        品番 <SortIcon colKey="item_code" />
+                        品番 {getSortIcon(sortKey, sortDir, 'item_code')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-left">
                       <button onClick={() => handleSort('post_date')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground">
-                        投稿日 <SortIcon colKey="post_date" />
+                        投稿日 {getSortIcon(sortKey, sortDir, 'post_date')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-right">
                       <button onClick={() => handleSort('agreed_amount')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground ml-auto">
-                        合意額(税抜) <SortIcon colKey="agreed_amount" />
+                        合意額(税抜) {getSortIcon(sortKey, sortDir, 'agreed_amount')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-right font-medium text-muted-foreground">税込</th>
                     <th className="px-3 py-3 text-right">
                       <button onClick={() => handleSort('deduction')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground ml-auto">
-                        控除額 <SortIcon colKey="deduction" />
+                        控除額 {getSortIcon(sortKey, sortDir, 'deduction')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-right">
                       <button onClick={() => handleSort('net_amount')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground ml-auto">
-                        支払金額 <SortIcon colKey="net_amount" />
+                        支払金額 {getSortIcon(sortKey, sortDir, 'net_amount')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">インボイス</th>
                     <th className="px-3 py-3 text-left">
                       <button onClick={() => handleSort('staff')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground">
-                        担当者 <SortIcon colKey="staff" />
+                        担当者 {getSortIcon(sortKey, sortDir, 'staff')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-left font-medium text-muted-foreground">振込先</th>
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">投稿</th>
                     <th className="px-3 py-3 text-center">
                       <button onClick={() => handleSort('payment_status')} className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground mx-auto">
-                        ステータス <SortIcon colKey="payment_status" />
+                        ステータス {getSortIcon(sortKey, sortDir, 'payment_status')}
                       </button>
                     </th>
                     <th className="px-3 py-3 text-center font-medium text-muted-foreground">操作</th>

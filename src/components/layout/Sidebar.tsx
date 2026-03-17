@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Users,
   Gift,
   LogOut,
   Menu,
@@ -16,8 +15,6 @@ import {
   Package,
   Target,
   ArrowLeft,
-  ListChecks,
-  ListTodo,
   Sparkles,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -27,6 +24,7 @@ import { CLOUT_AUTH_URL, cloutLogout } from '@/lib/clout-auth';
 import { useTheme } from '@/components/ThemeProvider';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { APP_NAVIGATION } from './navigation';
 
 type MasterApp = {
   id: string;
@@ -58,14 +56,6 @@ const BRAND_COLORS: Record<Brand, {
   BE: { accent: 'bg-gray-500/10 text-gray-700 border-gray-500/20 dark:bg-gray-500/20 dark:text-gray-300 dark:border-gray-500/30' },
   AM: { accent: 'bg-red-500/10 text-red-700 border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700/40' },
 };
-
-const navigation = [
-  { name: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard },
-  { name: '要入力キュー', href: '/queue', icon: ListTodo },
-  { name: 'インフルエンサー', href: '/influencers', icon: Users },
-  { name: 'ギフティング案件', href: '/campaigns', icon: Gift },
-  { name: '一括入力', href: '/bulk-input', icon: ListChecks },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -236,11 +226,11 @@ export default function Sidebar() {
 
       {/* ナビゲーション - ModelCRM style */}
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-        {navigation.map((item) => {
+        {APP_NAVIGATION.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
-              key={item.name}
+              key={item.href}
               href={item.href}
               className={cn(
                 'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -256,7 +246,7 @@ export default function Sidebar() {
                   !isActive && 'group-hover:scale-110'
                 )}
               />
-              {item.name}
+              {item.label}
             </Link>
           );
         })}
