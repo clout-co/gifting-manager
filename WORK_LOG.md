@@ -356,8 +356,16 @@
 
 本番デプロイ / 本番確認:
 - `main` 反映後に Vercel production deploy を実施。
+- Deployment: `dpl_AgJaTFim1vdkst9bgixtiQbqB3sV`
+- Alias: `https://gifting-manager.vercel.app`
+- `GET https://gifting-manager.vercel.app/api/health` => `200 OK`, `ok=true`
 - `https://gifting-manager.vercel.app/dashboard` の Belvet で、
   - 国別サマリー表が表示されること
   - `インフルエンサーランキング TOP10` に国セレクトが表示されること
   - 国切替でランキング内容が切り替わること
   を確認。
+- Belvet 本番ダッシュボードの確認値:
+  - `Belvet 海外発送 国別サマリー`: `対象国 11 / 配布数 120 / 投稿数 119`
+  - 国別表の先頭行: `アメリカ 40 / 40 / 21`, `その他 34 / 33 / 17`, `イギリス 15 / 15 / 12`
+  - ランキング初期表示: `1. @_lauraseeto / 配布 1 / 投稿 1 / いいね 13,000`
+  - `ドイツ` 選択時: `@multplg`, `@imdav3d` の2件に切り替わること
