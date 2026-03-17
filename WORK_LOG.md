@@ -295,6 +295,7 @@
 - `gifting-manager.vercel.app/dashboard` から「支払い管理」が見えない事象を診断。
 - 原因は `src/app/payments/page.tsx` や `/api/payments` の欠損ではなく、`Sidebar` と `BottomNav` が別管理されており、`main` 側のナビ定義から `/payments` 導線だけが脱落していたこと。
 - 導線定義を共通化し、デスクトップ/モバイルの両方で `支払い管理` を再表示するよう修正。
+- `main` へ反映後、production deploy と疎通確認まで完了。
 
 完了したタスク:
 - [x] 根本原因の切り分け
@@ -313,11 +314,18 @@
   - `SSO_BYPASS=true` の headless Playwright でナビ文言確認
     - desktop: `["ダッシュボード","要入力キュー","インフルエンサー","ギフティング案件","一括入力","支払い管理", ...]`
     - mobile: `["ホーム","インフルエンサー","案件","支払い"]`
+- [x] `main` 反映・本番デプロイ
+  - GitHub `main`: `5bffaee fix: restore payments navigation`
+  - Inspect: `https://vercel.com/clout-10b5c7f9/gifting-manager/6jpKuzVGMQF5sUHK3qjc1PqEDQcv`
+  - Production: `https://gifting-manager-kh0i4bcm5-clout-10b5c7f9.vercel.app`
+  - Alias: `https://gifting-manager.vercel.app`
+  - `GET https://gifting-manager.vercel.app/api/health` => `ok=true`
+  - `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 -> dashboard.clout.co.jp/sign-in`
+  - `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 -> dashboard.clout.co.jp/sign-in`
 
 残りのタスク:
-- [P0] latest `main` へ fast-forward 反映し、production deploy を実施。
-- [P0] 本番で `https://gifting-manager.vercel.app` の `/dashboard` / `/payments` 導線を再確認。
+- [P1] 認証済み本番セッションで、`/dashboard` のサイドバーから `支払い管理` が再表示されていることを実ユーザー画面で最終確認。
 
 次にやるべきこと:
-1. この修正を `main` に取り込み、`main` のコミットから production deploy を実行。
-2. 本番で `支払い管理` 導線の表示と `/payments` ルートの疎通を確認。
+1. 認証済みブラウザで `https://gifting-manager.vercel.app/dashboard` を開き、サイドバーの `支払い管理` 表示を確認。
+2. そのまま `/payments` に遷移し、対象ブランドでテーブル表示が問題ないか確認。
