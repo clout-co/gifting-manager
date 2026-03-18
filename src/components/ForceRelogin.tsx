@@ -23,8 +23,8 @@ export default function ForceRelogin({ children }: { children: React.ReactNode }
     }
 
     const checkSessionVersion = async () => {
-      // 認証ページは除外
-      if (pathname === '/auth') {
+      // 認証ページ・公開フォームは除外
+      if (pathname === '/auth' || pathname.startsWith('/form/')) {
         setChecked(true);
         return;
       }
@@ -55,7 +55,7 @@ export default function ForceRelogin({ children }: { children: React.ReactNode }
   }, [pathname]);
 
   // チェック中は何も表示しない（ちらつき防止）
-  if (!checked && pathname !== '/auth') {
+  if (!checked && pathname !== '/auth' && !pathname.startsWith('/form/')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center">

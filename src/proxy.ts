@@ -201,6 +201,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // 公開フォーム（インフルエンサー請求先情報入力）— 認証不要、トークンで検証
+  if (pathname.startsWith('/form/') || pathname.startsWith('/api/form/')) {
+    return NextResponse.next()
+  }
+
   // Service-to-service bypass: allow other Clout apps to call whitelisted analytics
   // endpoints using a shared secret + pre-verified x-clout-* headers.
   // This avoids the app-slug permission check (the calling app already verified the user).

@@ -38,6 +38,7 @@ import { useCampaigns, useInfluencers, useDeleteCampaign, useBulkUpdateCampaigns
 import { useQueryClient } from '@tanstack/react-query';
 import { EditableCell, type EditableField } from '@/components/campaigns/EditableCell';
 import QuickRegister from '@/components/campaigns/QuickRegister';
+import PaymentInputUrlCell from '@/components/campaigns/PaymentInputUrlCell';
 import { calcTaxExcluded, calcTaxIncluded } from '@/lib/constants';
 
 const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), {
@@ -212,6 +213,13 @@ export default function CampaignsPage() {
     setPendingChanges(new Map());
     setActiveCell(null);
   }, []);
+
+  const refreshPaymentInputUrls = useCallback(() => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] }),
+      queryClient.invalidateQueries({ queryKey: ['influencers', currentBrand] }),
+    ]);
+  }, [currentBrand, queryClient]);
 
   const saveAllChanges = useCallback(async () => {
     if (pendingChanges.size === 0) return;
@@ -905,6 +913,7 @@ export default function CampaignsPage() {
                     <th className="table-header px-4 py-3">投稿日</th>
                     <th className="table-header px-4 py-3">エンゲージメント</th>
                     <th className="table-header px-4 py-3">投稿URL</th>
+                    <th className="table-header px-4 py-3">支払い入力URL</th>
                     <th className="table-header px-4 py-3">担当者</th>
                     <th className="table-header px-4 py-3">更新日</th>
                     <th className="table-header px-4 py-3">操作</th>
@@ -1027,6 +1036,13 @@ export default function CampaignsPage() {
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
                         )}
+                      </td>
+                      <td className="table-cell">
+                        <PaymentInputUrlCell
+                          influencer={campaign.influencer}
+                          isPaid={Number(campaign.agreed_amount || 0) > 0}
+                          onTokenGenerated={refreshPaymentInputUrls}
+                        />
                       </td>
                       <td className="table-cell">
                         {campaign.staff ? (

@@ -131,20 +131,50 @@ export function useCampaigns() {
     queryFn: async () => {
       if (IS_E2E) {
         return [] as (Campaign & {
-          influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          influencer: {
+            id: string;
+            brand: string;
+            insta_name: string | null;
+            tiktok_name: string | null;
+            insta_url: string | null;
+            tiktok_url: string | null;
+            form_token: string | null;
+            form_token_expires_at: string | null;
+            form_token_used_at: string | null;
+          } | null;
           staff: { id: string; name: string } | null;
         })[];
       }
 
       const data = await fetchApiJson<{
         campaigns: (Campaign & {
-          influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+          influencer: {
+            id: string;
+            brand: string;
+            insta_name: string | null;
+            tiktok_name: string | null;
+            insta_url: string | null;
+            tiktok_url: string | null;
+            form_token: string | null;
+            form_token_expires_at: string | null;
+            form_token_used_at: string | null;
+          } | null;
           staff: { id: string; name: string } | null;
         })[]
       }>(`/api/campaigns?brand=${encodeURIComponent(currentBrand)}`)
 
       return (data.campaigns || []) as (Campaign & {
-        influencer: { id: string; brand: string; insta_name: string | null; tiktok_name: string | null; insta_url: string | null; tiktok_url: string | null } | null;
+        influencer: {
+          id: string;
+          brand: string;
+          insta_name: string | null;
+          tiktok_name: string | null;
+          insta_url: string | null;
+          tiktok_url: string | null;
+          form_token: string | null;
+          form_token_expires_at: string | null;
+          form_token_used_at: string | null;
+        } | null;
         staff: { id: string; name: string } | null;
       })[];
     },
