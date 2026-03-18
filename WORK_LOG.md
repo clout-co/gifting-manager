@@ -413,4 +413,9 @@
   - 上記件数が本番相当DB集計と一致することを確認。
 
 本番デプロイ / 本番確認:
-- `main` 反映・production deploy・本番疎通確認をこのあと追記予定。
+- `main` へ反映済み
+- Vercel production deploy 実施済み
+- Alias: `https://gifting-manager.vercel.app`
+- `GET https://gifting-manager.vercel.app/api/health` => `200 OK`
+- `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp sign-in`
+- `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 redirect to dashboard.clout.co.jp sign-in`
