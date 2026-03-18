@@ -369,3 +369,48 @@
   - 国別表の先頭行: `アメリカ 40 / 40 / 21`, `その他 34 / 33 / 17`, `イギリス 15 / 15 / 12`
   - ランキング初期表示: `1. @_lauraseeto / 配布 1 / 投稿 1 / いいね 13,000`
   - `ドイツ` 選択時: `@multplg`, `@imdav3d` の2件に切り替わること
+
+## 作業進捗 (2026-03-18) — 支払い管理への案件反映修正
+
+現在の進捗状況:
+- 「案件登録後に投稿URLを貼っても `/payments` に表示されない」事象を、案件保存フロー・複数投稿メタ・支払い抽出条件の3層で診断。
+- `payments` API は `campaigns.post_url` 非nullのみを支払い対象とみなしていた一方、案件の投稿情報は `notes` 内 `[POSTS_JSON:...]` メタでも管理されており、将来のクライアント差異や旧データ不整合を救済できない設計だった。
+- 恒久対策として、複数投稿メタの正規化ロジックを共通 helper 化し、案件作成/更新時にサーバー側でも代表投稿サマリを同期、`payments` 取得時にも `notes` 由来の代表投稿を後方互換で解決するよう修正。
+
+完了したタスク:
+- [x] 根本原因の切り分け
+  - `src/app/api/payments/route.ts` が `post_url IS NOT NULL` に依存していることを確認。
+  - `src/components/forms/CampaignModal.tsx` では複数投稿を `notes` の `[POSTS_JSON:...]` に保存しつつ代表 `post_url` / `post_date` を送っていることを確認。
+  - 本番相当DB確認で、支払い対象抽出条件は `TL: unpaid=30 / approved=40 / paid=110` で成立している一方、支払い対象外の未払い案件には `missing_post_url` が残ることを確認。
+- [x] 共通 helper の追加
+  - `src/lib/campaign-posts.ts`
+  - 複数投稿メタの decode / normalize / summarize / encode / strip を共通化。
+  - `src/lib/campaign-posts.test.mjs`
+  - `POSTS_JSON` から代表投稿URLを再構成できることと、非公開投稿の round-trip を回帰テスト化。
+- [x] 保存時同期の強化
+  - `src/app/api/campaigns/route.ts`
+  - `src/app/api/campaigns/[id]/route.ts`
+  - `notes` に複数投稿メタが含まれる場合は、サーバー側で `post_url` / `post_date` / `likes` / `comments` / `consideration_comment` / `engagement_date` を代表サマリへ同期するよう修正。
+- [x] 支払い抽出の後方互換対応
+  - `src/app/api/payments/route.ts`
+  - DB の `post_url` 非null前提を外し、`notes` 内投稿メタから代表投稿URL/投稿日を補完した上で支払い対象判定するよう修正。
+- [x] フロント側の投稿メタ利用を共通 helper に寄せて整合性を統一
+  - `src/components/forms/CampaignModal.tsx`
+  - モーダル内の投稿メタ decode / summarize / encode / strip 実装を `src/lib/campaign-posts.ts` に統合。
+
+検証結果:
+- `npm test` pass
+- `npm run lint` pass（既存 warning 68件、今回の変更起因 error なし）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass
+  - `e2e/queue.spec.ts`
+  - `e2e/campaign-create.spec.ts`
+- `SSO_BYPASS=true` + production env でローカル API 検証
+  - `GET /api/payments?brand=TL&payment_status=unpaid` => `30件`
+  - `GET /api/payments?brand=TL&payment_status=approved` => `40件`
+  - `GET /api/payments?brand=TL&payment_status=paid` => `110件`
+  - 上記件数が本番相当DB集計と一致することを確認。
+
+本番デプロイ / 本番確認:
+- `main` 反映・production deploy・本番疎通確認をこのあと追記予定。
