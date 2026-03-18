@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { writeAuditLog } from '@/lib/clout-audit'
+import { summarizeCampaignPostsFromNotes } from '@/lib/campaign-posts'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -11,6 +12,11 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 function isAllowedBrand(value: unknown): value is AllowedBrand {
   return value === 'TL' || value === 'BE' || value === 'AM'
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  const normalized = String(value || '').trim()
+  return normalized || null
 }
 
 /** 有効なアクション */
@@ -80,13 +86,15 @@ export async function GET(request: NextRequest) {
 
   const paymentStatusFilter = request.nextUrl.searchParams.get('payment_status') || 'unpaid'
 
-  // 条件1: 案件が存在 + 条件2: post_url IS NOT NULL + 条件4: agreed_amount > 0
+  // 条件1: 案件が存在 + 条件4: agreed_amount > 0
+  // 条件2(post_urlあり) は複数投稿メタ(notes内POSTS_JSON)からの後方互換解決が必要なため
+  // アプリ側で representative post を算出して判定する。
   let query = supabase
     .from('campaigns')
     .select(`
       id, brand, influencer_id, item_code, item_quantity,
       agreed_date, offered_amount, agreed_amount, status,
-      post_date, post_url,
+      post_date, post_url, notes,
       product_cost, shipping_cost,
       payment_status, paid_at,
       approved_by, approved_by_email, approved_at,
@@ -100,7 +108,6 @@ export async function GET(request: NextRequest) {
       staff:staffs(id, name, email)
     `)
     .eq('brand', brand)
-    .not('post_url', 'is', null)
     .gt('agreed_amount', 0)
 
   // 支払いステータスフィルタ
@@ -130,11 +137,31 @@ export async function GET(request: NextRequest) {
     account_number: string | null
     account_holder: string | null
   }
-  const filtered = (data || []).filter((c: { influencer: InfluencerJoin | null }) => {
-    const inf = c.influencer
-    if (!inf) return false
-    return Boolean(inf.bank_name && inf.bank_branch && inf.account_number && inf.account_holder)
-  })
+  type PaymentRow = {
+    post_date: string | null
+    post_url: string | null
+    notes?: string | null
+    influencer: InfluencerJoin | null
+  } & Record<string, unknown>
+
+  const filtered = ((data || []) as PaymentRow[])
+    .map((row) => {
+      const postSummary = summarizeCampaignPostsFromNotes(row.notes ?? null)
+      const post_url = normalizeOptionalString(row.post_url) || postSummary.post_url
+      const post_date = normalizeOptionalString(row.post_date) || postSummary.post_date
+
+      return {
+        ...row,
+        post_url,
+        post_date,
+      }
+    })
+    .filter((campaign) => {
+      const inf = campaign.influencer
+      if (!inf) return false
+      if (!campaign.post_url) return false
+      return Boolean(inf.bank_name && inf.bank_branch && inf.account_number && inf.account_holder)
+    })
 
   return NextResponse.json(
     { campaigns: filtered },

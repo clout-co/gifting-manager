@@ -9,6 +9,7 @@ import {
   postDecisionEvents,
 } from '@/lib/clout-master'
 import { buildCampaignDecisionEvent } from '@/lib/decision-events'
+import { decodeCampaignPostsFromNotes, summarizeCampaignPosts } from '@/lib/campaign-posts'
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
 type MasterProduct = {
@@ -265,6 +266,23 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return Math.max(1, Math.floor(n))
 }
 
+function syncPostSummaryFromNotes<T extends Record<string, unknown>>(payload: T): T {
+  const notes = typeof payload.notes === 'string' ? payload.notes : null
+  const normalizedPosts = decodeCampaignPostsFromNotes(notes)
+  if (normalizedPosts.length === 0) return payload
+
+  const summary = summarizeCampaignPosts(normalizedPosts)
+  return {
+    ...payload,
+    post_date: normalizeNullish(summary.post_date),
+    post_url: normalizeNullish(summary.post_url),
+    likes: summary.likes,
+    comments: summary.comments,
+    consideration_comment: summary.consideration_comment,
+    engagement_date: normalizeNullish(summary.engagement_date),
+  }
+}
+
 function normalizeMasterSaleDate(value: unknown): string {
   const raw = String(value || '').trim()
   if (!raw) return ''
@@ -461,6 +479,10 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     if (Object.prototype.hasOwnProperty.call(body || {}, k)) {
       updates[k] = normalizeNullish(body?.[k])
     }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'notes')) {
+    Object.assign(updates, syncPostSummaryFromNotes(updates))
   }
 
   // shipping_cost: 送料計上ON/OFFを受け取り、0/800 に正規化して保持。

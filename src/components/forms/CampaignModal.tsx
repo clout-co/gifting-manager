@@ -20,6 +20,13 @@ import {
   getInfluencerPrimaryHandle,
   type SelectableInfluencer,
 } from '@/lib/influencer-search';
+import {
+  decodeCampaignPostsFromNotes,
+  encodeCampaignPostsToMeta,
+  normalizeCampaignPosts,
+  stripCampaignPostMeta,
+  summarizeCampaignPosts,
+} from '@/lib/campaign-posts';
 
 interface CampaignModalProps {
   campaign: Campaign | null;
@@ -80,10 +87,7 @@ export default function CampaignModal({
     is_international_shipping: campaign?.is_international_shipping ?? false,
     shipping_country: campaign?.shipping_country || '',
     international_shipping_cost: campaign?.international_shipping_cost ?? 0,
-    notes: String(campaign?.notes || '')
-      .replace(/\[TAGS:.*?\]\n?/g, '')
-      .replace(/\[POSTS_JSON:[A-Za-z0-9+/=]+\]\n?/g, '')
-      .trim(),
+    notes: stripCampaignPostMeta(String(campaign?.notes || '').replace(/\[TAGS:.*?\]\n?/g, '')).trim(),
     staff_id: campaign?.staff_id || '',
   });
 
@@ -132,8 +136,6 @@ export default function CampaignModal({
     const parsed = Number.parseInt(normalized, 10);
     return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
   };
-  const POSTS_META_PREFIX = '[POSTS_JSON:';
-  const POSTS_META_REGEX = /\[POSTS_JSON:([A-Za-z0-9+/=]+)\]\n?/;
 
   type CampaignPostForm = {
     post_date: string;
@@ -142,17 +144,6 @@ export default function CampaignModal({
     comments: number;
     consideration_comment: number;
     engagement_date: string;
-    is_unavailable: boolean;
-  };
-
-  type NormalizedCampaignPost = {
-    sort_order: number;
-    post_date: string | null;
-    post_url: string | null;
-    likes: number;
-    comments: number;
-    consideration_comment: number;
-    engagement_date: string | null;
     is_unavailable: boolean;
   };
 
@@ -175,135 +166,8 @@ export default function CampaignModal({
     is_unavailable: false,
   });
 
-  const decodePostsFromNotes = (notes: string | null): CampaignPostForm[] => {
-    const source = String(notes || '');
-    const match = source.match(POSTS_META_REGEX);
-    if (!match || !match[1]) return [];
-
-    try {
-      const bytes = Uint8Array.from(atob(match[1]), (ch) => ch.charCodeAt(0));
-      const decoded = new TextDecoder().decode(bytes);
-      const parsed = JSON.parse(decoded) as unknown;
-      if (!Array.isArray(parsed)) return [];
-
-      return parsed
-        .map((row: unknown) => {
-          const item = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
-          const isUnavailable = Boolean(item.is_unavailable);
-          return {
-            post_date: toDateInputValue(item.post_date),
-            post_url: String(item.post_url || '').trim(),
-            likes: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.likes ?? '0')),
-            comments: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.comments ?? '0')),
-            consideration_comment: isUnavailable ? 0 : parseNonNegativeIntFromInput(String(item.consideration_comment ?? '0')),
-            engagement_date: isUnavailable ? '' : toDateInputValue(item.engagement_date),
-            is_unavailable: isUnavailable,
-          } satisfies CampaignPostForm;
-        })
-        .filter((row) =>
-          Boolean(
-            row.post_date ||
-            row.post_url ||
-            row.likes > 0 ||
-            row.comments > 0 ||
-            row.consideration_comment > 0 ||
-            row.engagement_date ||
-            row.is_unavailable
-          )
-        );
-    } catch {
-      return [];
-    }
-  };
-
   const stripMetaFromNotes = (notes: string | null): string =>
-    String(notes || '')
-      .replace(/\[TAGS:.*?\]\n?/g, '')
-      .replace(POSTS_META_REGEX, '')
-      .trim();
-
-  const normalizePostsForSave = (source: CampaignPostForm[]): NormalizedCampaignPost[] =>
-    source
-      .map((row, index) => {
-        const isUnavailable = Boolean(row.is_unavailable);
-        const postDate = toDateInputValue(row.post_date) || null;
-        const postUrl = String(row.post_url || '').trim() || null;
-        const likes = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.likes ?? '0'));
-        const comments = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.comments ?? '0'));
-        const consideration = isUnavailable ? 0 : parseNonNegativeIntFromInput(String(row.consideration_comment ?? '0'));
-        const engagementDate = isUnavailable ? null : (toDateInputValue(row.engagement_date) || null);
-
-        return {
-          sort_order: index,
-          post_date: postDate,
-          post_url: postUrl,
-          likes,
-          comments,
-          consideration_comment: consideration,
-          engagement_date: engagementDate,
-          is_unavailable: isUnavailable,
-        } satisfies NormalizedCampaignPost;
-      })
-      .filter((row) =>
-        Boolean(
-          row.post_date ||
-          row.post_url ||
-          row.likes > 0 ||
-          row.comments > 0 ||
-          row.consideration_comment > 0 ||
-          row.engagement_date ||
-          row.is_unavailable
-        )
-      );
-
-  const summarizePosts = (source: NormalizedCampaignPost[]) => {
-    if (!source.length) {
-      return {
-        post_date: null as string | null,
-        post_url: null as string | null,
-        likes: 0,
-        comments: 0,
-        consideration_comment: 0,
-        engagement_date: null as string | null,
-      };
-    }
-
-    const totalLikes = source.reduce((sum, row) => sum + row.likes, 0);
-    const totalComments = source.reduce((sum, row) => sum + row.comments, 0);
-    const totalConsideration = source.reduce((sum, row) => sum + row.consideration_comment, 0);
-
-    const latestPostByDate = source
-      .filter((row) => row.post_date)
-      .sort((a, b) => String(a.post_date).localeCompare(String(b.post_date)))
-      .at(-1);
-    const latestPostByOrder = source.at(-1) || null;
-    const representative = latestPostByDate || latestPostByOrder;
-
-    const latestEngagementDate = source
-      .filter((row) => row.engagement_date)
-      .sort((a, b) => String(a.engagement_date).localeCompare(String(b.engagement_date)))
-      .at(-1)?.engagement_date || null;
-
-    return {
-      post_date: representative?.post_date || null,
-      post_url: representative?.post_url || null,
-      likes: totalLikes,
-      comments: totalComments,
-      consideration_comment: totalConsideration,
-      engagement_date: latestEngagementDate,
-    };
-  };
-
-  const encodePostsToMeta = (source: NormalizedCampaignPost[]): string => {
-    if (!source.length) return '';
-    const json = JSON.stringify(source);
-    const bytes = new TextEncoder().encode(json);
-    let binary = '';
-    bytes.forEach((byte) => {
-      binary += String.fromCharCode(byte);
-    });
-    return `${POSTS_META_PREFIX}${btoa(binary)}]\n`;
-  };
+    stripCampaignPostMeta(String(notes || '').replace(/\[TAGS:.*?\]\n?/g, '')).trim();
 
   const canonicalizeProductCode = (value: string) =>
     normalizeProductCodeInput(value)
@@ -695,7 +559,15 @@ export default function CampaignModal({
   };
 
   const [tags, setTags] = useState<string[]>(extractTags(campaign?.notes || null));
-  const initialPostsFromNotes = decodePostsFromNotes(campaign?.notes || null);
+  const initialPostsFromNotes = decodeCampaignPostsFromNotes(campaign?.notes || null).map((post) => ({
+    post_date: toDateInputValue(post.post_date),
+    post_url: String(post.post_url || '').trim(),
+    likes: post.is_unavailable ? 0 : parseNonNegativeIntFromInput(String(post.likes ?? '0')),
+    comments: post.is_unavailable ? 0 : parseNonNegativeIntFromInput(String(post.comments ?? '0')),
+    consideration_comment: post.is_unavailable ? 0 : parseNonNegativeIntFromInput(String(post.consideration_comment ?? '0')),
+    engagement_date: post.is_unavailable ? '' : toDateInputValue(post.engagement_date),
+    is_unavailable: Boolean(post.is_unavailable),
+  }));
   const [posts, setPosts] = useState<CampaignPostForm[]>(() => {
     if (initialPostsFromNotes.length > 0) return initialPostsFromNotes;
 
@@ -796,8 +668,8 @@ export default function CampaignModal({
         }
       }
 
-      const normalizedPosts = normalizePostsForSave(posts);
-      const postSummary = summarizePosts(normalizedPosts);
+      const normalizedPosts = normalizeCampaignPosts(posts);
+      const postSummary = summarizeCampaignPosts(normalizedPosts);
 
       // 既存のメタ行は除去し、最新の tags/posts を組み立てる
       let updatedNotes = stripMetaFromNotes(formData.notes || '');
@@ -818,7 +690,7 @@ export default function CampaignModal({
       if (tagsForSave.length > 0) {
         notesPrefix.push(`[TAGS:${tagsForSave.join(',')}]`);
       }
-      const postsMeta = encodePostsToMeta(normalizedPosts).trim();
+      const postsMeta = encodeCampaignPostsToMeta(normalizedPosts).trim();
       if (postsMeta) {
         notesPrefix.push(postsMeta);
       }
@@ -1071,7 +943,7 @@ export default function CampaignModal({
     isInternationalReady;
 
   const currentPostSummary = useMemo(
-    () => summarizePosts(normalizePostsForSave(posts)),
+    () => summarizeCampaignPosts(normalizeCampaignPosts(posts)),
     [posts]
   );
 
