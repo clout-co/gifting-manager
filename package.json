@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test src/lib/influencer-search.test.mjs src/lib/dashboard-country-stats.test.mjs src/lib/campaign-posts.test.mjs",
+    "test": "node --test src/lib/influencer-search.test.mjs src/lib/dashboard-country-stats.test.mjs src/lib/campaign-posts.test.mjs src/lib/influencer-form-token.test.mjs",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "e2e": "playwright test",
@@ -29,6 +29,7 @@
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
     "xlsx": "^0.18.5",
+    "zengin-code": "^1.0.0-p20260225",
     "zod": "^4.3.6"
   },
   "devDependencies": {

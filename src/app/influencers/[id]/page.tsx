@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast, translateError } from '@/lib/toast';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useBrand } from '@/contexts/BrandContext';
+import FormTokenButton from '@/components/influencers/FormTokenButton';
 import {
   ArrowLeft,
   Instagram,
@@ -485,6 +486,8 @@ export default function InfluencerDetailPage() {
             </div>
           )}
         </div>
+
+        <FormTokenButton influencer={influencer} onTokenGenerated={() => void fetchInfluencer()} />
 
         {/* リンク */}
         <div className="card">

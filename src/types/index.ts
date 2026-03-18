@@ -15,7 +15,28 @@ export interface Influencer {
   insta_url: string | null;
   tiktok_name: string | null;
   tiktok_url: string | null;
+  // 本人情報
+  real_name: string | null;
+  postal_code: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  // 振込先情報
+  bank_name: string | null;
+  bank_branch: string | null;
+  bank_code: string | null;
+  branch_code: string | null;
+  account_type: string | null;
+  account_number: string | null;
+  account_holder: string | null;
+  // インボイス情報
+  invoice_registration_number: string | null;
+  invoice_acknowledged: boolean;
   brand: string; // ブランド紐付け（TL, BE, AM）
+  // フォームトークン（公開情報収集フォーム用）
+  form_token: string | null;
+  form_token_expires_at: string | null;
+  form_token_used_at: string | null;
   created_at: string;
   updated_at: string;
 }

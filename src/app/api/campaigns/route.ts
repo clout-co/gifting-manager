@@ -350,7 +350,10 @@ export async function GET(request: NextRequest) {
       product_cost, shipping_cost,
       is_international_shipping, shipping_country, international_shipping_cost,
       notes, staff_id, created_at, updated_at,
-      influencer:influencers(id, brand, insta_name, tiktok_name, insta_url, tiktok_url),
+      influencer:influencers(
+        id, brand, insta_name, tiktok_name, insta_url, tiktok_url,
+        form_token, form_token_expires_at, form_token_used_at
+      ),
       staff:staffs(id, name)
     `)
     .eq('brand', brand)
