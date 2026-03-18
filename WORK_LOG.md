@@ -419,3 +419,74 @@
 - `GET https://gifting-manager.vercel.app/api/health` => `200 OK`
 - `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp sign-in`
 - `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 redirect to dashboard.clout.co.jp sign-in`
+
+## 作業進捗 (2026-03-18) — 有償GG向け支払い入力URLの復旧
+
+現在の進捗状況:
+- 「有償GGに支払いの際に入力してもらうURLがない」事象を、`main` の UI 導線・公開フォーム・認証バイパス・DB マイグレーションの4層で診断。
+- 元実装は別作業ツリーには残っていたが、`origin/main` には `form_token` 発行 API、公開 `/form/[token]`、`/campaigns` 側の導線が載っていない状態だった。
+- 恒久対策として、公開フォーム一式を `main` に復旧しつつ、要望どおり `/campaigns` 一覧の有償案件から直接 URL 発行/再発行できる導線を追加。
+
+完了したタスク:
+- [x] 根本原因の切り分け
+  - `main` には `payments` が参照する銀行/インボイス系カラム前提は残っていた一方、公開フォーム用トークン導線だけが欠落していることを確認。
+  - 元実装は未反映の作業ツリーに `FormTokenButton`、`/api/influencers/[id]/form-token`、`/form/[token]`、銀行検索 API として残っていることを確認。
+- [x] 公開フォーム機能の復旧
+  - `src/app/api/influencers/[id]/form-token/route.ts`
+  - `src/app/form/[token]/page.tsx`
+  - `src/app/form/[token]/PublicInfluencerForm.tsx`
+  - `src/app/api/form/[token]/route.ts`
+  - `src/app/api/form/banks/route.ts`
+  - `src/app/api/form/banks/[code]/branches/route.ts`
+  - `src/hooks/useBankSearch.ts`
+  - 30日有効の token 発行、公開フォーム表示、送信後の `form_token_used_at` 記録、銀行/支店検索まで復旧。
+- [x] `/campaigns` からの導線追加
+  - `src/components/campaigns/PaymentInputUrlCell.tsx`
+  - `src/app/campaigns/page.tsx`
+  - 有償案件 (`agreed_amount > 0`) にのみ `支払い入力URL` 列を追加し、`未発行 / 発行済み / 入力済み / 期限切れ` 状態表示と `URL発行 / コピー / 再発行` を実装。
+- [x] 既存管理画面への復旧
+  - `src/components/influencers/FormTokenButton.tsx`
+  - `src/app/influencers/[id]/page.tsx`
+  - 以前存在していたインフルエンサー詳細のフォーム発行カードを復旧。
+- [x] 認証・型・マイグレーション整備
+  - `src/proxy.ts`
+  - `src/components/ForceRelogin.tsx`
+  - `src/types/index.ts`
+  - `src/lib/influencer-form-token.ts`
+  - `src/lib/influencer-form-token.test.mjs`
+  - `src/types/zengin-code.d.ts`
+  - `supabase/migrations/20260304_add_form_token.sql`
+  - `supabase/migrations/20260304_add_influencer_personal_bank.sql`
+  - `supabase/migrations/20260305_add_bank_branch_codes.sql`
+  - `supabase/migrations/20260305_add_invoice_fields.sql`
+  - 公開 `/form/*` と `/api/form/*` を SSO バイパス対象に追加し、欠けていた型・migration 履歴も `main` に戻した。
+
+検証結果:
+- `npm test` pass
+- `npm run lint` pass（既存 warning 68件、今回の変更起因 error なし）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass
+  - `e2e/queue.spec.ts`
+  - `e2e/campaign-create.spec.ts`
+- `SSO_BYPASS=true` + production env でローカル本番相当検証
+  - テスト用 influencer / campaign を作成し、`/campaigns` に `支払い入力URL` 列が表示されることを確認。
+  - `POST /api/influencers/:id/form-token` => `200 OK`
+  - `GET /form/[token]` => `200 OK`
+  - `POST /api/form/[token]` => `200 OK`
+  - 同一 token 再送信 => `409 このフォームは既に送信済みです`
+  - Supabase 本番相当 DB で `form_token_used_at` と銀行情報更新を確認。
+
+本番デプロイ / 本番確認:
+- `origin/main` 反映 commit: `a24acfa` (`merge: restore payment input form links`)
+- Vercel production deploy 実施済み
+- Deployment: `dpl_Kv4hTsyqYaftn35X93PU1yhgKK9T`
+- Alias: `https://gifting-manager.vercel.app`
+- `GET https://gifting-manager.vercel.app/api/health` => `200 OK`, `ok=true`
+- `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- production の公開フォームで、
+  - `/form/[token]` に `請求先情報入力フォーム` が表示されること
+  - 送信後に `送信完了` 画面へ遷移すること
+  - DB 上で `form_token_used_at` と入力値が更新されること
+  を確認。
