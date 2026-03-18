@@ -542,3 +542,44 @@
 - `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp`
 - `GET https://gifting-manager.vercel.app/queue` (未認証) => `307 redirect to dashboard.clout.co.jp`
 - 認証後の `/queue -> /campaigns?ops=needsInput` は `npm run e2e` で確認済み
+
+## 作業進捗 (2026-03-18) — 支払い入力URL導線をインフルエンサー側へ集約
+
+現在の進捗状況:
+- 「支払い入力URLは案件ではなく人に紐づくべき」という方針に合わせ、`campaigns` 側に残っていた発行導線を撤去。
+- 正式な発行場所を `influencers` 側に寄せ、案件一覧には支払い入力URLの表示・発行・再発行を一切持たせない形へ整理。
+- あわせて `campaigns` 取得APIと hook から不要な `form_token*` 依存を削除し、見えない結合も解消。
+
+完了したタスク:
+- [x] `campaigns` 側の支払い入力URL導線を撤去
+  - `src/app/campaigns/page.tsx`
+  - `支払い入力URL` 列と `PaymentInputUrlCell` 呼び出しを削除。
+- [x] 不要コンポーネントと取得依存を削除
+  - `src/components/campaigns/PaymentInputUrlCell.tsx`
+  - `src/app/api/campaigns/route.ts`
+  - `src/hooks/useQueries.ts`
+  - campaigns 一覧取得で不要になった `form_token`, `form_token_expires_at`, `form_token_used_at` を除去。
+- [x] インフルエンサー側の正式導線を補強
+  - `src/app/influencers/page.tsx`
+  - 一覧テーブル/カードの両方に `請求先フォーム` 導線を追加し、詳細ページから URL 発行できるよう明示。
+  - 実際の発行UIは既存どおり `src/app/influencers/[id]/page.tsx` の `FormTokenButton` を正式導線として維持。
+
+検証結果:
+- `npm test` pass
+- `npm run lint` pass（既存 warning 63件、今回の変更起因 error なし）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass
+  - `e2e/queue.spec.ts`
+  - `e2e/campaign-create.spec.ts`
+
+本番デプロイ / 本番確認:
+- `main` 反映 commit: `ba50c34` (`refactor: move payment url workflow to influencers`)
+- Vercel production deploy 実施済み
+- Deployment: `dpl_6KcjD9ncW5HafPqnCWaD1EWrCkKQ`
+- Alias: `https://gifting-manager.vercel.app`
+- `GET https://gifting-manager.vercel.app/api/health` => `200 OK`, `ok=true`
+- `GET https://gifting-manager.vercel.app/influencers` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- `GET https://gifting-manager.vercel.app/campaigns` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- 認証済み本番セッションでの一覧最終目視は未実施。UI 上の導線変更自体は `npm run e2e` と local build で確認済み。
