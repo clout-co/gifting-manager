@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Influencer, InfluencerWithScore } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +18,7 @@ import {
   Trash2,
   Instagram,
   ExternalLink,
+  Link2,
   Users,
   SortAsc,
   SortDesc,
@@ -217,6 +219,7 @@ export default function InfluencersPage() {
                     <th className="table-header px-4 py-2.5 text-xs text-right">いいね</th>
                     <th className="table-header px-4 py-2.5 text-xs text-right">支出</th>
                     <th className="table-header px-4 py-2.5 text-xs text-right">いいね単価</th>
+                    <th className="table-header px-4 py-2.5 text-xs text-center">請求先フォーム</th>
                     <th className="table-header px-4 py-2.5 text-xs text-center w-24">操作</th>
                   </tr>
                 </thead>
@@ -244,6 +247,15 @@ export default function InfluencersPage() {
                         }>
                           {inf.costPerLike > 0 ? fmtYen(inf.costPerLike) : '-'}
                         </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <Link
+                          href={`/influencers/${inf.id}`}
+                          className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Link2 size={12} />
+                          詳細で発行
+                        </Link>
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-center gap-1">
@@ -318,6 +330,13 @@ export default function InfluencersPage() {
                       Instagram
                     </a>
                   )}
+                  <Link
+                    href={`/influencers/${inf.id}`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Link2 size={12} />
+                    請求先フォーム
+                  </Link>
                   <div className="flex-1" />
                   <button onClick={() => handleEdit(inf)} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="編集">
                     <Edit2 size={14} />

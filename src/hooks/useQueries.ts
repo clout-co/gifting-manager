@@ -138,9 +138,6 @@ export function useCampaigns() {
             tiktok_name: string | null;
             insta_url: string | null;
             tiktok_url: string | null;
-            form_token: string | null;
-            form_token_expires_at: string | null;
-            form_token_used_at: string | null;
           } | null;
           staff: { id: string; name: string } | null;
         })[];
@@ -155,9 +152,6 @@ export function useCampaigns() {
             tiktok_name: string | null;
             insta_url: string | null;
             tiktok_url: string | null;
-            form_token: string | null;
-            form_token_expires_at: string | null;
-            form_token_used_at: string | null;
           } | null;
           staff: { id: string; name: string } | null;
         })[]
@@ -171,9 +165,6 @@ export function useCampaigns() {
           tiktok_name: string | null;
           insta_url: string | null;
           tiktok_url: string | null;
-          form_token: string | null;
-          form_token_expires_at: string | null;
-          form_token_used_at: string | null;
         } | null;
         staff: { id: string; name: string } | null;
       })[];
