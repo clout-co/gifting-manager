@@ -574,9 +574,8 @@
   - `e2e/campaign-create.spec.ts`
 
 本番デプロイ / 本番確認:
-- `main` 反映 commit: `ba50c34` (`refactor: move payment url workflow to influencers`)
+- `main` へ反映済み
 - Vercel production deploy 実施済み
-- Deployment: `dpl_6KcjD9ncW5HafPqnCWaD1EWrCkKQ`
 - Alias: `https://gifting-manager.vercel.app`
 - `GET https://gifting-manager.vercel.app/api/health` => `200 OK`, `ok=true`
 - `GET https://gifting-manager.vercel.app/influencers` (未認証) => `307 redirect to dashboard.clout.co.jp`
