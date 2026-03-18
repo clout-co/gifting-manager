@@ -490,3 +490,55 @@
   - 送信後に `送信完了` 画面へ遷移すること
   - DB 上で `form_token_used_at` と入力値が更新されること
   を確認。
+
+## 作業進捗 (2026-03-18) — 支払い導線の状態統一 + 旧要入力キューの縮退
+
+現在の進捗状況:
+- 支払い入力 URL / 支払い管理 / 旧 `/queue` の再発を横断診断し、原因が「ページ単位の欠損」ではなく「運用状態の定義が UI ごとに分岐していたこと」にあると確定。
+- `main` 上では `/queue` がまだ残っており、`campaigns` の欠損フィルタ、`payments` の表示条件、支払い入力 URL の状態表示が別ロジックで動いていた。
+- 恒久対策の第一段として、欠損判定と支払い表示条件を共通 helper に寄せ、旧 `/queue` は `campaigns` の `要入力` フィルタへ吸収した。
+
+完了したタスク:
+- [x] 構造診断
+  - `src/components/layout/navigation.ts`
+  - `src/app/queue/page.tsx`
+  - `src/app/campaigns/page.tsx`
+  - `src/app/api/payments/route.ts`
+  - `src/components/campaigns/PaymentInputUrlCell.tsx`
+  - `queue` / `campaigns` / `payments` がそれぞれ別基準で「要入力」「支払い対象」を判定していたことを確認。
+- [x] 共通状態 helper の追加
+  - `src/lib/campaign-requirements.ts`
+  - `src/lib/campaign-requirements.test.mjs`
+  - `src/lib/campaign-posts.js`
+  - 代表投稿 URL 解決、`要入力` 判定、銀行情報を含む支払い表示可否を 1 か所へ集約。
+- [x] `campaigns` への運用導線集約
+  - `src/app/campaigns/page.tsx`
+  - `ops=needsInput` URL パラメータと `要入力` チップを追加し、旧 queue の役割を案件一覧へ吸収。
+  - 一括編集で残っていた client-side `supabase.from('campaigns')` 更新も既存 BFF (`/api/campaigns/bulk-update`) 経由へ統一。
+- [x] 旧 `/queue` の縮退
+  - `src/app/queue/page.tsx`
+  - `src/components/layout/navigation.ts`
+  - ナビから `要入力キュー` を削除し、旧 `/queue` は `/campaigns?ops=needsInput` へリダイレクトする後方互換導線へ変更。
+- [x] `payments` 表示条件の共通化
+  - `src/app/api/payments/route.ts`
+  - 代表投稿 URL の notes 補完と銀行情報チェックを新 helper に寄せ、`campaigns` と `payments` の判定差を解消。
+- [x] 回帰テスト更新
+  - `e2e/queue.spec.ts`
+  - 旧 `/queue` 直アクセスが `campaigns` の `要入力` フィルタへ流れることを E2E で固定。
+
+検証結果:
+- `npm test` pass
+- `npm run lint` pass（既存 warning 63件、今回の変更起因 error なし）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass
+  - `e2e/queue.spec.ts`
+  - `e2e/campaign-create.spec.ts`
+
+本番デプロイ / 本番確認:
+- `main` 反映後、Vercel production deploy 実施
+- `GET https://gifting-manager.vercel.app/api/health` => `200 OK`
+- `GET https://gifting-manager.vercel.app/dashboard` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- `GET https://gifting-manager.vercel.app/queue` (未認証) => `307 redirect to dashboard.clout.co.jp`
+- 認証後の `/queue -> /campaigns?ops=needsInput` は `npm run e2e` で確認済み
