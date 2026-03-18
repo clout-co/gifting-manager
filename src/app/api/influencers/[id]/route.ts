@@ -10,6 +10,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+function isE2E(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_E2E === 'true'
+}
+
 function isAllowedBrand(value: unknown): value is AllowedBrand {
   return value === 'TL' || value === 'BE' || value === 'AM'
 }
@@ -25,6 +29,113 @@ export async function GET(request: NextRequest, ctx: Ctx) {
   const auth = await requireAuthContext(request)
   if (!auth.ok) {
     return auth.response
+  }
+
+  const { id } = await ctx.params
+  if (!id) {
+    return NextResponse.json({ error: 'id is required' }, { status: 400 })
+  }
+
+  const expectedBrand = String(request.nextUrl.searchParams.get('brand') || '')
+    .trim()
+    .toUpperCase()
+  if (expectedBrand && !isAllowedBrand(expectedBrand)) {
+    return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+  }
+
+  if (isE2E()) {
+    const rows = [
+      {
+        id: 'e2e-influencer-tl',
+        brand: 'TL',
+        insta_name: 'e2e_insta',
+        insta_url: null,
+        tiktok_name: null,
+        tiktok_url: null,
+        real_name: null,
+        postal_code: null,
+        address: null,
+        phone: null,
+        email: null,
+        bank_name: null,
+        bank_branch: null,
+        bank_code: null,
+        branch_code: null,
+        account_type: null,
+        account_number: null,
+        account_holder: null,
+        invoice_registration_number: null,
+        invoice_acknowledged: false,
+        form_token: null,
+        form_token_expires_at: null,
+        form_token_used_at: null,
+        created_at: '2026-02-06T00:00:00.000Z',
+        updated_at: '2026-02-06T00:00:00.000Z',
+      },
+      {
+        id: 'e2e-influencer-be',
+        brand: 'BE',
+        insta_name: 'e2e_insta_be',
+        insta_url: null,
+        tiktok_name: null,
+        tiktok_url: null,
+        real_name: null,
+        postal_code: null,
+        address: null,
+        phone: null,
+        email: null,
+        bank_name: null,
+        bank_branch: null,
+        bank_code: null,
+        branch_code: null,
+        account_type: null,
+        account_number: null,
+        account_holder: null,
+        invoice_registration_number: null,
+        invoice_acknowledged: false,
+        form_token: null,
+        form_token_expires_at: null,
+        form_token_used_at: null,
+        created_at: '2026-02-06T00:00:00.000Z',
+        updated_at: '2026-02-06T00:00:00.000Z',
+      },
+      {
+        id: 'e2e-influencer-am',
+        brand: 'AM',
+        insta_name: 'e2e_insta_am',
+        insta_url: null,
+        tiktok_name: null,
+        tiktok_url: null,
+        real_name: null,
+        postal_code: null,
+        address: null,
+        phone: null,
+        email: null,
+        bank_name: null,
+        bank_branch: null,
+        bank_code: null,
+        branch_code: null,
+        account_type: null,
+        account_number: null,
+        account_holder: null,
+        invoice_registration_number: null,
+        invoice_acknowledged: false,
+        form_token: null,
+        form_token_expires_at: null,
+        form_token_used_at: null,
+        created_at: '2026-02-06T00:00:00.000Z',
+        updated_at: '2026-02-06T00:00:00.000Z',
+      },
+    ] as const
+
+    const row = rows.find((item) => item.id === id)
+    if (!row) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    if (expectedBrand && row.brand !== expectedBrand) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({ influencer: row }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   let supabaseCtx: ReturnType<typeof createSupabaseForRequest>
@@ -51,18 +162,6 @@ export async function GET(request: NextRequest, ctx: Ctx) {
     )
   }
   const supabase = supabaseCtx.client
-
-  const { id } = await ctx.params
-  if (!id) {
-    return NextResponse.json({ error: 'id is required' }, { status: 400 })
-  }
-
-  const expectedBrand = String(request.nextUrl.searchParams.get('brand') || '')
-    .trim()
-    .toUpperCase()
-  if (expectedBrand && !isAllowedBrand(expectedBrand)) {
-    return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
-  }
 
   const { data, error } = await supabase
     .from('influencers')

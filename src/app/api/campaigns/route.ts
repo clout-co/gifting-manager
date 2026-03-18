@@ -298,15 +298,70 @@ export async function GET(request: NextRequest) {
     return auth.response
   }
 
-  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
-    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
-  }
-
   const brand = String(request.nextUrl.searchParams.get('brand') || '')
     .trim()
     .toUpperCase()
+  const influencerId = String(request.nextUrl.searchParams.get('influencer_id') || '').trim()
   if (!isAllowedBrand(brand)) {
     return NextResponse.json({ error: 'Invalid brand' }, { status: 400 })
+  }
+
+  if (isE2E()) {
+    const campaigns =
+      influencerId === 'e2e-influencer-tl' && brand === 'TL'
+        ? [
+            {
+              id: 'e2e-campaign-tl-1',
+              brand: 'TL',
+              influencer_id: 'e2e-influencer-tl',
+              item_code: 'TF2408',
+              item_quantity: 1,
+              sale_date: '2026-02-20',
+              desired_post_date: null,
+              desired_post_start: null,
+              desired_post_end: null,
+              agreed_date: null,
+              offered_amount: 0,
+              agreed_amount: 0,
+              status: 'pending',
+              post_status: null,
+              post_date: null,
+              post_url: null,
+              likes: 0,
+              comments: 0,
+              consideration_comment: 0,
+              engagement_date: null,
+              number_of_times: null,
+              product_cost: 0,
+              shipping_cost: 0,
+              is_international_shipping: false,
+              shipping_country: null,
+              international_shipping_cost: null,
+              notes: null,
+              staff_id: null,
+              created_at: '2026-02-06T00:00:00.000Z',
+              updated_at: '2026-02-06T00:00:00.000Z',
+              influencer: {
+                id: 'e2e-influencer-tl',
+                brand: 'TL',
+                insta_name: 'e2e_insta',
+                tiktok_name: null,
+                insta_url: null,
+                tiktok_url: null,
+              },
+              staff: null,
+            },
+          ]
+        : []
+
+    return NextResponse.json(
+      { campaigns },
+      { headers: { 'Cache-Control': 'private, max-age=30' } }
+    )
+  }
+
+  if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
+    return NextResponse.json({ error: 'Missing Supabase env vars' }, { status: 500 })
   }
 
   const allowedBrands = auth.context.brands
@@ -339,7 +394,7 @@ export async function GET(request: NextRequest) {
   }
   const supabase = supabaseCtx.client
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('campaigns')
     .select(`
       id, brand, influencer_id, item_code, item_quantity, sale_date,
@@ -356,7 +411,12 @@ export async function GET(request: NextRequest) {
       staff:staffs(id, name)
     `)
     .eq('brand', brand)
-    .order('created_at', { ascending: false })
+
+  if (influencerId) {
+    query = query.eq('influencer_id', influencerId)
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     return NextResponse.json({ error: error.message || 'Failed to fetch campaigns' }, { status: 500 })

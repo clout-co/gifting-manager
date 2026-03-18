@@ -582,3 +582,41 @@
 - `GET https://gifting-manager.vercel.app/campaigns` (未認証) => `307 redirect to dashboard.clout.co.jp`
 - `GET https://gifting-manager.vercel.app/payments` (未認証) => `307 redirect to dashboard.clout.co.jp`
 - 認証済み本番セッションでの一覧最終目視は未実施。UI 上の導線変更自体は `npm run e2e` と local build で確認済み。
+
+## 作業進捗 (2026-03-18) — 本番確認で判明したインフルエンサー詳細導線のBFF修正
+
+現在の進捗状況:
+- 本番の認証済み `/influencers` 一覧では `請求先フォーム` 列と `詳細で発行` 導線が表示されていることを確認。
+- ただし詳細ページ `/influencers/[id]` は、一覧から遷移してもクライアント側の Supabase 直参照が `406` で失敗し、一覧へ戻される状態だった。
+- 詳細読み込みを BFF (`/api/influencers/[id]`, `/api/campaigns`) 経由へ統一し、本番の認可経路と画面表示経路を一致させた。
+
+完了したタスク:
+- [x] インフルエンサー詳細の直 Supabase 参照を除去
+  - `src/app/influencers/[id]/page.tsx`
+  - 詳細ページは `fetch('/api/influencers/[id]?brand=...')` と `fetch('/api/campaigns?brand=...&influencer_id=...')` で取得する形へ変更。
+- [x] campaigns API にインフルエンサー絞り込みを追加
+  - `src/app/api/campaigns/route.ts`
+  - `influencer_id` query param でサーバー側フィルタ可能にし、詳細ページのために全件取得しない構造へ整理。
+- [x] E2E stub と回帰テストを追加
+  - `src/app/api/influencers/[id]/route.ts`
+  - `src/app/api/campaigns/route.ts`
+  - `e2e/influencer-detail.spec.ts`
+  - E2E でも詳細画面が BFF 経由で開けるようにし、`請求先情報フォーム` セクション表示を固定。
+
+検証結果:
+- `npm test` pass
+- `npm run lint` pass（既存 warning 63件、今回の変更起因 error なし）
+- `npm run type-check` pass
+- `npm run build` pass
+- `npm run e2e` pass
+  - `e2e/queue.spec.ts`
+  - `e2e/campaign-create.spec.ts`
+  - `e2e/influencer-detail.spec.ts`
+
+本番確認:
+- 認証済み本番セッションで `/influencers` 一覧を Playwright で確認
+  - `請求先フォーム` 列が表示されること
+  - 各行に `詳細で発行` リンクが表示されること
+- 一覧から詳細発行導線を確認中、クライアント直 Supabase 読み込みが `406` で失敗していることを本番で検知
+- 同一セッションで `GET /api/influencers/{id}?brand=TL` は `200` を返すことを確認し、BFF 側が正しい読み込み経路であると切り分け
+- 上記を踏まえて修正し、以後は詳細画面も BFF 前提で再発防止する構成にした

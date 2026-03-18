@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Influencer, Campaign } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,50 +69,42 @@ export default function InfluencerDetailPage() {
   const influencerId = params.id as string;
 
   const fetchInfluencer = useCallback(async () => {
-    if (!influencerId) return;
+    if (!influencerId || !currentBrand) return;
 
     setLoading(true);
     try {
-      // インフルエンサー情報を取得（ブランドも確認）
-      let influencerRes = await supabase
-        .from('influencers')
-        .select('*')
-        .eq('id', influencerId)
-        .eq('brand', currentBrand)
-        .single();
+      const [influencerResponse, campaignsResponse] = await Promise.all([
+        fetch(`/api/influencers/${encodeURIComponent(influencerId)}?brand=${encodeURIComponent(currentBrand)}`, {
+          cache: 'no-store',
+        }),
+        fetch(
+          `/api/campaigns?brand=${encodeURIComponent(currentBrand)}&influencer_id=${encodeURIComponent(influencerId)}`,
+          { cache: 'no-store' }
+        ),
+      ]);
 
-      // brandカラムが存在しない場合のフォールバック
-      if (influencerRes.error && influencerRes.error.message.includes('brand')) {
-        influencerRes = await supabase
-          .from('influencers')
-          .select('*')
-          .eq('id', influencerId)
-          .single();
+      if (influencerResponse.status === 404) {
+        showToast('error', 'このインフルエンサーは現在のブランドに属していません');
+        router.push('/influencers');
+        return;
       }
 
-      const { data: influencerData, error: influencerError } = influencerRes;
-
-      if (influencerError) {
-        // ブランドが異なる場合はインフルエンサー一覧にリダイレクト
-        if (influencerError.code === 'PGRST116') {
-          showToast('error', 'このインフルエンサーは現在のブランドに属していません');
-          router.push('/influencers');
-          return;
-        }
-        throw influencerError;
+      const influencerPayload = await influencerResponse.json().catch(() => null);
+      if (!influencerResponse.ok) {
+        throw new Error(influencerPayload?.error || 'Failed to fetch influencer');
       }
 
-      // キャンペーン情報を取得
-      const { data: campaignsData, error: campaignsError } = await supabase
-        .from('campaigns')
-        .select('*')
-        .eq('influencer_id', influencerId)
-        .eq('brand', currentBrand)
-        .order('created_at', { ascending: false });
+      const campaignsPayload = await campaignsResponse.json().catch(() => null);
+      if (!campaignsResponse.ok) {
+        throw new Error(campaignsPayload?.error || 'Failed to fetch campaigns');
+      }
 
-      if (campaignsError) throw campaignsError;
+      const influencerData = influencerPayload?.influencer as Influencer | undefined;
+      if (!influencerData) {
+        throw new Error('Failed to fetch influencer');
+      }
 
-      const campaigns = campaignsData || [];
+      const campaigns = (campaignsPayload?.campaigns || []) as Campaign[];
 
       // 統計を計算
       const totalCampaigns = campaigns.length;
