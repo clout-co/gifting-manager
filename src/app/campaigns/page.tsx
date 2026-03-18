@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { Campaign, Influencer } from '@/types';
+import { Campaign } from '@/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast, translateError } from '@/lib/toast';
@@ -17,7 +16,6 @@ import {
   Search,
   Edit2,
   Trash2,
-  ExternalLink,
   Filter,
   Heart,
   MessageCircle,
@@ -40,6 +38,13 @@ import { EditableCell, type EditableField } from '@/components/campaigns/Editabl
 import QuickRegister from '@/components/campaigns/QuickRegister';
 import PaymentInputUrlCell from '@/components/campaigns/PaymentInputUrlCell';
 import { calcTaxExcluded, calcTaxIncluded } from '@/lib/constants';
+import {
+  CAMPAIGN_OPS_FILTER_KEYS,
+  type CampaignOpsFilterKey,
+  getCampaignOpsIssues,
+  hasUnavailableEngagementTag,
+  isPaidCampaign,
+} from '@/lib/campaign-requirements';
 
 const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), {
   ssr: false,
@@ -55,24 +60,37 @@ const CampaignModal = dynamic(() => import('@/components/forms/CampaignModal'), 
   ),
 });
 
-const ENGAGEMENT_UNAVAILABLE_TAG = '非公開または削除済み';
+type OpsFilterState = Record<CampaignOpsFilterKey, boolean>;
 
-function extractTags(notes: string | null | undefined): string[] {
-  const source = String(notes || '');
-  const match = source.match(/\[TAGS:(.*?)\]/);
-  if (!match) return [];
-  return match[1]
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+function createEmptyOpsFilters(): OpsFilterState {
+  return {
+    needsInput: false,
+    missingItemCode: false,
+    missingCost: false,
+    missingPostUrl: false,
+    missingEngagement: false,
+  };
 }
 
-function hasUnavailableEngagementTag(notes: string | null | undefined): boolean {
-  return extractTags(notes).includes(ENGAGEMENT_UNAVAILABLE_TAG);
+function parseOpsFilters(searchParams: Pick<URLSearchParams, 'get'>): OpsFilterState {
+  const active = new Set(
+    String(searchParams.get('ops') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value): value is CampaignOpsFilterKey =>
+        (CAMPAIGN_OPS_FILTER_KEYS as readonly string[]).includes(value)
+      )
+  );
+
+  const next = createEmptyOpsFilters();
+  for (const key of CAMPAIGN_OPS_FILTER_KEYS) {
+    next[key] = active.has(key);
+  }
+  return next;
 }
 
 export default function CampaignsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { confirm } = useConfirm();
   const { currentBrand } = useBrand();
@@ -94,12 +112,15 @@ export default function CampaignsPage() {
   // Initialize filters from URL params
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') || 'all');
+  const [opsFilters, setOpsFilters] = useState<OpsFilterState>(() => parseOpsFilters(searchParams));
 
   // Sync filter state to URL (debounced for search)
-  const updateUrlParams = useCallback((q: string, status: string) => {
+  const updateUrlParams = useCallback((q: string, status: string, ops: OpsFilterState) => {
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
     if (status && status !== 'all') params.set('status', status);
+    const activeOps = CAMPAIGN_OPS_FILTER_KEYS.filter((key) => ops[key]);
+    if (activeOps.length > 0) params.set('ops', activeOps.join(','));
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [pathname, router]);
@@ -107,19 +128,12 @@ export default function CampaignsPage() {
   // Debounce search term URL update
   useEffect(() => {
     const timer = setTimeout(() => {
-      updateUrlParams(searchTerm, statusFilter);
+      updateUrlParams(searchTerm, statusFilter, opsFilters);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, updateUrlParams]);
+  }, [opsFilters, searchTerm, statusFilter, updateUrlParams]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-
-  const [opsFilters, setOpsFilters] = useState({
-    missingItemCode: false,
-    missingCost: false,
-    missingPostUrl: false,
-    missingEngagement: false,
-  });
 
   // インライン編集（スプレッドシート風）
   type PendingChange = Partial<Record<EditableField, unknown>>;
@@ -303,7 +317,7 @@ export default function CampaignsPage() {
     setBulkUpdating(true);
 
     try {
-      const updates: Record<string, unknown> = {};
+      const updates: Omit<BulkUpdateItem, 'id'> = {};
 
       if (bulkEditData.status) {
         updates.status = bulkEditData.status;
@@ -319,17 +333,12 @@ export default function CampaignsPage() {
         return;
       }
 
-      const { error } = await supabase
-        .from('campaigns')
-        .update(updates)
-        .in('id', Array.from(selectedIds))
-        .eq('brand', currentBrand);
-
-      if (error) throw error;
-
-      // React Queryのキャッシュを無効化
-      queryClient.invalidateQueries({ queryKey: ['campaigns', currentBrand] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats', currentBrand] });
+      await bulkUpdateMutation.mutateAsync(
+        Array.from(selectedIds).map((id) => ({
+          id,
+          ...updates,
+        }))
+      );
 
       setSelectedIds(new Set());
       setIsBulkEditOpen(false);
@@ -393,52 +402,42 @@ export default function CampaignsPage() {
     });
   }, [campaigns, searchTerm, statusFilter]);
 
-  const opsCounts = useMemo(() => {
-    const list = baseFilteredCampaigns;
-    const isBlank = (v: unknown) => !String(v || '').trim();
-    const countMissingItemCode = list.filter((c) => isBlank(c.item_code)).length;
-    const countMissingCost = list.filter((c) => Number(c.product_cost || 0) <= 0).length;
-    const countMissingPostUrl = list.filter((c) => isBlank(c.post_url)).length;
-    const countMissingEngagement = list.filter((c) => {
-      const hasPost = !isBlank(c.post_url);
-      const isEngagementUnavailable = hasUnavailableEngagementTag(c.notes);
-      const likes = Number(c.likes || 0);
-      const comments = Number(c.comments || 0);
-      return hasPost && !isEngagementUnavailable && likes <= 0 && comments <= 0;
-    }).length;
-    return {
-      missingItemCode: countMissingItemCode,
-      missingCost: countMissingCost,
-      missingPostUrl: countMissingPostUrl,
-      missingEngagement: countMissingEngagement,
-    };
+  const campaignOpsRows = useMemo(() => {
+    return baseFilteredCampaigns.map((campaign) => ({
+      campaign,
+      issues: getCampaignOpsIssues(campaign),
+    }));
   }, [baseFilteredCampaigns]);
 
+  const opsCounts = useMemo(() => {
+    const count = (key: Exclude<CampaignOpsFilterKey, 'needsInput'>) =>
+      campaignOpsRows.filter((row) => row.issues.includes(key)).length;
+
+    return {
+      needsInput: campaignOpsRows.filter((row) => row.issues.length > 0).length,
+      missingItemCode: count('missingItemCode'),
+      missingCost: count('missingCost'),
+      missingPostUrl: count('missingPostUrl'),
+      missingEngagement: count('missingEngagement'),
+    };
+  }, [campaignOpsRows]);
+
   const filteredCampaigns = useMemo(() => {
-    const isBlank = (v: unknown) => !String(v || '').trim();
-    let list = baseFilteredCampaigns;
+    return campaignOpsRows
+      .filter(({ issues }) => {
+        if (opsFilters.needsInput && issues.length === 0) return false;
+        if (opsFilters.missingItemCode && !issues.includes('missingItemCode')) return false;
+        if (opsFilters.missingCost && !issues.includes('missingCost')) return false;
+        if (opsFilters.missingPostUrl && !issues.includes('missingPostUrl')) return false;
+        if (opsFilters.missingEngagement && !issues.includes('missingEngagement')) return false;
+        return true;
+      })
+      .map(({ campaign }) => campaign);
+  }, [campaignOpsRows, opsFilters]);
 
-    if (opsFilters.missingItemCode) {
-      list = list.filter((c) => isBlank(c.item_code));
-    }
-    if (opsFilters.missingCost) {
-      list = list.filter((c) => Number(c.product_cost || 0) <= 0);
-    }
-    if (opsFilters.missingPostUrl) {
-      list = list.filter((c) => isBlank(c.post_url));
-    }
-    if (opsFilters.missingEngagement) {
-      list = list.filter((c) => {
-        const hasPost = !isBlank(c.post_url);
-        const isEngagementUnavailable = hasUnavailableEngagementTag(c.notes);
-        const likes = Number(c.likes || 0);
-        const comments = Number(c.comments || 0);
-        return hasPost && !isEngagementUnavailable && likes <= 0 && comments <= 0;
-      });
-    }
-
-    return list;
-  }, [baseFilteredCampaigns, opsFilters]);
+  const hasActiveCampaignFilters = searchTerm.trim().length > 0 ||
+    statusFilter !== 'all' ||
+    Object.values(opsFilters).some(Boolean);
 
   const handleCellNavigate = useCallback((rowId: string, field: EditableField, direction: 'next' | 'prev' | 'down' | 'up') => {
     const fieldIdx = EDITABLE_FIELDS.indexOf(field);
@@ -703,11 +702,16 @@ export default function CampaignsPage() {
         <div className="flex flex-wrap gap-2">
           {(
             [
+              { key: 'needsInput', label: '要入力', count: opsCounts.needsInput },
               { key: 'missingItemCode', label: '品番未入力', count: opsCounts.missingItemCode },
               { key: 'missingCost', label: '原価未登録', count: opsCounts.missingCost },
               { key: 'missingPostUrl', label: '投稿URL未', count: opsCounts.missingPostUrl },
               { key: 'missingEngagement', label: 'エンゲ未', count: opsCounts.missingEngagement },
-            ] as const
+            ] as const satisfies ReadonlyArray<{
+              key: CampaignOpsFilterKey;
+              label: string;
+              count: number;
+            }>
           ).map(({ key, label, count }) => {
             const active = opsFilters[key];
             return (
@@ -737,12 +741,7 @@ export default function CampaignsPage() {
             <button
               type="button"
               className="px-3 py-2 rounded-full border text-sm bg-white text-muted-foreground border-border hover:bg-muted transition-colors"
-              onClick={() => setOpsFilters({
-                missingItemCode: false,
-                missingCost: false,
-                missingPostUrl: false,
-                missingEngagement: false,
-              })}
+              onClick={() => setOpsFilters(createEmptyOpsFilters())}
             >
               クリア
             </button>
@@ -862,7 +861,7 @@ export default function CampaignsPage() {
           {loading ? (
             <TableSkeleton rows={8} cols={10} />
           ) : filteredCampaigns.length === 0 ? (
-            searchTerm || statusFilter !== 'all' ? (
+            hasActiveCampaignFilters ? (
               <EmptyState
                 icon={<Search size={32} />}
                 title="検索結果がありません"
@@ -1040,7 +1039,7 @@ export default function CampaignsPage() {
                       <td className="table-cell">
                         <PaymentInputUrlCell
                           influencer={campaign.influencer}
-                          isPaid={Number(campaign.agreed_amount || 0) > 0}
+                          isPaid={isPaidCampaign(campaign)}
                           onTokenGenerated={refreshPaymentInputUrls}
                         />
                       </td>

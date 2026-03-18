@@ -3,7 +3,6 @@ import {
   Gift,
   LayoutDashboard,
   ListChecks,
-  ListTodo,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -24,11 +23,6 @@ export const APP_NAVIGATION: AppNavigationItem[] = [
     mobileLabel: 'ホーム',
     icon: LayoutDashboard,
     showInBottomNav: true,
-  },
-  {
-    href: '/queue',
-    label: '要入力キュー',
-    icon: ListTodo,
   },
   {
     href: '/influencers',

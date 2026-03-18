@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthContext } from '@/lib/auth/request-context'
 import { createSupabaseForRequest } from '@/lib/supabase/request-client'
 import { writeAuditLog } from '@/lib/clout-audit'
-import { summarizeCampaignPostsFromNotes } from '@/lib/campaign-posts'
+import {
+  isCampaignVisibleInPayments,
+  resolveCampaignRepresentativePost,
+} from '@/lib/campaign-requirements'
 
 type AllowedBrand = 'TL' | 'BE' | 'AM'
 
@@ -12,11 +15,6 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 function isAllowedBrand(value: unknown): value is AllowedBrand {
   return value === 'TL' || value === 'BE' || value === 'AM'
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  const normalized = String(value || '').trim()
-  return normalized || null
 }
 
 /** 有効なアクション */
@@ -138,29 +136,28 @@ export async function GET(request: NextRequest) {
     account_holder: string | null
   }
   type PaymentRow = {
+    agreed_amount: number | null
     post_date: string | null
     post_url: string | null
-    notes?: string | null
+    notes: string | null
     influencer: InfluencerJoin | null
   } & Record<string, unknown>
 
   const filtered = ((data || []) as PaymentRow[])
     .map((row) => {
-      const postSummary = summarizeCampaignPostsFromNotes(row.notes ?? null)
-      const post_url = normalizeOptionalString(row.post_url) || postSummary.post_url
-      const post_date = normalizeOptionalString(row.post_date) || postSummary.post_date
+      const representativePost = resolveCampaignRepresentativePost(row)
 
       return {
         ...row,
-        post_url,
-        post_date,
+        post_url: representativePost.post_url,
+        post_date: representativePost.post_date,
       }
     })
     .filter((campaign) => {
-      const inf = campaign.influencer
-      if (!inf) return false
-      if (!campaign.post_url) return false
-      return Boolean(inf.bank_name && inf.bank_branch && inf.account_number && inf.account_holder)
+      return isCampaignVisibleInPayments({
+        campaign,
+        influencer: campaign.influencer,
+      })
     })
 
   return NextResponse.json(
